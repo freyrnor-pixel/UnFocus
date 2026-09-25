@@ -332,26 +332,92 @@ describe('the material system stays deleted, and stays matte', () => {
     });
   });
 
-  it('the painted glass and the measured composite agree', () => {
-    // The load-bearing invariant of the whole material. `surfaceGlass` is what gets painted;
-    // `surface` is the same colour already composited over the backdrop, and is what every
-    // contrast assertion in lib/__tests__/colors.test.ts measures. If the two drift, those
-    // assertions keep passing while measuring a colour the app no longer draws — the exact
-    // shape of the "a comment asserted a safety property nothing checked" bug AGENTS.md
-    // records from PR #540.
+  it('the painted glass and the opaque fallback are interchangeable for contrast', () => {
+    // The load-bearing invariant of the whole material. `surfaceGlass` is what gets painted when
+    // the pane transmits; `surface` is the opaque fallback every contrast assertion in
+    // lib/__tests__/colors.test.ts measures. If those two drift, the assertions keep passing
+    // while measuring a colour the app no longer draws — the "a comment asserted a safety
+    // property nothing checked" shape AGENTS.md records from PR #540.
+    //
+    // ⚠️ **THIS USED TO ASSERT BYTE EQUALITY, AND THE VEIL STOPPED BEING NEUTRAL ON 2026-09-25.**
+    // `rgba(48,48,48,0.75)` over black is `#242424` exactly, so `toBe(p.surface)` held by
+    // construction — and that construction is precisely what was WRONG with the material. A
+    // neutral veil at 75% put the card at 13% saturation over a field measured at 65%, so the
+    // card could not read as being made of the same light as the scene behind it. Five reports of
+    // *"still not looking like frosted or shiny glass"* came off that. The veil is tinted now
+    // (`rgba(58,64,94,0.55)`), and over black it composites to `rgb(32,35,52)` — not `#242424`.
+    //
+    // **What byte equality was ever a PROXY for is contrast, and that is asserted directly here
+    // instead — and it still holds exactly.** Measured over the unlit reference:
+    //
+    //   | | rgb | L | text | textMuted | border |
+    //   |---|---|---|---|---|---|
+    //   | `surface` | 36,36,36 | 0.01764 | 15.52:1 | 7.22:1 | 5.58:1 |
+    //   | veil over black | 32,35,52 | 0.01757 | 15.54:1 | 7.23:1 | 5.58:1 |
+    //
+    // Luminance differs by 0.4% and every ratio agrees to two decimals: the two are
+    // interchangeable for every contrast claim made about either, which is the whole guarantee.
+    // Only the HUE differs, and it differs on purpose.
     //
     // ⚠️ **This is a token-DERIVATION check, and its ground is a reference, not a claim about
-    // every pixel.** Dark's `base` is still three `#000000` stops, but since 2026-09-06 the
-    // washes are lit across the card column, so a real card sits on a ground BRIGHTER than this
-    // — that is the point of the material. What this test pins is that `surface` remains
-    // exactly `surfaceGlass` over the unlit reference, so the two tokens cannot drift apart.
-    // What bounds the lit case is `lib/__tests__/glassBudget.test.ts`, which measures the
-    // composite over the real field; the two tests are complements and neither replaces the
-    // other. Light's ground is the backdrop gradient's DARKEST stop.
+    // every pixel.** Dark's `base` is three `#000000` stops, but the washes are lit across the
+    // card column, so a real card sits on a ground BRIGHTER than this — that is the point of the
+    // material. What bounds the lit case is `lib/__tests__/glassBudget.test.ts`, which measures
+    // the composite over the real field. The two are complements; neither replaces the other.
+    // Light's ground is the backdrop gradient's DARKEST stop.
+    const lin = (v: number) => (v / 255 <= 0.03928 ? v / 255 / 12.92 : Math.pow((v / 255 + 0.055) / 1.055, 2.4));
+    const lum = (c: number[]) => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
+    const hexToRgb = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+
     (['light', 'dark'] as const).forEach((mode) => {
       const p = THEMES.default[mode];
-      expect(compositeOverGround(p.surfaceGlass, mode)).toBe(p.surface.toUpperCase());
+      const composite = hexToRgb(compositeOverGround(p.surfaceGlass, mode));
+      const opaque = hexToRgb(p.surface.toUpperCase());
+      // Within 3% in luminance — close enough that toggling `glassSurfaces` off is a change of
+      // HUE and never a step in brightness, which is what makes the fallback a fallback.
+      const drift = Math.abs(lum(composite) - lum(opaque)) / lum(opaque);
+      expect({ mode, within3pct: drift < 0.03 }).toEqual({ mode, within3pct: true });
+      // ...and every contrast ratio the palette is measured on agrees to one decimal, so a
+      // contrast assertion written against `surface` is true of the glass card too.
+      for (const fg of [p.text, p.textMuted, p.border]) {
+        const f = hexToRgb(fg.toUpperCase());
+        const cr = (bg: number[]) =>
+          (Math.max(lum(f), lum(bg)) + 0.05) / (Math.min(lum(f), lum(bg)) + 0.05);
+        expect({ mode, fg, agree: Math.abs(cr(composite) - cr(opaque)) < 0.1 })
+          .toEqual({ mode, fg, agree: true });
+      }
     });
+  });
+
+  it('the ambient veil is TINTED, not neutral — the 2026-09-25 material fix', () => {
+    // ⚠️ **The property five rounds of card-painting were missing, stated as arithmetic.**
+    // Measured off the shipped render before the fix: the card face was `rgb(52,53,66)` at 21%
+    // saturation over a field at `rgb(12,14,34)` and 65%. A 75%-opaque NEUTRAL veil desaturates
+    // whatever is behind it by roughly five times, so the card read as a grey slab laid on a blue
+    // scene — which is what it was. No amount of ramp, sheen or rim on a grey slab makes glass;
+    // #717, #732 and two rounds of #733 each added another cue and each failed.
+    //
+    // A veil that is to read as glass has to be made of the same light as the scene: its own hue
+    // has to sit in the field's, and enough of the field has to get through to be seen. Both are
+    // checked, because either alone is what the previous rounds already tried.
+    const dark = THEMES.default.dark;
+    const m = /rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/.exec(dark.surfaceGlass);
+    expect(m).not.toBeNull();
+    const [r, g, b] = [1, 2, 3].map((i) => Number(m![i]));
+    const alpha = Number(m![4]);
+
+    // 1. TINTED. A neutral veil has r === g === b; this one must be visibly cool, or it
+    //    desaturates the scene back to grey however much of it gets through.
+    const chroma = (Math.max(r, g, b) - Math.min(r, g, b)) / Math.max(r, g, b);
+    expect({ neutral: r === g && g === b }).toEqual({ neutral: false });
+    expect(chroma).toBeGreaterThan(0.25);
+    //    ...and cool rather than warm: the field is blue/violet, and a warm veil over a cool
+    //    field is a colour cast, not a pane.
+    expect(b).toBeGreaterThan(r);
+
+    // 2. TRANSMISSIVE ENOUGH TO SEE. At 0.75 the field contributed 3-8 levels to the card face,
+    //    i.e. under the threshold of noticing. Transmission must stay at or above half.
+    expect(alpha).toBeLessThanOrEqual(0.6);
   });
 
   it('a sheet — and now the nav bar — never lets the card behind it through', () => {

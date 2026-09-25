@@ -1013,22 +1013,52 @@ const defaultDark: ThemePalette = {
   // not by taste: at 7% the pane would be `#121212` and `text` measures 17.0:1 on it, past the
   // 16:1 bound rule 10a defends. 14.12% is what `#242424` actually needs; it is not a free
   // choice.
-  // ⚠️ **A DARK VEIL AT 0.75, NOT A WHITE ONE AT 0.1412 (2026-09-20) — and the change is what
-  // makes a vivid backdrop possible at all.** Over black this composites to `#242424` exactly,
-  // the same `surface` every contrast assertion in the app measures, so a card on an unlit part
-  // of the screen is pixel-identical to the opaque one it replaces. What changes is everywhere
-  // else: it transmits **25%** where the old value transmitted **86%**.
-  //   That inversion is the whole unlock. At 86% transmission the ground IS the card — over a
-  // ground of rgb(40,60,110) the old veil composited to rgb(70,88,130), which is why every pass
-  // since 2026-09-06 had to keep the backdrop at 1–4% luminance and why the cards have had
-  // nothing to catch. At 25% the same ground gives rgb(46,51,66): a visible blue cast on the
-  // pane, white text at 12.6:1, `textMuted` at 5.85:1 and `border` at 4.52:1 — all clear. The
-  // backdrop can now be a wallpaper instead of a whisper, which is the half of "frosted glass"
-  // the card was never going to supply on its own.
-  //   ⚠️ The colour is `48,48,48` because 48 × 0.75 = 36 = `#242424`'s channel, exactly. Change
-  // the alpha and this must be re-derived with it (`__tests__/glassMaterial.test.ts`'s
-  // 'the painted glass and the measured composite agree' is what fails if you don't).
-  surfaceGlass: 'rgba(48,48,48,0.75)',
+  // ⚠️ **TINTED AT 0.55, NOT NEUTRAL GREY AT 0.75 (2026-09-25) — and this is the FIFTH round of
+  // "still not looking like frosted or shiny glass", so read the measurement before touching it.**
+  //
+  // CLAUDE.md's A3 rule says two failures on one line means the diagnosis is wrong, not the
+  // implementation. There had been four: #717's ramp and #732's sheen/bloom/rim both painted the
+  // CARD; #733 lit the field, then made the pane transmit. So this round measured the shipped
+  // render instead of tuning it a fifth time, and every glass cue turned out to be present in the
+  // code and BELOW THE THRESHOLD OF NOTICING in the pixels:
+  //
+  //   | cue | designed | what reached the screen |
+  //   |---|---|---|
+  //   | transmission | 25% | **3–8 levels** on the card face — invisible |
+  //   | the lit ramp | 23 levels, `glassTop`→`glassBottom` | spread over a **470px** card = 0.05 levels/px |
+  //   | `glassSheen` | white | **2.8%** alpha = 7 levels |
+  //   | `glassBloom` | white | **1.5%** alpha = 4 levels |
+  //
+  // Sampled off `visual-baselines/dark/home-populated.png`: the card face was `rgb(52,53,66)` at
+  // **21% saturation**, on a field of `rgb(12,14,34)` at **65%**. Across the full width of a card
+  // the face varied by five levels. That is a flat grey slab, and no ramp, sheen or rim painted
+  // on a flat grey slab reads as glass — which is exactly why four rounds of painting it did not.
+  //
+  // **The cause is this token, and it is the ALPHA and the HUE together.** A 75%-opaque NEUTRAL
+  // veil desaturates whatever is behind it by roughly five times: three quarters of the card was
+  // flat grey that had nothing to do with the scene. Glass reads as glass by being made of the
+  // same light as its surroundings, and `48,48,48` is made of no light at all.
+  //
+  // **What changed, and what provably did not.** Over the unlit reference this composites to
+  // `rgb(32,35,52)` where `surface` is `rgb(36,36,36)` — a luminance difference of **0.4%**, with
+  // `text` 15.54:1 vs 15.52:1, `textMuted` 7.23:1 vs 7.22:1 and `border` 5.58:1 vs 5.58:1. Every
+  // contrast claim made about `surface` is therefore true of the glass card too; only the HUE
+  // moves. Measured on the real render the card face goes `rgb(52,53,66)` → `rgb(50,55,86)` and
+  // **saturation 21% → 42%**, at a `textMuted` of 3.45:1 against the shipped 3.63:1 — i.e. the
+  // material is transformed and the contrast is where it already was.
+  //
+  // ⚠️ **The byte-equality invariant is GONE ON PURPOSE, not overlooked.** `48 × 0.75 = 36`
+  // made this token equal `#242424` by construction, and that construction WAS the defect — a
+  // veil that composites to a neutral grey is a neutral grey. `__tests__/glassMaterial.test.ts`'s
+  // guard is rewritten in place to assert what byte equality was only ever a proxy for: that the
+  // glass card and the opaque fallback are interchangeable for every contrast ratio. It also now
+  // pins the tint itself, so nothing can quietly return this to neutral.
+  //
+  // ⚠️ **A brighter or more transmissive veil was measured and NOT taken.** Raising the specular
+  // with it (`glassSheen` 0.028 → 0.09, `glassBloom` 0.015 → 0.05) renders as visibly glossier and
+  // costs real legibility: `textMuted` falls to **2.91:1**, against 3.45:1 here and 3.63:1 as
+  // shipped. Gloss is available and it is not free; it is a maintainer call, not a tuning nudge.
+  surfaceGlass: 'rgba(58,64,94,0.55)',
   // ⚠️ **0.1882, re-derived 2026-08-26 alongside the `#242424` correction.** `surfaceRaised`
   // (the overlay/nav tier — a sheet, modal, or floating header/bar) has to stay LIGHTER than
   // plain `surface`, or "raised" reads backwards; `__tests__/glassMaterial.test.ts` asserts
