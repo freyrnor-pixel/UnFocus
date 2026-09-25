@@ -964,22 +964,52 @@ describe('the backdrop — under everything, and out of the middle', () => {
     }
   });
 
-  it('confines every animated transform to the dots, which are a few px across', () => {
+  it('confines every animated transform to the motes, which are a few px across', () => {
     // The particle field DOES animate transforms, legitimately — that is the app's only motion
-    // in the backdrop now. What makes it affordable is that each dot is a 4–6px view, so the
+    // in the backdrop now. What makes it affordable is that each mote is a ~7-12px view, so the
     // damage rect is five small quads rather than the window. The same animation on a
     // full-screen view is #734.
     const s = code('components/ParticleBackground.tsx');
-    // The moving element carries `styles.dot`, never the absolute-fill `styles.backdrop`.
-    expect(s).toMatch(/<Animated\.View[\s\S]{0,80}?styles\.dot/);
-    expect(s).not.toMatch(/<Animated\.View[\s\S]{0,80}?styles\.backdrop/);
+    // The moving element carries `styles.mote`, never the absolute-fill `styles.backdrop`.
+    expect(s).toMatch(/<Animated\.View[\s\S]{0,120}?styles\.mote/);
+    expect(s).not.toMatch(/<Animated\.View[\s\S]{0,120}?styles\.backdrop/);
     // ...and the container that IS full-screen is a plain View with no texture request, because
     // its CONTENTS move rather than the view itself — RN's own scoping of that prop.
     expect(s).not.toMatch(/renderToHardwareTextureAndroid/);
-    // The sizes are bounded, so "a dot" cannot quietly become a panel.
+    // ⚠️ **The bound is 16, not the 8 this asserted while the field was flat DOTS (2026-09-25).**
+    // A mote is three concentric rings and `size` is the OUTER glow's diameter, which is drawn at
+    // `GLOW.alpha` — 15%. So a 12px mote is a far softer mark than the 6px hard disc at 0.85 it
+    // replaces, and bounding it at the old number would have been bounding the wrong thing. What
+    // this is really protecting is the DAMAGE RECT: a moving view a phone-width across is #734,
+    // and 16px is nowhere near it.
     const sizes = [...s.matchAll(/\{\s*size:\s*(\d+)/g)].map((m) => Number(m[1]));
     expect(sizes.length).toBeGreaterThanOrEqual(3);
-    for (const px of sizes) expect(px).toBeLessThanOrEqual(8);
+    for (const px of sizes) expect(px).toBeLessThanOrEqual(16);
+  });
+
+  it('starts the motes with no mount-time condition', () => {
+    // ⚠️ **This is the 2026-09-25 regression, encoded.** #736 gated the start on
+    // `AppState.currentState === 'active'`, and Android can report `'background'` at mount on a
+    // cold launch behind the splash (`AppStateModule.kt` keys `initialAppState` off
+    // `lifecycleState === RESUMED`). The loop then never started, the `'change'` listener only
+    // fires on a TRANSITION, and the field stayed dead until the app was backgrounded and
+    // brought back — reported as *"Only missing the particles."*
+    //   The guard that shipped alongside it asserted the `AppState` call EXISTED. That is the
+    // failure CLAUDE.md A2 names: a regex confirms code exists, never that it runs. So this
+    // asserts the ABSENCE of a condition on the start instead — a property a constant-false
+    // predicate cannot satisfy.
+    const s = code('components/ParticleBackground.tsx');
+    // The MOUNT-TIME start is the last `loop.start()` before the listener is attached. Inside the
+    // listener a conditional start is correct and must stay (that is the resume path), so the
+    // assertion has to name which one it means rather than banning the shape everywhere.
+    const head = s.slice(0, s.indexOf('AppState.addEventListener'));
+    const startLine = head.split('\n').reverse().find((l) => l.includes('loop.start()'));
+    expect(startLine?.trim()).toBe('loop.start();');
+    // And the value that could make it constant-false is not consulted at all.
+    expect(s).not.toMatch(/currentState/);
+    // The pause itself stays — stopping on background is the half that was always right.
+    expect(s).toMatch(/AppState\.addEventListener\('change'/);
+    expect(s).toMatch(/loop\.stop\(\)/);
   });
 
   it('runs exactly one endless loop in the whole backdrop group', () => {
@@ -995,14 +1025,6 @@ describe('the backdrop — under everything, and out of the middle', () => {
       return [...s.matchAll(/Animated\.loop\(|withRepeat\(/g)].map(() => file);
     });
     expect(loops).toEqual(['components/ParticleBackground.tsx']);
-  });
-
-  it('stops that loop when the app is not in front', () => {
-    // It is the app's only endless animation, so it is the only one that can go on scheduling
-    // work for a window nobody is looking at. Same lever lib/useNowMinutes.ts uses.
-    const s = code('components/ParticleBackground.tsx');
-    expect(s).toMatch(/AppState\.addEventListener\('change'/);
-    expect(s).toMatch(/loop\.stop\(\)/);
   });
 
   it('mounts the particle field exactly once in the app', () => {

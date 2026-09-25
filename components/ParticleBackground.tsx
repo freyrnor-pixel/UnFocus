@@ -1,6 +1,27 @@
 /**
- * ParticleBackground.tsx — the app's ONE ambient particle layer: a sparse field of soft blue
- * dots drifting upward over the ScreenBackground orb field.
+ * ParticleBackground.tsx — the app's ONE ambient particle layer: a sparse field of soft motes
+ * falling from the canopy over the ScreenBackground orb field.
+ *
+ * ⚠️ **THEY FELL SILENT BETWEEN #736 AND THIS FIX, AND THE CAUSE IS THE FIRST THING TO READ.**
+ * Maintainer, on the shipped app: *"Only missing the particles."* #736 added an `AppState` pause
+ * to this file and gated the START on it:
+ *
+ *     if (AppState.currentState === 'active') loop.start();
+ *
+ * **That gate can be `false` at mount.** RN seeds `AppState.currentState` from
+ * `NativeAppState.getConstants().initialAppState` (`AppState.js`), and Android's
+ * `AppStateModule.kt` returns `"active"` only when `reactContext.lifecycleState === RESUMED` at
+ * the moment those constants are read — which, on a cold launch behind `expo-splash-screen`, it
+ * need not be. Read `"background"` once and the loop never starts, and the `'change'` listener
+ * only fires on a TRANSITION, so the field stays dead until the app is backgrounded and brought
+ * back. `react-native-web` has the same hole for its own reason: its `currentState` reads
+ * `document.visibilityState`, which is `'hidden'` in a background or headless tab.
+ *   The fix is not a better gate, it is no gate: **start unconditionally, and only ever STOP on
+ * background.** A predicate that cannot be false at mount cannot be constant-false at mount.
+ *   ⚠️ This is CLAUDE.md A2's *"when a change is a boolean, assert its truth table, not its
+ * source text"* — and the session that shipped it wrote a guard asserting the `AppState` call
+ * EXISTED while never evaluating what it returned. `lib/__tests__/chromeRhythm.test.ts` now
+ * asserts the absence of a mount-time condition instead.
  *
  * ⚠️ **DELETED 2026-08-27 and RESTORED 2026-09-01. Read this before deleting it again.** Round
  * 20's "stray artefacts" box called these *"loose 2px dots"* and they went with two genuine
@@ -12,7 +33,7 @@
  * with this gone the middle rung wrote nothing and its shipped copy described a no-op. The rung
  * is real again because the field is.
  *
- * The dots are a soft blue keyed to the field rather than a separate sparkle. Skipped entirely
+ * The motes are a soft blue keyed to the field rather than a separate sparkle. Skipped entirely
  * when `settings.particlesEnabled` is false, when `reducedMotion` is on, or when `reduceEffects`
  * is on — see the gate for why the third one is not optional.
  *
@@ -58,58 +79,89 @@ import {
 import { useIsDark, useAccessibility } from '@/lib/useAppTheme';
 import { useSettingsStore } from '@/store/useSettingsStore';
 
-// ─── Particle specs ───────────────────────────────────────────────────────────
+// ─── Mote specs ───────────────────────────────────────────────────────────────
 
-type DotSpec = {
+type MoteSpec = {
+  /**
+   * The GLOW's diameter in px. The bright core is a fraction of it (`CORE`), so most of this
+   * number is a ~15%-alpha wash — a 12px mote is far softer than the 6px hard disc it replaces.
+   */
   size: number;
   left: `${number}%`;
-  bottom: `${number}%`;
+  /** Where the fall STARTS, as a share of the screen. Negative means it enters from above. */
+  top: `${number}%`;
   duration: number;
   delay: number;
-  rise: number; // how far upward (px) the dot travels before resetting
+  /** How far down it travels before resetting. */
+  fall: number;
+  /** How far sideways over the same trip — the handoff's `translate3d(26px, …)`. */
+  drift: number;
 };
 
-// Kept deliberately small (5): this field is the app's ONE ambient particle layer,
-// always mounted behind the whole tabs pager, so every one of these is a full-screen-
-// overlay view the pager composites on each swipe frame. ANIMATION_GUIDELINES §6 wants
-// "no more than a few simultaneous moving elements". Spread across the width so the thinner
-// set still reads as an even, gentle drift.
-// ⚠️ **Re-spread 2026-09-15, and it is the SAME FIVE dots — no sixth.** §6 above bounds the
-// number of simultaneous moving elements, and it counts elements, not positions, so where they
-// sit is free and how many there are is not.
-//
-// What was wrong: every `bottom` sat between 18% and 58% and every dot only ever drifts UP, so
-// the field occupied the middle and upper-middle band and **nothing ever entered the lower ~18%**
-// — the same dead zone the maintainer reported as black. The washes light it now (see
-// `ORBS` wash 3); this is what puts movement there.
-//
-// Sizes and the peak opacity go up a rung with it. Both were set while cards were 86%
-// transparent and every moving dot behind one dirtied it — the repaint problem #703 fixed by
-// making panes opaque. A dot can be seen properly now without costing a card anything, which is
-// what the maintainer asked for: *"blue and 'angelic'… they can just move around like a normal
-// vivid wallpaper would."* The colour was already that blue.
-const DOTS: DotSpec[] = [
-  { size: 6,  left: '12%', bottom: '4%',  duration: 7000,  delay: 0,    rise: 240 },
-  { size: 4,  left: '38%', bottom: '22%', duration: 9500,  delay: 1800, rise: 200 },
-  { size: 5,  left: '62%', bottom: '2%',  duration: 8000,  delay: 3400, rise: 260 },
-  { size: 4,  left: '80%', bottom: '30%', duration: 10500, delay: 900,  rise: 180 },
-  { size: 5,  left: '50%', bottom: '14%', duration: 8800,  delay: 2600, rise: 220 },
+/**
+ * Five motes falling from the canopy.
+ *
+ * ⚠️ **They FALL now, and they are motes rather than dots (2026-09-25). Both come from the
+ * handoff, and the first one only became right when the crown landed.** The brief's whole premise
+ * is *"the halo is the light source, the bough is what breaks it into motes"* — its `@keyframes
+ * mote` runs `translate3d(0,-40px,0)` → `translate3d(26px,760px,0)`, i.e. light shaken loose from
+ * the canopy and drifting down. This field rose instead, which was the right call while there was
+ * nothing above it to fall from; #736 put a canopy up there, so now it reads backwards.
+ *
+ * **Five, still.** `ANIMATION_GUIDELINES` §6 bounds simultaneous moving elements, and the
+ * handoff's hero draws four. These REPLACE the dots — nothing is added to the moving-element
+ * budget, which is the budget #734 blew.
+ *
+ * **They are also CHEAPER than what they replace**, which is worth stating because it is the
+ * opposite of what "bigger and more detailed" suggests. The handoff's durations are 28–36s
+ * against the old 7–10.5s, so each mote covers roughly a quarter of the pixels per frame. A mote
+ * is three nested `View`s instead of one, but they move together as a single transform on the
+ * parent — one damage rect, the same as before, about 12px across at the largest.
+ *
+ * **Staggered by START POSITION, not only by delay, and that is deliberate.** The handoff uses
+ * NEGATIVE `animation-delay` (−5s, −11s, −19s) so its motes are already mid-fall at t=0; RN's
+ * `Animated` has no such thing, and emulating it needs a partial first leg spliced before the
+ * loop. Spreading `top` and letting the five durations differ gets the same result — a field that
+ * is populated the instant you open the app, and that never falls into lockstep — with one
+ * `Animated.loop` each and nothing to explain.
+ */
+const MOTES: MoteSpec[] = [
+  { size: 10, left: '43%', top: '-4%', duration: 28000, delay: 0,    fall: 720, drift: 26 },
+  { size: 7,  left: '60%', top: '18%', duration: 33000, delay: 1200, fall: 560, drift: 20 },
+  { size: 12, left: '76%', top: '44%', duration: 36000, delay: 400,  fall: 420, drift: 30 },
+  { size: 8,  left: '28%', top: '62%', duration: 30000, delay: 2600, fall: 300, drift: 18 },
+  { size: 9,  left: '12%', top: '30%', duration: 31500, delay: 1800, fall: 500, drift: 24 },
 ];
+
+/**
+ * The mote's three rings, as fractions of `size`, read straight off the handoff's `#h-orb`
+ * gradient and the bright pip it draws over it.
+ *
+ * The brief's mote is a radial gradient on an `r 50` circle — stops at 15% (core, .76), 32%
+ * (tint, .46), 60% (tint, .15) — with a separate `r 8` white circle at .92 on top. A View cannot
+ * hold a gradient, so three concentric discs step that falloff instead: the same trick
+ * `components/ScreenBackground.tsx`'s `ORB_STOPS` plays for the washes, at three samples rather
+ * than four. An `<Svg>` per mote would be exact and would also be five more canvases for
+ * something 12px across.
+ */
+const GLOW = { r: 1, alpha: 0.15 };
+const HALO = { r: 0.32, alpha: 0.46 };
+const CORE = { r: 0.18, alpha: 0.92, min: 2 };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function RisingDot({ spec, color }: { spec: DotSpec; color: string }) {
+function FallingMote({ spec, tint, core }: { spec: MoteSpec; tint: string; core: string }) {
   const progress = useRef(new Animated.Value(0)).current;
 
-  // ⚠️ **The loop is STOPPED while the app is backgrounded (2026-09-20).** `Animated.loop` has no
-  // end condition, so without this the five dots go on scheduling work for a window nobody is
-  // looking at — and this field is the app's only always-running animation now that the crown's
-  // sway and breath are gone (see `components/CrownArt.tsx`). Android stops delivering frames to
-  // a hidden window, but the loop's own JS bookkeeping does not know that and keeps turning over
-  // at each leg boundary.
-  //   `AppState` is the same lever `lib/useNowMinutes.ts` already uses for the same reason. The
-  // dots resume from wherever they were rather than resetting, because `progress` is kept across
-  // the pause — a user coming back to the app should not see the whole field snap to the floor.
+  // ⚠️ **`loop.start()` carries NO mount-time condition, and that is the 2026-09-25 fix — read
+  // this file's header before adding one back.** #736 gated it on `AppState.currentState ===
+  // 'active'`, which Android can report as `'background'` at mount on a cold launch behind the
+  // splash; the loop then never started and only a background→foreground round trip would ever
+  // start it. Starting unconditionally and only ever STOPPING on background makes that
+  // unreachable: there is no longer a value the gate can hold that leaves the field dead.
+  //   The pause itself is kept — this is the app's only endless animation, so it is the only one
+  // that can go on scheduling work for a window nobody is looking at. Same lever
+  // `lib/useNowMinutes.ts` uses.
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
@@ -123,7 +175,7 @@ function RisingDot({ spec, color }: { spec: DotSpec; color: string }) {
         Animated.timing(progress, { toValue: 0, duration: 0, useNativeDriver: true }),
       ])
     );
-    if (AppState.currentState === 'active') loop.start();
+    loop.start();
     // Optional chaining on purpose: react-native-web's AppState returns nothing at all from
     // `addEventListener` on some versions, which is the same shim `lib/useNowMinutes.ts` guards
     // against — and the web preview is where this file is hardest to see failing.
@@ -137,35 +189,42 @@ function RisingDot({ spec, color }: { spec: DotSpec; color: string }) {
     };
   }, [progress, spec.delay, spec.duration]);
 
-  const translateY = progress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -spec.rise],
-  });
+  const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [0, spec.fall] });
+  const translateX = progress.interpolate({ inputRange: [0, 1], outputRange: [0, spec.drift] });
+  // The handoff's own envelope: up by 12%, held to 88%, out by the end. A mote that is already
+  // at full strength when it appears reads as a blink; this is what makes it arrive.
   const opacity = progress.interpolate({
-    inputRange: [0, 0.1, 0.8, 1],
-    outputRange: [0, 0.9, 0.3, 0],
+    inputRange: [0, 0.12, 0.88, 1],
+    outputRange: [0, 1, 1, 0],
   });
-  const scale = progress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 0.4],
+
+  const ring = (d: number, color: string, alpha: number) => ({
+    position: 'absolute' as const,
+    width: d,
+    height: d,
+    borderRadius: d / 2,
+    backgroundColor: color,
+    opacity: alpha,
   });
 
   return (
     <Animated.View
       style={[
-        styles.dot,
+        styles.mote,
         {
           width: spec.size,
           height: spec.size,
           left: spec.left,
-          bottom: spec.bottom,
-          backgroundColor: color,
-          borderRadius: spec.size / 2,
+          top: spec.top,
           opacity,
-          transform: [{ translateY }, { scale }],
+          transform: [{ translateY }, { translateX }],
         },
       ]}
-    />
+    >
+      <View style={ring(spec.size * GLOW.r, tint, GLOW.alpha)} />
+      <View style={ring(spec.size * HALO.r, tint, HALO.alpha)} />
+      <View style={ring(Math.max(CORE.min, spec.size * CORE.r), core, CORE.alpha)} />
+    </Animated.View>
   );
 }
 
@@ -176,7 +235,7 @@ function ParticleBackground() {
   const { reducedMotion } = useAccessibility();
   const particlesEnabled = useSettingsStore((s) => s.particlesEnabled);
   // ⚠️ **`reduceEffects` is the third term and it is new (2026-09-01).** This field is five
-  // always-mounted full-screen overlay views the pager composites on every swipe frame — exactly
+  // always-mounted moving views the pager composites on every swipe frame — exactly
   // the class of per-frame cost that switch exists to remove, and it did not exist when this
   // component was first written. A user who asked for fewer effects must not get this back.
   const reduceEffects = useSettingsStore((s) => s.reduceEffects);
@@ -184,11 +243,15 @@ function ParticleBackground() {
   const showParticles = particlesEnabled && !reducedMotion && !reduceEffects;
   if (!showParticles) return null;
 
-  // Soft-blue drifting dots keyed to the blue field — the dark pair is a touch brighter so it
-  // reads against the deeper dark ground.
-  // Alpha lifted 2026-09-15 (0.7/0.6 -> 0.85/0.7) — see DOTS for why this was safe to spend
-  // only after #703 made every pane opaque.
-  const dotColor = isDark ? 'rgba(110,175,255,0.85)' : 'rgba(100,155,255,0.7)';
+  // The mote's two colours, matching the handoff's own split: the GLOW takes the field's blue,
+  // and the CORE is literally white in dark so a mote reads as light rather than as hue. Light
+  // inverts it for the same reason `components/CrownArt.tsx` does — a pale core on a pale ground
+  // is nothing, so the core goes DARKER than its own glow and the relationship survives.
+  //   The alphas live in `GLOW`/`HALO`/`CORE` now rather than in these strings, because the three
+  // rings have to keep the handoff's ratios to each other; a single blended colour was fine for a
+  // flat disc and cannot express a falloff.
+  const tint = isDark ? 'rgb(110,175,255)' : 'rgb(78,120,196)';
+  const core = isDark ? '#FFFFFF' : 'rgb(44,70,124)';
 
   return (
     // ⚠️ **`renderToHardwareTextureAndroid` IS REMOVED (2026-09-20), and the comment that used
@@ -212,10 +275,10 @@ function ParticleBackground() {
     // a safety or performance property is a thing to verify, not to trust.
     //
     // ⚠️ **UNMEASURED, like everything about frame cost from this end**, and flagged as the
-    // first thing to put back if the dots get slower rather than faster. The prop is one word.
+    // first thing to put back if the motes get slower rather than faster. The prop is one word.
     <View style={styles.backdrop} pointerEvents="none">
-      {DOTS.map((spec, i) => (
-        <RisingDot key={i} spec={spec} color={dotColor} />
+      {MOTES.map((spec, i) => (
+        <FallingMote key={i} spec={spec} tint={tint} core={core} />
       ))}
     </View>
   );
@@ -224,7 +287,7 @@ function ParticleBackground() {
 // Memoised: always mounted behind the tabs pager and takes NO props, but its parent
 // (app/(tabs)/_layout.tsx) re-renders on every tab change (it tracks the active route in
 // state to cross-fade the hero layer). Without memo, that re-render reconciles the animated
-// dot views on each swipe boundary. React.memo skips the parent-driven re-render; its own
+// mote views on each swipe boundary. React.memo skips the parent-driven re-render; its own
 // hooks (isDark/particlesEnabled/reducedMotion) still re-render it when those actually change.
 export default React.memo(ParticleBackground);
 
@@ -243,7 +306,12 @@ const styles = StyleSheet.create({
     bottom: 0,
     zIndex: -1,
   },
-  dot: {
+  // One mote: an absolutely-placed box the three rings centre inside. The rings are absolute too,
+  // so the box's own size is the GLOW's size and `justifyContent`/`alignItems` stack all three on
+  // one centre without any of them affecting layout.
+  mote: {
     position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

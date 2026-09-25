@@ -6171,3 +6171,124 @@ Reply with the numbers only. Anything not listed was not changed.
 `crown="none"` on `ScreenBackground` is a one-word revert that returns the app to the field it
 shipped with, touching nothing else. Per A3, two failures on one line stops the item and it goes
 to `DECISIONS_OPEN.md` rather than a third attempt.
+
+## 2026-09-25 — Regression: the motes stopped starting, and it was #736's own gate
+**Status: Shipped.** Device report after the crown landed: *"Works like a charm. Only missing the
+particles and branch going down."* The branch is a design round (mockups sent, variant pending).
+The particles were a bug, and I shipped it.
+
+**What #736 added:**
+
+```ts
+if (AppState.currentState === 'active') loop.start();
+```
+
+**That gate can be `false` at mount, and I never checked the value.** `AppState.js:79` seeds
+`currentState` from `NativeAppState.getConstants().initialAppState`, and Android's
+`AppStateModule.kt:30` returns `"active"` only when `reactContext.lifecycleState === RESUMED` at
+the moment those constants are read — not guaranteed on a cold launch behind `expo-splash-screen`.
+Read `"background"` once and the loop never starts; the `'change'` listener only fires on a
+TRANSITION, so the field stays dead until the app is backgrounded and brought back. `react-native-web`
+has the same hole via `document.visibilityState`.
+
+⚠️ **This is CLAUDE.md A2's own rule — *"when a change is a boolean, assert its truth table, not
+its source text"* — and the guard I shipped with it asserted that the `AppState` call EXISTED.**
+A regex confirms code exists, never that it runs. Third time this repo has paid for that shape.
+
+**The fix is no gate rather than a better one:** start unconditionally, only ever STOP on
+background. A predicate that cannot be false at mount cannot be constant-false at mount. The new
+guard asserts the ABSENCE of a mount-time condition on the start, naming the mount-time
+`loop.start()` specifically so the legitimate conditional resume inside the listener still passes.
+
+**Taken with it, from the handoff, since the field was being rewritten anyway:** the motes FALL
+now (the brief's `translate3d(0,-40px,0)` → `translate3d(26px,760px,0)`) instead of rising, which
+only became right when #736 put a canopy above them; they are motes rather than flat discs (three
+concentric rings stepping the brief's `#h-orb` falloff, no assets, no SVG, no new canvas); and
+they run at the brief's 28–36s instead of 7–10.5s. **Five, still** — they REPLACE the dots, and at
+~a quarter of the old pixel rate they are cheaper than what shipped.
+
+### Verification — mote field (2026-09-25)
+Changed at: `components/ParticleBackground.tsx`, `lib/__tests__/chromeRhythm.test.ts`.
+tsc / eslint / jest (142 suites, 2679) clean. Three guards self-probed both directions, including
+**re-introducing #736's exact line** — it fails.
+
+⚠️ **The visual gate cannot see this file and never could** (`--deterministic` freezes
+`Date.now()`; RN `Animated.timing` clocks off it, so every mote sits at progress 0 where opacity
+interpolates to 0). So it was probed the way this file's header prescribes — a live,
+non-deterministic preview walked past onboarding, sampling the DOM twice 2.5s apart:
+
+```
+motes found   : 5 (expected 5)     sizes: 7, 8, 9, 10, 12
+y t0          : 250.1, 612.4, 347.1, 118.4, 476
+y t+2.5s      : 292.8, 637.5, 387.1, 183.1, 505.4
+moved in 2.5s : 5 of 5   ·   visible: 5   ·   PROBE: PASS
+```
+
+The spread of `y` at t0 is the other half working: the brief staggers with NEGATIVE
+`animation-delay` so its motes are mid-fall at t=0, which RN's `Animated` has no spelling for, so
+the five are staggered by start POSITION and by five different durations instead.
+
+Check on device:
+1. [dark] Open the app cold — motes are drifting **without** backgrounding and returning first.   pass / fail
+2. [dark] They fall, slowly, and read as soft points of light rather than hard dots.              pass / fail
+
+## 2026-09-25 — Round five on the card material, and the first one that measured first
+**Status: Shipped, device verification OPEN.**
+
+Fifth report of *"still not looking like frosted or shiny glass"*. CLAUDE.md A3 says two failures
+on one line means the diagnosis is wrong, not the implementation; there had been four (#717's
+ramp, #732's sheen/bloom/rim, then #733 lighting the field and making the pane transmit). So this
+round measured the shipped render and changed nothing until it had an answer.
+
+**Every glass cue was in the code and below the threshold of noticing in the pixels.**
+
+| cue | designed | what actually reached the screen |
+|---|---|---|
+| transmission | 25% | **3–8 levels** on the card face |
+| the lit ramp | 23 levels, `glassTop`→`glassBottom` | spread over a **470px** card = 0.05 levels/px |
+| `glassSheen` | white | **2.8%** alpha = 7 levels |
+| `glassBloom` | white | **1.5%** alpha = 4 levels |
+
+Sampled off `visual-baselines/dark/home-populated.png`: the card face was `rgb(52,53,66)` at **21%
+saturation** on a field of `rgb(12,14,34)` at **65%**, and varied by five levels across the full
+width of a card. A flat grey slab on a blue scene. Four rounds of painting the slab could not
+change that, and each added one more sub-threshold cue.
+
+**The cause is one token, and it is the alpha and the hue together.** `surfaceGlass` was
+`rgba(48,48,48,0.75)` — a 75%-opaque NEUTRAL veil, which desaturates whatever is behind it by
+roughly five times. Three quarters of every card was flat grey with no relationship to the scene.
+`48 × 0.75 = 36 = #242424` made it *equal* `surface` by construction, and that construction was
+the defect: a veil that composites to a neutral grey **is** a neutral grey.
+
+Now `rgba(58,64,94,0.55)`. On the real render the card face goes `rgb(52,53,66)` → `rgb(50,55,86)`
+and **saturation 21% → 42%**.
+
+**What provably did not change.** Over the unlit reference it composites to `rgb(32,35,52)` against
+`surface`'s `rgb(36,36,36)`: luminance differs by **0.4%**, `text` 15.54:1 vs 15.52:1, `textMuted`
+7.23:1 vs 7.22:1, `border` 5.58:1 vs 5.58:1. On the render `textMuted` measures **3.45:1** against
+the shipped **3.63:1**. The material is transformed; the contrast is where it already was.
+
+**Measured and NOT taken:** raising the specular with it (`glassSheen` 0.028 → 0.09, `glassBloom`
+0.015 → 0.05) renders visibly glossier and drops `textMuted` to **2.91:1**. Gloss is available and
+it is not free — a maintainer call, not a tuning nudge. Mockups of both went over.
+
+**Guards.** The byte-equality invariant is deliberately gone; `glassMaterial.test.ts`'s guard is
+rewritten in place to assert what it was only ever a proxy for — that the glass card and the opaque
+fallback are interchangeable for every contrast ratio — plus a new one pinning the tint itself
+(non-neutral, cool, alpha ≤ 0.6). Four probes, all failing correctly: the neutral veil restored, a
+tinted-but-opaque veil, a warm veil, and a tinted-but-too-bright veil.
+
+### Verification — the tinted veil (2026-09-25)
+Changed at: `constants/colors.ts` (`surfaceGlass`, dark only), `__tests__/glassMaterial.test.ts`.
+tsc / eslint / jest (142 suites, 2680) clean. `visual` both themes: **24 dark screens changed,
+light 26/26 UNCHANGED** — light's veil is untouched, and that asymmetry is the gate confirming the
+change is scoped where it was meant to be. Byte deltas per A2b: every dark baseline **grew**,
++2.8% to +21.7%, which is the signature of a card face that was a flat fill now carrying the
+backdrop's gradient per pixel across ~20 cards a screen.
+
+Check on device, both themes:
+1. [dark]  Home: cards read as blue-tinted glass, not grey slabs — the face is the same family as the field.   pass / fail
+2. [dark]  Health (sparse): the halo arc is visible THROUGH the top card.                                      pass / fail
+3. [dark]  Scroll: a card's tint shifts as it travels over the field.                                          pass / fail
+4. [dark]  Muted text ("Anytime", "Not set for today") is still comfortable to read.                           pass / fail
+5. [light] Unchanged from yesterday — nothing in light moved.                                                  pass / fail
