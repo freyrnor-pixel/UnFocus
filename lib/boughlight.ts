@@ -52,6 +52,31 @@ export const VB = { w: 390, h: 844 } as const;
 export const CLEAR_ZONE = { x0: 84, x1: 306, y0: 236, y1: 612 } as const;
 
 /**
+ * ⚠️ **CORRECTION (2026-09-25): this box is NOT this app's card column, and the sentence it keeps
+ * getting quoted with — "the crown provably never enters the card column" — is false here.**
+ *
+ * Measured off the shipped dark baseline (`visual-baselines/dark/health-empty.png`, card border
+ * hairline at x 17 and x 413 of a 430px shot, × 390/430):
+ *
+ * | | x-range, in this file's 390 frame |
+ * |---|---|
+ * | `CLEAR_ZONE`, i.e. what `clearZoneOffenders` checks | **84 – 306** |
+ * | this app's REAL card column (`CARD_GUTTER` = `Spacing.md` = 16) | **15 – 375** |
+ *
+ * The zone is a narrow sub-box of the real column. It is the handoff MOCKUP's card width, and
+ * that mockup gave its cards far bigger side margins than this app does.
+ *
+ * **What the guard is therefore worth, stated accurately.** It keeps art out of the MIDDLE of the
+ * screen, which is still the thing the 2026-08-17 report was about and still worth checking. What
+ * it cannot do is keep art from behind a card, because at a 16px gutter almost nothing is.
+ *
+ * **And behind a card is cheap, which is the other half.** The ambient pane transmits 25%, so a
+ * stroke at o 0.19 composites to about 4.75% under a card and stays at full strength in the 12px
+ * gaps between them. A descent is therefore a question of which gaps it crosses and how much
+ * ghosting reads through the glass — a taste call — rather than a rule violation. See `DESCENTS`.
+ */
+
+/**
  * A master alpha on the whole layer, per theme.
  *
  * DARK takes the handoff's own numbers un-scaled: it is a dark-mode brief, and its strongest
@@ -229,7 +254,7 @@ export const HERO: Frame = {
  * and `lib/__tests__/boughlight.test.ts` runs it. Put a new branch on the bough, or take it to
  * `HERO`.
  */
-export const CROWN: Frame = {
+const CROWN_BASE: Frame = {
   glow: { cx: 205, cy: 10, rx: 240, ry: 120 },
   halo: { cx: 205, cy: -58, r: 132, ring: 0.22, soft: 0.12 },
   bough: {
@@ -268,6 +293,98 @@ export const CROWN: Frame = {
     { x: 202, y: 830, s: 0.18 },
   ],
 };
+
+/**
+ * ⚠️ **OFF, AND AWAITING A DECISION — not scratch, and not a feature that was tried and dropped
+ * (2026-09-25).** `DESCENT` is `'none'`, so this file draws exactly what shipped in #736 and this
+ * block changes no pixel. It is here because the geometry was built, rendered and sent as mockups,
+ * and the choice is the maintainer's to make.
+ *
+ * Maintainer, after the crown shipped: *"Works like a charm. Only missing the particles and
+ * branch going down."* The particles were a regression (see `components/ParticleBackground.tsx`);
+ * the branch is this. Crown's bough stops at (258,84) — three short strokes, all above y 100 —
+ * because that is the frame the handoff drew for a screen with a card stack over the middle.
+ *
+ * **When a variant is picked:** set `DESCENT` to it, delete the other, delete this switch, and do
+ * the guard work the chosen one needs (see the ⚠️ on `DESCENTS` — the ordering guard models a
+ * bough as a chain and a two-limbed bough is a tree). **If the answer is "none of them", delete
+ * this whole block** rather than leaving a switch nobody is going to turn.
+ */
+export type Descent = 'none' | 'limb' | 'fall';
+export const DESCENT: Descent = 'none';
+
+/**
+ * What a descent adds to the crown's bough.
+ *
+ * ⚠️ **Both are a TAPERING CONTINUATION OF THE TRUNK (w 5.0 → 3.6 → 2.4, o 0.28 → 0.22 → 0.17),
+ * and the first draft of them was not — it was a twig at w 2.8 / o 0.19, and it was MEASURED
+ * INVISIBLE.** Rendered against the shipped frame it moved 0.3–0.5% of the pixels, i.e. it did
+ * not answer *"branch going down"* at all. The reason it was drawn that thin is worth keeping:
+ * `lib/__tests__/boughlight.test.ts` requires a bough's strokes to thin and fade monotonically
+ * trunk-to-twig, the crown's ladder ends at w 3.0 / o 0.20, and anything APPENDED therefore has
+ * to sit under it.
+ *   ⚠️ **That guard models a bough as a CHAIN, and a bough with two limbs of different lengths is
+ * a TREE** — no single ordering of {trunk 6.5, side 4.2, side 3.0, descent 5.0, 3.6, 2.4} is
+ * monotonic, whichever end the descent is spliced onto. So the guard fails on these by
+ * construction, and the fix when a variant is chosen is to order PER LIMB rather than over one
+ * flat list. Making the drawing wrong to keep the model right is the wrong way round.
+ *
+ * ⚠️ **`fall` KNOWINGLY BREAKS `clearZoneOffenders`, and `limb` is split in two to avoid it.**
+ * `strokeBox` bounds a bézier by its control hull, which is conservative: a single curve from
+ * (258,84) to (336,336) has a hull of x 258–340 × y 84–336 and overlaps the zone even though no
+ * point of the actual curve below y 236 is left of x 335. Splitting it at y≈228 gives two hulls
+ * that each clear it honestly. `fall` makes no such attempt — it goes down the middle on purpose.
+ *
+ * ⚠️ **And `CLEAR_ZONE` is NOT this app's card column** — see the correction at that constant.
+ * Measured off the shipped dark baseline, the real column is x 15–375 against the zone's 84–306,
+ * so a descent is behind a card wherever it goes. At 25% transmission a stroke at o 0.19
+ * composites to about **4.75%** under a card and stays crisp in the 12px gaps between them, which
+ * is the actual difference between the two variants: not "clear vs. not", but which gaps it
+ * crosses.
+ */
+export const DESCENTS: Record<Exclude<Descent, 'none'>, { strokes: Branch[]; leaves: Leaf[] }> = {
+  // Down the right gutter, clearing the zone with the split described above.
+  limb: {
+    strokes: [
+      { d: 'M258 84 C 296 132 318 180 322 228', w: 5, o: 0.28 },
+      { d: 'M322 228 C 336 270 342 304 336 352', w: 3.6, o: 0.22 },
+      { d: 'M336 352 C 344 390 340 418 330 446', w: 2.4, o: 0.17 },
+    ],
+    leaves: [
+      { x: 344, y: 200, rot: 84, s: 0.5 },
+      { x: 342, y: 300, rot: 128, s: 0.48 },
+      { x: 334, y: 400, rot: 62, s: 0.44 },
+    ],
+  },
+  // Down the middle, the closest reading of the handoff's hero descent.
+  fall: {
+    strokes: [
+      { d: 'M258 84 C 232 138 210 210 202 292', w: 5, o: 0.28 },
+      { d: 'M202 292 C 214 332 212 366 196 402', w: 3.6, o: 0.22 },
+      { d: 'M196 402 C 186 436 188 466 198 496', w: 2.4, o: 0.17 },
+    ],
+    leaves: [
+      { x: 208, y: 196, rot: 104, s: 0.56 },
+      { x: 198, y: 300, rot: 46, s: 0.52 },
+      { x: 190, y: 392, rot: 132, s: 0.46 },
+      { x: 198, y: 486, rot: 20, s: 0.4 },
+    ],
+  },
+};
+
+/** A frame with a descent appended to its bough. Identity-stable when there is nothing to add. */
+export function withDescent(frame: Frame, descent: Descent): Frame {
+  if (descent === 'none') return frame;
+  const d = DESCENTS[descent];
+  return {
+    ...frame,
+    bough: {
+      ...frame.bough,
+      strokes: [...frame.bough.strokes, ...d.strokes],
+      leaves: [...frame.bough.leaves, ...d.leaves],
+    },
+  };
+}
 
 /**
  * The crown's GROWTH branches — the handoff's *"New branches append off the (390,14) bough and
@@ -336,6 +453,9 @@ export function growthFrame(
     },
   };
 }
+
+/** The crown as drawn — its base frame plus whichever descent `DESCENT` selects. */
+export const CROWN: Frame = withDescent(CROWN_BASE, DESCENT);
 
 export const FRAME: Record<BoughlightVariant, Frame> = { hero: HERO, crown: CROWN };
 
