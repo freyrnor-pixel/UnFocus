@@ -78,7 +78,7 @@
  * orb tucks further off-screen on non-phone aspect ratios rather than distorting.
  *
  * Connections:
- *   Imports → react-native-reanimated, lib/useAppTheme (useIsDark, useAccessibility),
+ *   Imports → react-native-reanimated, components/TreeBackdrop (the painted tree, 2026-09-26), lib/useAppTheme (useIsDark, useAccessibility),
  *             lib/useGrowth, constants/motion (Duration, Ease)
  *   Used by → app/(tabs)/_layout.tsx (one shared instance behind the whole pager); components/
  *             ScreenScaffold (its own first child, for sub-tier and non-pager site screens);
@@ -125,6 +125,7 @@ import { useAppTheme, useIsDark, useAccessibility } from '@/lib/useAppTheme';
 import { useGrowth } from '@/lib/useGrowth';
 import { getScreenColor, type ScreenKey } from '@/lib/screenColor';
 import { CrownArt, CrownDefs, type BoughlightVariant } from '@/components/CrownArt';
+import TreeBackdrop, { TREE_STRENGTH } from '@/components/TreeBackdrop';
 
 
 type Props = {
@@ -157,8 +158,9 @@ type Props = {
   decorative?: boolean;
   /**
    * Which `Backdrop_Handoff` frame the neutral canvas carries, or `'none'` for the plain wash
-   * field. Default `'crown'` — the frame held to `CLEAR_ZONE`, i.e. the one that can sit under a
-   * card stack. Onboarding passes `'hero'`, which has no card column to stay out of.
+   * field. **Default `'none'` since 2026-09-26**: `'none'` now means "no SVG art", and the painted
+   * tree (`components/TreeBackdrop.tsx`) draws in its place. `'crown'`/`'hero'` still render the
+   * SVG frames for any caller that asks for them explicitly.
    *
    * ⚠️ **This is a prop and not a constant so the re-land has a one-word revert.** #734 shipped
    * this art and #735 took it back out at 20fps; the whole shape of the re-land (see
@@ -667,7 +669,7 @@ function OrbLayer({ style, ...canvas }: React.ComponentProps<typeof OrbCanvas>
   );
 }
 
-function ScreenBackground({ activeRoute, decorative = true, crown = 'crown' }: Props) {
+function ScreenBackground({ activeRoute, decorative = true, crown = 'none' }: Props) {
   const isDark = useIsDark();
   const { reducedMotion } = useAccessibility();
   const { level, intensity } = useGrowth();
@@ -943,6 +945,13 @@ function ScreenBackground({ activeRoute, decorative = true, crown = 'crown' }: P
               crown={crown === 'none' ? undefined : crown}
             />
           </View>
+          {/* The painted tree (2026-09-26) replaces the SVG crown as the default art — full on
+              Home, a quiet wash everywhere else so no card label can land on the trunk. See
+              `components/TreeBackdrop.tsx`. Passing an SVG `crown` variant opts back into the
+              old art instead of this. */}
+          {crown === 'none' && (
+            <TreeBackdrop strength={activeRoute === 'index' ? TREE_STRENGTH.hero : TREE_STRENGTH.work} still={still} />
+          )}
           {/* ⚠️ **The two hue buffers mount only on a screen that HAS a route hue (2026-09-15),
               and this is NOT the gate that was reverted on 2026-09-07 — read the difference
               before touching it.**
