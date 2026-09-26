@@ -757,10 +757,10 @@ async function main() {
       await tab(page, 'Home');
       if (await tryButton(page, "Set the day's energy")) {
         await shot(page, 'energy-config-sheet', {
-          title: 'The Energy config sheet',
-          screen: 'components/EnergyConfigSheet.tsx',
-          state: 'SHEET. Energy is the app\'s one number. Its explainer under the meter is PERMANENT rather than a card that self-destructs — an explanation that disappears is not there when you come back to the number months later.',
-          components: 'EnergyConfigSheet, Stepper, Slider',
+          title: 'The Energy config panel (inline in the card)',
+          screen: 'components/EnergyConfigPanel.tsx',
+          state: 'INLINE FOLD. Energy is the app\'s one number. Its explainer under the meter is PERMANENT rather than a card that self-destructs — an explanation that disappears is not there when you come back to the number months later.',
+          components: 'EnergyConfigPanel, Collapsible, Stepper',
         });
         // ⚠️ **Set a capacity before leaving, or the meter itself is never photographed.**
         // Home draws `StarterCard` ("Set the day's energy") until a capacity exists, so every
@@ -788,7 +788,7 @@ async function main() {
             title: 'Home — the Energy budget bar (v2)',
             screen: 'components/EnergyMeter.tsx',
             state: 'POPULATED METER, and the only baseline that reaches it. Filled = SPENT, outline = left — the inverse of the glossy pip token this row drew until 2026-09-06, and the reading v2 states outright. A third run in the habits hue, after a divider, is energy a habit gave BACK; it is capped so it stays a shape and not a tally. The legend is load-bearing: it is the only thing on screen saying which way the glyphs read.',
-            components: 'EnergyMeter, energyBudgetBar, EnergyConfigSheet',
+            components: 'EnergyMeter, energyBudgetBar, EnergyConfigPanel',
           });
         }
       }
