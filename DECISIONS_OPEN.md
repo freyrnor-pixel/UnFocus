@@ -32,6 +32,32 @@ that will be re-derived, not made.**
 
 ## Open
 
+### The shopping lock: what does it MEAN, in each of its three places? (2026-09-26)
+
+Raised by the self-evident-UI handoff (its PR 6: *"what does the lock mean in each place? Add a
+row to `DECISIONS_OPEN.md` — do not guess"*). The same padlock glyph does three different jobs
+on the Shop tab today, and nothing about its form tells them apart:
+
+| Where | What locking does today | Code |
+|---|---|---|
+| Week list header | Snapshots the list and enters **shopping mode**: the add row, starter tray and "From monthly/dish" hide, rows stop being editable, the chip layout can show. Unlocking-while-dirty offers Save/Discard. | `components/WeekListCard.tsx` (`onToggleLock`), `app/(tabs)/shopping.tsx` `handleToggleLock` |
+| Monthly list header | **Edit guard** only: hides the add row and stops rename/qty edits. No mode change, no snapshot. | `app/(tabs)/shopping.tsx` `toggleMonthlyListLocked` |
+| Katalog header (Varer tab) | **Edit guard** on the catalogue rows. | `components/CatalogueTab.tsx` `CatalogueHeaderControls` |
+
+**What 2026-09-26 changed around it, without touching the lock itself:** the week list's three
+zones (I liste / I kurv / Kjøpt) and its "Handlingen fullført" button no longer depend on it —
+they show in both states — so the week lock is now only an edit guard plus the in-store layout.
+
+**Options:**
+- **A — one meaning, "protect from edits", everywhere.** The week list's shopping mode becomes
+  implicit (you are shopping once something is in the cart). Cheapest to learn; loses the explicit
+  "I'm in the store now" switch that keeps the screen awake (`KeepAwakeInStore`).
+- **B — the week lock becomes a labelled "I butikken" toggle** (a different form: a cart glyph +
+  word), and the two edit guards stay padlocks. Two concepts, two forms.
+- **C — remove the monthly and catalogue locks** (edits are cheap to undo) and keep only B.
+
+**Blocks:** the handoff's PR 6 (icons self-evident or labelled) on the Shop tab.
+
 ### ANSWERED 2026-09-15 — option A, and two of the row's own facts were wrong
 
 Asked and answered the same day, so the question is kept only for the corrections it earned.

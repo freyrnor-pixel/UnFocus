@@ -98,11 +98,12 @@
  *             settings.featureSharing — the only opt-in left on this screen; the
  *             Food/Catalogue row, scan icon, Budget pill and spend-pace line are all
  *             unconditional as of the 2026-07-25 defaults revision),
- *             components/ShoppingFilterBar, components/ShoppingRow,
+ *             components/ShoppingFilterBar, components/ShoppingRow (+ CHECKED_OPACITY — empty week rails),
  *              (holds the screen awake while the in-store chip
  *             layout is showing — mounted here, once, as a sibling of ScreenScaffold; it
  *             replaced components/ShoppingStoreMode, retired 2026-08-20), components/Surface,
- *             components/UpdateSheet, components/WeekListCard,
+ *             components/UpdateSheet, components/WeekListCard, components/AddFromMonthlyModal (the
+ *             Monthly card's "Make week list from here", preselectAll),
  *             components/PressableScale, components/SectionRail,
  *             constants/theme, react-native (AppState — the payday-boundary check also
  *             runs on app foreground now, not just navigation focus; see the edit note),
@@ -520,7 +521,7 @@ import { useIsCardHidden } from '@/lib/useHiddenCard';
 import { SHARING_VISIBLE } from '@/lib/sharingVisibility';
 import { useReceiptStore } from '@/store/useReceiptStore';
 import { useAutomationStore } from '@/store/useAutomationStore';
-import ShoppingRow from '@/components/ShoppingRow';
+import ShoppingRow, { CHECKED_OPACITY } from '@/components/ShoppingRow';
 import ManageCardsSheet from '@/components/ManageCardsSheet';
 import { useSurfaceLayout } from '@/lib/useSurfaceLayout';
 import { usePrefill } from '@/lib/prefill';
@@ -543,6 +544,7 @@ import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import PressableScale from '@/components/PressableScale';
 import Button from '@/components/Button';
+import AddFromMonthlyModal from '@/components/AddFromMonthlyModal';
 import WeekListCard from '@/components/WeekListCard';
 import ShoppingFilterBar from '@/components/ShoppingFilterBar';
 import FlightOverlay, { FlightRow, Flight, FlightRect } from '@/components/FlightOverlay';
@@ -1198,6 +1200,28 @@ export default function ShoppingScreen() {
     },
     [items, toggle, adjustAmount, add]
   );
+
+  // ── Month → week (2026-09-26, the self-evident-UI handoff's PR 5) ─────────────────────────
+  // The Monthly card's one primary action. It opens the existing AddFromMonthlyModal on THIS
+  // list with every row pre-ticked, so the default is "this week takes the whole base" and the
+  // user only unticks what isn't needed. The picked rows land in the focused week list — the
+  // same `addToWeeklyFromCatalog` path the per-row checkbox and the week card's "From monthly"
+  // already use — or in a fresh list for this week if there is none yet, so the button never
+  // dead-ends on "no week list".
+  const [weekFromMonthlyId, setWeekFromMonthlyId] = useState<string | null>(null);
+  function handleMakeWeekFromMonthly(picked: ShoppingItem[]) {
+    if (picked.length === 0) return;
+    let targetId = focusedList?.id;
+    if (!targetId) {
+      const { startDate, endDate } = getWeekRangeContaining(todayStr(), weeklyResetDay);
+      targetId = addList({ startDate, endDate });
+    }
+    for (const item of picked) {
+      addToWeeklyFromCatalog(item.id, parseInt(item.amount, 10) || 1, targetId);
+    }
+    success();
+    setConfirm(picked.length === 1 ? t.itemAddedToList(picked[0].name) : t.itemsAddedToList(picked.length));
+  }
 
   function handleCreateNewWeeklyList() {
     const { startDate, endDate } = getWeekRangeContaining(todayStr(), weeklyResetDay);
@@ -2101,6 +2125,18 @@ export default function ShoppingScreen() {
                           />
                         </>
                       )}
+                      {/* Month → week: this card's ONE primary action (2026-09-26). Shown in
+                          both lock states — building the week from the base is not an edit of
+                          the base. See handleMakeWeekFromMonthly. */}
+                      {view.catalogItems.length > 0 && (
+                        <Button
+                          label={t.makeWeekListFromMonthlyBtn}
+                          icon="arrow-up-outline"
+                          variant="primary"
+                          onPress={() => setWeekFromMonthlyId(list.id)}
+                          style={styles.addItemSpacing}
+                        />
+                      )}
                     </View>
 
                     {view.purchasedByTrip.length > 0 && (
@@ -2147,6 +2183,14 @@ export default function ShoppingScreen() {
           )}
 
           <NewMonthlyListRow onCreate={(name) => addMonthlyList({ name })} />
+          <AddFromMonthlyModal
+            visible={weekFromMonthlyId !== null}
+            items={weekFromMonthlyId ? catalogItemsForList(items, weekFromMonthlyId) : []}
+            lists={monthlyLists.filter((l) => l.id === weekFromMonthlyId)}
+            onAdd={handleMakeWeekFromMonthly}
+            onClose={() => setWeekFromMonthlyId(null)}
+            preselectAll
+          />
           {/* "Reset all monthly lists now" moved into every card's ⋮ (2026-08-13) — see
               openMonthlyListOptions. It was a small muted icon+label row floating under the
               last card with no card of its own, which read as a caption on the tab rather
@@ -2289,6 +2333,10 @@ export default function ShoppingScreen() {
                   ref={(node) => handleRegisterWeekSectionNode(week, node)}
                   style={[
                     styles.weekSection,
+                    // An empty week is a drop target, not content (2026-09-26): its rail stays
+                    // mounted so drag-to-week can measure it, but dimmed and wordless, so the
+                    // week you actually shop from is the only thing that reads at a glance.
+                    weekLists.length === 0 && !isDropTarget && { opacity: CHECKED_OPACITY },
                     isDropTarget && { borderColor: theme.accent, backgroundColor: theme.accentSoft },
                   ]}
                 >
@@ -2316,13 +2364,10 @@ export default function ShoppingScreen() {
                 />
 
                 {weekLists.length === 0 ? (
-                  /* ⚠️ A quiet LINE here, deliberately — v2's "one line and one button" empty
-                     state is the whole-card one below, not this. Four week sections each holding
-                     a dashed box and a CTA is the "4 redundant 'no lists here' sections" this
-                     block's own comment above rules out, and the first attempt at v2's fix
-                     (2026-09-08) put one in every empty week: two full call-to-action boxes
-                     stacked above the week that actually had lists in it. */
-                  <Text style={[styles.weekSectionEmptyText, { color: theme.textMuted }]}>{t.weekSectionEmpty}</Text>
+                  /* No line at all since 2026-09-26 (it was "No lists yet.", once per empty
+                     week — three identical sentences above the week that had a list). The
+                     dimmed rail above says the same thing without words. */
+                  null
                 ) : (
                   weekLists.map((list) => {
                     const groups = groupsByList.get(list.id) ?? EMPTY_LIST_GROUPS;

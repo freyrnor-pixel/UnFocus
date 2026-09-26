@@ -22,7 +22,7 @@
  *             components/FlightOverlay (FlightRect type only),
  *             components/IconButton, components/Button (the two ghost secondary add paths),
  *             components/InlineAddItem, components/ShoppingFilterBar,
- *             components/Surface, components/CardAccent (CardAccentBadge),
+ *             components/Surface,
  *             components/ShoppingRow (CHECKED_OPACITY), components/ShoppingRow.tsx (the chip
  *             layout's row), lib/shoppingStarters (SHOPPING_STARTERS — the quick-add tray's
  *             bundles), constants/theme (incl. getMatte, shared by the chips and the tray),
@@ -81,8 +81,9 @@
  *   - **The section totals follow `spec.showPrice` (2026-08-20).** They didn't until then, so
  *     "In the store" — whose whole contract is "name only, no money" — still printed a running
  *     total under the list. Caught in the web preview, not by a test.
- *   - **Shop-domain badge (2026-07-26, "bring the card colour back")**: a small
- *     `CardAccentBadge` (domain="shop") leads `nameWrap`, before the lock icon — the same
+ *   - **Shop-domain badge — REMOVED 2026-09-26** (it duplicated the outer card's badge and
+ *     truncated the list name). History: a small
+ *     `CardAccentBadge` (domain="shop") led `nameWrap`, before the lock icon — the same
  *     gradient badge Home's preview cards use, added here for cross-tab consistency. Kept
  *     inline (not an absolutely-positioned corner badge, the way the retired Home shopping card did it) because this
  *     header's top-left corner is already occupied by the lock icon.
@@ -192,7 +193,6 @@ import { listProgress } from '@/lib/shoppingGroups';
 import { formatKr } from '@/lib/money';
 import { categoryPresets } from '@/lib/shoppingCategories';
 import Surface from '@/components/Surface';
-import { CardAccentBadge } from '@/components/CardAccent';
 import IconButton from '@/components/IconButton';
 import { SectionFoldToggle } from '@/components/Card';
 import Button from '@/components/Button';
@@ -478,7 +478,6 @@ export default function WeekListCard({
 
   const totalInList = ungroupedUnchecked.length + dishUnchecked.length;
   const totalInCart = allChecked.length;
-  const showInListSection = totalInList > 0 || !list.locked;
 
   // The card wears no hue at all as of 2026-08-20 (components/Surface.tsx). It was shopping
   // green from 2026-07-22 — the amber-while-unlocked/green-while-locked coding before that read
@@ -494,13 +493,9 @@ export default function WeekListCard({
               preview (not the auto date-range text); tapping swaps it for an autoFocused
               TextInput. A custom-named list previews its real name, still tappable to rename. */}
           <View style={styles.nameWrap}>
-            {/* Shop-domain gradient badge (2026-07-26, "bring the card colour back") — leads the
-                header so the card carries the same identity-colour badge Home's preview cards
-                do, without disturbing the lock/name/repeat row it sits in front of. Size bumped
-                22→32 (2026-08-09, user report: "icon in upper left is too small") — it was
-                claiming to match Home's badge size without actually doing so; the name text
-                below already truncates at one line, so the row absorbs the extra width fine. */}
-            <CardAccentBadge domain="shop" size={32} style={styles.domainBadge} accentOverride={screenColor.base} />
+            {/* The shop badge that led this row is GONE (2026-09-26). The outer "Handlelister"
+                card already wears it one level up, so here it was the same mark twice, and its
+                32px was the width that truncated the list's own name ("Shopping li…"). */}
             {/* Lock sits beside the name (2026-07-23 declutter pass) — it describes this
                 list's edit state, so it reads naturally next to the title instead of
                 competing with Save/Discard/kebab/expand in the action row. */}
@@ -613,16 +608,17 @@ export default function WeekListCard({
           </PressableScale>
         )}
 
-        {/* ── Items section — labelled "To buy" only while shopping; in planning the
-            card header names the list, so no redundant sub-label. ── */}
-        {showInListSection && (
+        {/* ── IN LIST section ── */}
           <View style={styles.section}>
-            {list.locked && (
-              <View style={[styles.sectionHeaderRow, { backgroundColor: theme.surfaceMuted }]}>
-                <Text style={[styles.sectionLabel, { color: theme.good }]}>{t.toBuySection(totalInList)}</Text>
-                <View style={[styles.sectionRule, { backgroundColor: theme.good }]} />
-              </View>
-            )}
+            {/* The three zones are ALWAYS drawn, in both modes (2026-09-26, self-evident UI):
+                a list is "I liste → I kurv → Kjøpt", and seeing all three headers — an empty one
+                dimmed, never explained — is what teaches that a tick MOVES a row down a zone.
+                Until now "I liste" only labelled itself while locked and the other two appeared
+                only once they had rows, so the model was invisible until you'd already used it. */}
+            <View style={[styles.sectionHeaderRow, { backgroundColor: theme.surfaceMuted }, totalInList === 0 && { opacity: CHECKED_OPACITY }]}>
+              <Text style={[styles.sectionLabel, { color: theme.good }]}>{t.toBuySection(totalInList)}</Text>
+              <View style={[styles.sectionRule, { backgroundColor: theme.good }]} />
+            </View>
 
             {(totalInList > 0 || totalInCart > 0) && (
               <ShoppingFilterBar
@@ -831,14 +827,12 @@ export default function WeekListCard({
               </Text>
             )}
           </View>
-        )}
 
         {/* ── IN CART section ── */}
-        {totalInCart > 0 && (
           <View style={styles.section}>
             <View
               ref={(node) => registerCartHeaderNode?.(node)}
-              style={[styles.sectionHeaderRow, { backgroundColor: theme.surfaceMuted }]}
+              style={[styles.sectionHeaderRow, { backgroundColor: theme.surfaceMuted }, totalInCart === 0 && { opacity: CHECKED_OPACITY }]}
             >
               <Text style={[styles.sectionLabel, { color: theme.accent }]}>
                 {t.inCartSection(totalInCart)}
@@ -846,7 +840,7 @@ export default function WeekListCard({
               <View style={[styles.sectionRule, { backgroundColor: theme.accent }]} />
             </View>
 
-            <View style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
+            {totalInCart > 0 && <View style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
               {(filterActive ? filteredInCart : allChecked).map((item, idx, arr) => (
                 <ShoppingRow
                   key={item.id}
@@ -864,17 +858,23 @@ export default function WeekListCard({
                   rail={screenColor.base}
                 />
               ))}
-            </View>
+            </View>}
             {inCartTotal > 0 && spec.showPrice && (
               <Text style={[styles.sectionTotal, { color: theme.textMuted }]}>
                 {t.weekListTotal(formatKr(inCartTotal, 0))}
               </Text>
             )}
           </View>
-        )}
 
         {/* ── PURCHASED section (collapsed) ── */}
-        {purchased.length > 0 && (
+        {purchased.length === 0 ? (
+          <View style={styles.section}>
+            <View style={[styles.sectionHeaderRow, { backgroundColor: theme.surfaceMuted, opacity: CHECKED_OPACITY }]}>
+              <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>{t.purchasedSection(0)}</Text>
+              <View style={[styles.sectionRule, { backgroundColor: theme.textMuted }]} />
+            </View>
+          </View>
+        ) : (
           <View style={styles.section}>
             <DisclosureRow
               title={t.purchasedSection(purchased.length)}
@@ -910,7 +910,10 @@ export default function WeekListCard({
         {/* ── Bottom slot: green "done" CTA while shopping; nothing while planning ──
             (the old "Plan mode active" status bar was removed 2026-07-22 — the
             Save/Discard buttons + lock icon already say everything it did). ── */}
-        {list.locked && (
+        {/* Shown whenever something is IN the cart, not only in the locked "shopping" mode
+            (2026-09-26): having ticked things is itself the signal that you are shopping, and
+            the way out of the cart zone has to be visible from the moment the zone has rows. */}
+        {(list.locked || progress.inCart > 0) && (
           <PressableScale
             style={[
               styles.doneShoppingBtn,
@@ -938,7 +941,6 @@ const baseStyles = StyleSheet.create({
   headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm },
   nameWrap: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, flex: 1 },
   // Fixed-size leading badge (2026-07-26) — never let the name/lock/repeat row squeeze it.
-  domainBadge: { flexShrink: 0 },
   repeatIcon: {},
   // ⚠️ **`TITLE_FIELD` (2026-08-21, CONSISTENCY_AUDIT.md §1).** These exact values were also
   // written out in app/(tabs)/shopping.tsx for the MONTHLY list's rename — except there they
