@@ -265,8 +265,12 @@ const SPLASH_FAILSAFE_MS = 2500;
 // scope without awaiting, per expo-splash-screen's guidance; RootLayout hides it in an
 // onLayout callback once fonts + settings + image assets are ready. No-op on web.
 void SplashScreen.preventAutoHideAsync().catch(() => { /* already hidden / unsupported */ });
-// iOS gets a short cross-fade out; Android hides instantly (fade is iOS-only here).
-SplashScreen.setOptions({ duration: Duration.modalOut, fade: true });
+// Hide instantly on both platforms. <LaunchReveal/> below already owns the ONE cross-fade out
+// of this exact logo — `fade: true` here made iOS ALSO cross-fade the native splash's own copy
+// of the tree on top of it, so the launch briefly showed two out-of-sync fades of the same
+// (near-identical) image, i.e. what looked like two different tree pictures. See "Launch is ONE
+// screen, not two" above.
+SplashScreen.setOptions({ duration: Duration.modalOut, fade: false });
 
 /**
  * The routes that open as a centred pop-up rather than a pushed page (2026-08-20).
