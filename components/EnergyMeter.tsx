@@ -4,7 +4,7 @@
  * Shows today's and this week's energy as `current / capacity`, where current =
  * capacity + the net signed value of every energy task completed / energy habit
  * met in the period (lib/energy.ts). Tapping the edit affordance opens
- * components/EnergyConfigSheet.tsx — the pop-up that owns every number: today's and this
+ * components/EnergyConfigPanel.tsx — folded inline in the card since 2026-09-26 — which owns every number: today's and this
  * week's capacity, plus today's temporary extra (store/useEnergyStore.ts). There is no
  * stepper on the strip itself; see the 2026-08-03 corrections below before adding one.
  *
@@ -79,6 +79,10 @@
  *      spend, and being always-there invites nudging the number on every glance. Setting how
  *      much a day holds is a deliberate act. Read that file's header before reversing this: it
  *      is the second reversal on this question, not the first.
+ *      ⚠️ **Superseded 2026-09-26 — the sheet became an inline fold in the card.** The
+ *      maintainer asked for energy to be *"redigert i kortet"*. What survives of this correction
+ *      is its substance: still no always-visible ±, still a name + hint on every stepper — they
+ *      now sit in `components/EnergyConfigPanel.tsx`, folded behind the adjust row.
  *   2. **Extra energy reads as temporary, on the strip.** A boost used to vanish into the
  *      total — `+3` simply made a 10-energy day print `13 / 13`, indistinguishable from
  *      somebody whose usual day is 13. The day row now carries a muted `+N today only` chip
@@ -214,7 +218,8 @@
  * Connections:
  *   Imports → components/Badge (the `+N today only` chip), components/Button,
  *             components/PressableScale, components/StarterCard (the tutorial state),
- *             components/EnergyConfigSheet, components/EnergyPauseSheet,
+ *             components/EnergyConfigPanel (inline, in a components/Collapsible),
+ *             components/EnergyPauseSheet,
  *             constants/theme, constants/motion, lib/useAppTheme, lib/i18n, lib/date, lib/energy,
  *             lib/useEnergyPause, store/useSettingsStore, store/useTaskStore,
  *             store/useHabitStore, store/useEnergyStore, expo-router (useFocusEffect),
@@ -223,8 +228,8 @@
  *              needed it was replaced by the Energibudsjett bar on 2026-09-06; the import and
  *              its three pip styles were cleared on 2026-09-07, see the styles block;
  *              components/Surface is deliberately NOT imported any more — see "Strip, not a card";
- *              components/Stepper and components/Collapsible are gone with the inline editor —
- *              every number is set in EnergyConfigSheet now, see correction 1 above)
+ *              components/Stepper is not imported here — every stepper lives in
+ *              EnergyConfigPanel, folded behind the card's adjust row since 2026-09-26)
  *   Used by → app/(tabs)/index.tsx (Home) — mounted fixed, above the Shared card and the
  *             card stack, gated on settings.energySystemEnabled
  *   Data    → reads tasks/habits/habitLogs + energy_budgets overrides (base capacity AND the
@@ -242,7 +247,8 @@ import Surface from '@/components/Surface';
 import QuickAddOptionRow from '@/components/QuickAddOptionRow';
 import { SegmentedControl } from '@/components/FormControls';
 import SectionRail from '@/components/SectionRail';
-import EnergyConfigSheet from '@/components/EnergyConfigSheet';
+import EnergyConfigPanel from '@/components/EnergyConfigPanel';
+import Collapsible from '@/components/Collapsible';
 import EnergyPauseSheet from '@/components/EnergyPauseSheet';
 import { Fonts, FontSize, Radius, RowTrailing, Spacing, getGlow, hitSlopFor, rgba } from '@/constants/theme';
 import { useAccessibility, useAppTheme, useIsDark } from '@/lib/useAppTheme';
@@ -388,7 +394,7 @@ export default function EnergyMeter() {
   const pause = useEnergyPause();
 
   // `configOpen` was `editing` until 2026-08-03, when the inline Collapsible editor became
-  // components/EnergyConfigSheet.tsx. Same role — "the user is mid-adjustment, don't interrupt".
+  // a sheet, and on 2026-09-26 the sheet became an inline fold again (EnergyConfigPanel). Same role — "the user is mid-adjustment, don't interrupt".
   const [configOpen, setConfigOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -571,7 +577,7 @@ export default function EnergyMeter() {
 
   /**
    * The one way in to every energy number (2026-08-03) — it opens
-   * components/EnergyConfigSheet.tsx rather than expanding an inline editor.
+   * the inline components/EnergyConfigPanel.tsx fold (a bottom sheet 2026-08-03 → 2026-09-26).
    *
    * It used to swap to a `checkmark` while the Collapsible was open, because the glyph WAS the
    * open/close toggle. A sheet closes itself, so there is nothing to toggle: the glyph keeps
@@ -580,7 +586,7 @@ export default function EnergyMeter() {
    */
   const editButton = (
     <PressableScale
-      onPress={() => setConfigOpen(true)}
+      onPress={() => setConfigOpen((v) => !v)}
       hitSlop={showOverspend ? EDIT_SLOP_PAIRED : EDIT_SLOP}
       scaleTo={0.9}
       accessibilityRole="button"
@@ -592,6 +598,24 @@ export default function EnergyMeter() {
         color={configOpen ? theme.accent : theme.textMuted}
       />
     </PressableScale>
+  );
+
+  // The inline editor, mounted in whichever card is showing (tutorial or live). `configOpen`
+  // survives the tutorial → live flip, so the fold stays open under the user's thumb when the
+  // first capacity write swaps the card.
+  const configPanel = (
+    <EnergyConfigPanel
+      showDay={showDay}
+      showWeek={showWeek}
+      /* BASE, not the total the meter shows — see `dayBaseCapacity` above for why handing
+         over the sum would re-bank today's boost as the user's usual capacity. */
+      dayBaseCapacity={dayBaseCapacity}
+      onDayCapacity={(n) => setDayCapacity(today, n)}
+      weekCapacity={weekCapacity}
+      onWeekCapacity={(n) => setWeekCapacity(today, n)}
+      dayBoost={dayBoost}
+      onDayBoost={(n) => setDayBoost(today, n)}
+    />
   );
 
   // Passed to exactly ONE row (see the file header's "The edit affordance travels" note).
@@ -894,9 +918,16 @@ export default function EnergyMeter() {
               label={t.starters.energy.action}
               value={t.energyMeter.notSetValue}
               accent={theme.accent}
-              onPress={() => setConfigOpen(true)}
+              onPress={() => setConfigOpen((v) => !v)}
             />
           </View>
+          {/* **Edited IN the card (2026-09-26).** Maintainer: *"energi og månedsbudsjett må kunne
+              redigeres i kortet, ikke via innstillinger"*. The row above opens this fold; it was a
+              bottom sheet from 2026-08-03. Still folded by default so a glance never lands on a ±
+              — read EnergyConfigPanel's header before making it always-open. */}
+          <Collapsible open={configOpen}>
+            {configPanel}
+          </Collapsible>
         </Surface>
       )}
 
@@ -963,9 +994,16 @@ export default function EnergyMeter() {
               value={t.energyMeter.budgetUnits(scope === 'day' ? dayCapacity : weekCapacity)}
               isSet
               accent={theme.accent}
-              onPress={() => setConfigOpen(true)}
+              onPress={() => setConfigOpen((v) => !v)}
             />
           </View>
+          {/* **Edited IN the card (2026-09-26).** Maintainer: *"energi og månedsbudsjett må kunne
+              redigeres i kortet, ikke via innstillinger"*. The row above opens this fold; it was a
+              bottom sheet from 2026-08-03. Still folded by default so a glance never lands on a ±
+              — read EnergyConfigPanel's header before making it always-open. */}
+          <Collapsible open={configOpen}>
+            {configPanel}
+          </Collapsible>
         </Surface>
       )}
 
@@ -982,25 +1020,6 @@ export default function EnergyMeter() {
         <Text style={[styles.pausedNote, { color: theme.textMuted }]}>{t.energyPause.afterGood}</Text>
       )}
 
-      {/* The pop-up every number is set in (2026-08-03). Mounted outside the `pause.paused` /
-          `showTutorial` branches above on purpose: the tutorial's own button opens it, and it
-          must be free to finish its exit animation after a write flips the strip out of the
-          tutorial state under it. Each stepper writes through on press, so closing by any
-          route — Done, backdrop, back gesture — is the same thing and discards nothing. */}
-      <EnergyConfigSheet
-        visible={configOpen}
-        onClose={() => setConfigOpen(false)}
-        showDay={showDay}
-        showWeek={showWeek}
-        /* BASE, not the total the meter shows — see `dayBaseCapacity` above for why handing
-           over the sum would re-bank today's boost as the user's usual capacity. */
-        dayBaseCapacity={dayBaseCapacity}
-        onDayCapacity={(n) => setDayCapacity(today, n)}
-        weekCapacity={weekCapacity}
-        onWeekCapacity={(n) => setWeekCapacity(today, n)}
-        dayBoost={dayBoost}
-        onDayBoost={(n) => setDayBoost(today, n)}
-      />
 
       {/* Both triggers — the control above and the once-a-day auto-offer — land here. Closing
           the sheet by any route IS "I'm good" (see EnergyPauseSheet's header), and both
@@ -1098,7 +1117,8 @@ const styles = StyleSheet.create({
   // taken 4px off each facing edge. See the PAIR_CLIP block at the top of the file.
   trailingCluster: { flexDirection: 'row', alignItems: 'center', gap: RowTrailing.gap },
   /* `editor` / `editRow` / `editLabel` lived here until 2026-08-03 — they styled the inline
-     Collapsible editor, which is now components/EnergyConfigSheet.tsx. */
+     Collapsible editor, which became a sheet and, on 2026-09-26, components/EnergyConfigPanel.tsx
+     folded inline again. */
   // The tutorial card's one button. `alignSelf` keeps it button-sized instead of stretching to
   // the card's full width: StarterCard's action slot is documented as "lightweight chips — this
   // is an explainer, not a form", and a full-width CTA on the topmost card of Home reads as

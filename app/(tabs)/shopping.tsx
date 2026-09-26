@@ -78,7 +78,8 @@
  * including why this needed no sync decision (`shopping_lists` isn't a synced table at all).
  *
  * Connections:
- *   Imports → components/InlineAddItem, components/AddDishSheet (AddDishTarget type),
+ *   Imports → components/InlineAddItem, components/BudgetFields (the Budget card's editable
+ *             amount + payday, 2026-09-26), components/AddDishSheet (AddDishTarget type),
  *             components/NarratorQuote (2026-08-19 — an unlocked monthly list with nothing
  *             in it; see that file's header for the three empty states it stays out of),
  *             components/StarterCard (first-run explainer, shown while
@@ -526,6 +527,7 @@ import { usePrefill } from '@/lib/prefill';
 import { useNewSinceSeen } from '@/lib/useNewSinceSeen';
 import MonthlyTableRow from '@/components/MonthlyTableRow';
 import InlineAddItem from '@/components/InlineAddItem';
+import BudgetFields from '@/components/BudgetFields';
 import AddDishSheet, { AddDishTarget } from '@/components/AddDishSheet';
 import UpdateSheet from '@/components/UpdateSheet';
 import MonthlyResetSummaryModal from '@/components/MonthlyResetSummaryModal';
@@ -2673,24 +2675,12 @@ export default function ShoppingScreen() {
             : t.budget.notSetUp
         }
       >
+        {/* **Edited in the card (2026-09-26).** Amount and payday are fields here, not read-only
+            rows pointing elsewhere — see components/BudgetFields.tsx. Shown in BOTH branches so an
+            empty card leads with its own input rather than a sentence about where to go. */}
+        {monthlyLists.length > 0 && <BudgetFields />}
         {budgetPace.pace ? (
           <>
-            <View style={styles.budgetFieldRow}>
-              <Text style={[styles.budgetFieldLabel, { color: theme.textMuted }]} numberOfLines={1}>
-                {t.budget.amountPerMonth}
-              </Text>
-              <Text style={[styles.budgetFieldValue, { color: theme.text }]}>
-                {formatKr(budgetPace.totalBudget, 0, language)}
-              </Text>
-            </View>
-            <View style={styles.budgetFieldRow}>
-              <Text style={[styles.budgetFieldLabel, { color: theme.textMuted }]} numberOfLines={1}>
-                {t.budget.paydayLabel}
-              </Text>
-              <Text style={[styles.budgetFieldValue, { color: theme.text }]}>
-                {t.budget.paydayValue(monthlyResetDate)}
-              </Text>
-            </View>
             {/* The two numbers, side by side and in the same unit. Over-pace tints with `warn`,
                 never `bad` — a budget you are ahead of is information, not a failure
                 (DESIGN_RULES.md rule 23, and the same token app/budget.tsx uses). */}
@@ -2720,7 +2710,9 @@ export default function ShoppingScreen() {
             <Text style={[styles.budgetNote, { color: theme.textMuted }]}>{t.budget.resetNote}</Text>
           </>
         ) : (
-          <Text style={[styles.budgetNote, { color: theme.textMuted }]}>{t.budget.noBudgetSet}</Text>
+          monthlyLists.length === 0 && (
+            <Text style={[styles.budgetNote, { color: theme.textMuted }]}>{t.budget.noMonthlyListForBudget}</Text>
+          )
         )}
       </Card>
     </View>
@@ -3091,9 +3083,6 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     minHeight: 56,
   },
-  budgetFieldRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: 40 },
-  budgetFieldLabel: { flex: 1, minWidth: 0, fontSize: FontSize.sm, fontFamily: Fonts.medium },
-  budgetFieldValue: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
   budgetPairRow: { flexDirection: 'row', gap: Spacing.sm },
   budgetCell: { flex: 1, minWidth: 0, borderRadius: Radius.md, padding: Spacing.sm, gap: 2 },
   budgetCellKey: { fontSize: FontSize.xs, fontFamily: Fonts.bold },

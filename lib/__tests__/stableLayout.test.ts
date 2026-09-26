@@ -224,38 +224,44 @@ describe('EnergyMeter — the strip names itself, and is set from a pop-up', () 
     expect(src).toMatch(/row\('week', t\.energyMeter\.thisWeek,/);
   });
 
-  it('has no stepper of its own — every number is set in the pop-up', () => {
-    // The reversal, pinned at the strongest available level: the component cannot render a
-    // Stepper because it does not import one. A ± on this line has no way to say whether it
-    // moves the capacity or the spend, and being always-there invites nudging it on every
-    // glance. This is the SECOND reversal on the question (an inline Collapsible editor held
-    // the same steppers before that) — read EnergyConfigSheet's header before a third.
+  it('has no stepper of its own — every number is set in the folded panel', () => {
+    // The component cannot render a Stepper because it does not import one. A bare ± on the
+    // card has no way to say whether it moves the capacity or the spend, and being always-there
+    // invites nudging it on every glance. The steppers live in EnergyConfigPanel, which is
+    // folded behind the adjust row (2026-09-26: edited in the card, no longer a sheet) — read
+    // EnergyConfigPanel's header before changing either half.
     expect(src).not.toMatch(/from '@\/components\/Stepper'/);
     expect(src).not.toMatch(/<Stepper/);
-    // The inline editor it replaced is gone with it, Collapsible and all.
-    expect(src).not.toMatch(/<Collapsible/);
+    expect(src).not.toMatch(/EnergyConfigSheet/);
   });
 
-  it('hands all three setters to the config sheet, which owns all three steppers', () => {
-    const sheetAt = src.indexOf('<EnergyConfigSheet');
-    expect(sheetAt).toBeGreaterThan(-1);
+  it('mounts the panel only inside a Collapsible driven by the card toggle — folded by default', () => {
+    // Every mount of the panel sits inside `<Collapsible open={configOpen}>`, and configOpen
+    // starts false. An always-open panel is the "too flexible" state the 2026-08-03 review killed.
+    expect(src).toMatch(/const \[configOpen, setConfigOpen\] = useState\(false\)/);
+    const mounts = [...src.matchAll(/\{configPanel\}/g)];
+    const wrapped = [...src.matchAll(/<Collapsible open=\{configOpen\}>\s*\{configPanel\}\s*<\/Collapsible>/g)];
+    expect({ mounts: mounts.length, wrapped: wrapped.length }).toEqual({ mounts: 2, wrapped: 2 });
+  });
+
+  it('hands all three setters to the panel, which owns all three steppers', () => {
+    const panelAt = src.indexOf('<EnergyConfigPanel');
+    expect(panelAt).toBeGreaterThan(-1);
     for (const setter of ['setDayCapacity(today', 'setWeekCapacity(today', 'setDayBoost(today']) {
       const at = src.indexOf(setter);
       expect({ setter, found: at > -1 }).toEqual({ setter, found: true });
-      // Passed as a prop on the sheet element, i.e. after its opening tag — not called from a
-      // control drawn on the strip above it.
-      expect({ setter, onSheet: at > sheetAt }).toEqual({ setter, onSheet: true });
+      // Passed as a prop on the panel element, i.e. after its opening tag.
+      expect({ setter, onPanel: at > panelAt }).toEqual({ setter, onPanel: true });
     }
-    // And the sheet is where the three steppers actually live.
-    const sheet = code('components/EnergyConfigSheet.tsx');
-    expect([...sheet.matchAll(/<Stepper/g)]).toHaveLength(1); // one shared `field()` renderer
+    const panel = code('components/EnergyConfigPanel.tsx');
+    expect([...panel.matchAll(/<Stepper/g)]).toHaveLength(1); // one shared `field()` renderer
     for (const prop of ['onDayCapacity', 'onWeekCapacity', 'onDayBoost']) {
-      expect({ prop, wired: sheet.includes(prop) }).toEqual({ prop, wired: true });
+      expect({ prop, wired: panel.includes(prop) }).toEqual({ prop, wired: true });
     }
     // Every field carries a line saying what its stepper CHANGES — the copy half of "it is not
     // obvious what is what". A stepper with a bare label is the state this replaced.
     for (const hint of ['todayCapacityHint', 'weekCapacityHint', 'boostHint']) {
-      expect({ hint, used: sheet.includes(hint) }).toEqual({ hint, used: true });
+      expect({ hint, used: panel.includes(hint) }).toEqual({ hint, used: true });
     }
   });
 
