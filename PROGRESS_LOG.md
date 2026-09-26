@@ -6292,3 +6292,66 @@ Check on device, both themes:
 3. [dark]  Scroll: a card's tint shifts as it travels over the field.                                          pass / fail
 4. [dark]  Muted text ("Anytime", "Not set for today") is still comfortable to read.                           pass / fail
 5. [light] Unchanged from yesterday — nothing in light moved.                                                  pass / fail
+
+## 2026-09-26 — Fall lands; the gloss is blocked by an AA wall, measured
+**Status: Fall shipped. Gloss NOT shipped — it needs a maintainer ruling, not a tuning pass.**
+
+**Fall.** The descent chosen from the three rendered mockups: the crown's trunk carries on to
+(202,292) and a twig to (198,496), with four leaves, down the middle. `DESCENT` is folded into
+`CROWN` and the variant switch is deleted.
+
+Three guards were rewritten in place, all because Fall makes an old premise false:
+- *"has no stroke, leaf or mote inside `CLEAR_ZONE`"* → a **bounded intrusion** rule, which is
+  stronger for everything except the one named limb: `CROWN_BASE` must still be fully clear, and
+  `clearZoneOffenders(CROWN)` may contain **only** descent elements, at `o ≤ 0.28` and `w ≤ 5`.
+- *"keeps each bough ordered trunk-to-twig"* → **per limb**. It modelled a bough as a chain; a
+  bough with two limbs is a tree, and no ordering of `{6.5, 4.2, 3.0, 5.0, 3.6, 2.4}` is
+  monotonic. The old model had already cost the drawing once — the descent's first draft was
+  thinned to w 2.8 to fit the flat ladder and rendered **measurably invisible** (0.3–0.5% of
+  pixels). The model gave, not the drawing.
+- The three canopy guards (margin, growth containment, growth loudness) now measure `CROWN_BASE`
+  rather than `CROWN`, because growth hangs off the canopy and the descent is a different limb.
+
+### The gloss: asked for, attempted, and NOT shipped
+The maintainer accepted gloss at the price I quoted (*"costs `textMuted` 3.45 → 2.91"*). That
+price was wrong in both directions, and the work is recorded here rather than shipped.
+
+**First, a real finding.** `getGlassPane` sized both specular layers as a **share of the card** —
+sheen dying at 58%, bloom at 22%. On the 120px cards the material was designed against that is a
+corner highlight; on Home's 470px Today card it is a **270px and a 103px wash**, sitting under the
+body text. A specular that scales with its object is wrong. RN 0.85 takes `px` stops
+(`processBackgroundImage.js:784`, `LengthPercentageType.POINT`), so absolute geometry is available.
+
+**It did not buy what I expected, and the test that proved it is the one I nearly skipped.** On
+the tall Today card, absolute geometry plus `glassSheen` 0.22 / `glassBloom` 0.14 measured
+*better* than shipped — subtitle row **4.90:1 vs 4.82:1**, mid-card byte-identical. On the
+**short** Energy card the same build measured **2.45:1 against a shipped 4.05:1**, 18px in. On a
+short card the whole face sits inside the hotspot, so geometry protects nothing.
+
+**Which means `lib/__tests__/colors.test.ts`'s lit-hotspot guard was right and its stated
+reasoning holds** — *"the bound has to hold on the ALPHAS, not on the current geometry of the
+gradient"*. I was about to overturn it on an argument that the short-card render refutes.
+
+**There is no headroom at all.** Stacked white over `glassTop`, against `textMuted` ≥ 4.5:1:
+
+| stacked alpha | textMuted | |
+|---|---|---|
+| **0.0426 (shipped)** | **4.522:1** | OK, by half a percent |
+| 0.05 | 4.421:1 | fails |
+| 0.10 | 3.792:1 | fails |
+
+So gloss is not a tuning nudge — it is a request to lower an accessibility floor on the brightest
+part of a card, and that is the maintainer's call. The geometry change was reverted with the
+alphas: at shipped alphas it is a no-op that only removes a tail, so it would have been churn
+across 40 baselines for nothing.
+
+### Verification — Fall (2026-09-26)
+Changed at: `lib/boughlight.ts`, `lib/__tests__/boughlight.test.ts`.
+tsc / eslint / jest (142 suites, 2681) clean. `visual` both themes re-blessed; byte deltas per
+A2b **+0.4% to +1.4%**, with Settings at ±0.0% (`decorative={false}`, so no crown) — the right
+size and the right shape for one thin branch.
+
+Check on device, both themes:
+1. [dark]  Home: a branch descends from the canopy through the middle, reading through the cards.   pass / fail
+2. [dark]  It is texture behind the glass, not a line drawn over the cards.                         pass / fail
+3. [light] Present but much fainter, by design.                                                     pass / fail
