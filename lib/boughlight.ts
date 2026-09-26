@@ -254,7 +254,7 @@ export const HERO: Frame = {
  * and `lib/__tests__/boughlight.test.ts` runs it. Put a new branch on the bough, or take it to
  * `HERO`.
  */
-const CROWN_BASE: Frame = {
+export const CROWN_BASE: Frame = {
   glow: { cx: 205, cy: 10, rx: 240, ry: 120 },
   halo: { cx: 205, cy: -58, r: 132, ring: 0.22, soft: 0.12 },
   bough: {
@@ -295,96 +295,49 @@ const CROWN_BASE: Frame = {
 };
 
 /**
- * ⚠️ **OFF, AND AWAITING A DECISION — not scratch, and not a feature that was tried and dropped
- * (2026-09-25).** `DESCENT` is `'none'`, so this file draws exactly what shipped in #736 and this
- * block changes no pixel. It is here because the geometry was built, rendered and sent as mockups,
- * and the choice is the maintainer's to make.
+ * The crown's DESCENT — the limb that falls out of the canopy into the middle of the screen.
  *
  * Maintainer, after the crown shipped: *"Works like a charm. Only missing the particles and
- * branch going down."* The particles were a regression (see `components/ParticleBackground.tsx`);
- * the branch is this. Crown's bough stops at (258,84) — three short strokes, all above y 100 —
- * because that is the frame the handoff drew for a screen with a card stack over the middle.
+ * branch going down."* The particles were a regression (`components/ParticleBackground.tsx`);
+ * this is the branch. `CROWN_BASE`'s bough stops at (258,84) — three short strokes, all above
+ * y 100 — because that is the frame the handoff drew for a screen with a card stack over the
+ * middle. Three variants were built, rendered from the real harness and sent as mockups; this is
+ * the one chosen ("Fall", the closest reading of the handoff's own hero descent).
  *
- * **When a variant is picked:** set `DESCENT` to it, delete the other, delete this switch, and do
- * the guard work the chosen one needs (see the ⚠️ on `DESCENTS` — the ordering guard models a
- * bough as a chain and a two-limbed bough is a tree). **If the answer is "none of them", delete
- * this whole block** rather than leaving a switch nobody is going to turn.
+ * ⚠️ **IT ENTERS `CLEAR_ZONE`, AND THAT IS THE POINT RATHER THAN AN OVERSIGHT.** Read
+ * `CLEAR_ZONE`'s own correction first: that box is the handoff MOCKUP's card column (x 84–306),
+ * and this app's real one is x 15–375, so at a 16px gutter a descent is behind a card wherever
+ * it goes. There is no placement that avoids the cards; the only question is which gaps it
+ * crosses. `lib/__tests__/boughlight.test.ts` therefore checks a BOUNDED INTRUSION rather than
+ * containment — `CROWN_BASE` must still be fully clear, and only these named, quiet elements may
+ * cross, at `o ≤ 0.28` and `w ≤ 5`.
+ *
+ * ⚠️ **A TAPERING CONTINUATION OF THE TRUNK (w 5.0 → 3.6 → 2.4), and the first draft was not —
+ * it was a twig at w 2.8 / o 0.19, and it was MEASURED INVISIBLE.** Rendered against the shipped
+ * frame it moved 0.3–0.5% of the pixels, i.e. it did not answer *"branch going down"* at all. It
+ * was drawn that thin to satisfy the ordering guard, which required anything appended to sit
+ * under the base bough's thinnest stroke (w 3.0 / o 0.20). That guard models a bough as a CHAIN,
+ * and a bough with two limbs of different lengths is a TREE: no ordering of
+ * {6.5, 4.2, 3.0, 5.0, 3.6, 2.4} is monotonic. **The model gave, not the drawing** — the guard
+ * orders PER LIMB now, which is what it always meant.
+ *
+ * ⚠️ **It is ~2.7× more visible than when it was drawn, and that was checked on the render.** The
+ * strokes were designed against a card transmitting 25%; #737's tinted veil transmits **45%**, so
+ * a stroke at `o 0.28` behind a card composites at ~12.6% of the tint rather than ~4.75%.
  */
-export type Descent = 'none' | 'limb' | 'fall';
-export const DESCENT: Descent = 'none';
-
-/**
- * What a descent adds to the crown's bough.
- *
- * ⚠️ **Both are a TAPERING CONTINUATION OF THE TRUNK (w 5.0 → 3.6 → 2.4, o 0.28 → 0.22 → 0.17),
- * and the first draft of them was not — it was a twig at w 2.8 / o 0.19, and it was MEASURED
- * INVISIBLE.** Rendered against the shipped frame it moved 0.3–0.5% of the pixels, i.e. it did
- * not answer *"branch going down"* at all. The reason it was drawn that thin is worth keeping:
- * `lib/__tests__/boughlight.test.ts` requires a bough's strokes to thin and fade monotonically
- * trunk-to-twig, the crown's ladder ends at w 3.0 / o 0.20, and anything APPENDED therefore has
- * to sit under it.
- *   ⚠️ **That guard models a bough as a CHAIN, and a bough with two limbs of different lengths is
- * a TREE** — no single ordering of {trunk 6.5, side 4.2, side 3.0, descent 5.0, 3.6, 2.4} is
- * monotonic, whichever end the descent is spliced onto. So the guard fails on these by
- * construction, and the fix when a variant is chosen is to order PER LIMB rather than over one
- * flat list. Making the drawing wrong to keep the model right is the wrong way round.
- *
- * ⚠️ **`fall` KNOWINGLY BREAKS `clearZoneOffenders`, and `limb` is split in two to avoid it.**
- * `strokeBox` bounds a bézier by its control hull, which is conservative: a single curve from
- * (258,84) to (336,336) has a hull of x 258–340 × y 84–336 and overlaps the zone even though no
- * point of the actual curve below y 236 is left of x 335. Splitting it at y≈228 gives two hulls
- * that each clear it honestly. `fall` makes no such attempt — it goes down the middle on purpose.
- *
- * ⚠️ **And `CLEAR_ZONE` is NOT this app's card column** — see the correction at that constant.
- * Measured off the shipped dark baseline, the real column is x 15–375 against the zone's 84–306,
- * so a descent is behind a card wherever it goes. At 25% transmission a stroke at o 0.19
- * composites to about **4.75%** under a card and stays crisp in the 12px gaps between them, which
- * is the actual difference between the two variants: not "clear vs. not", but which gaps it
- * crosses.
- */
-export const DESCENTS: Record<Exclude<Descent, 'none'>, { strokes: Branch[]; leaves: Leaf[] }> = {
-  // Down the right gutter, clearing the zone with the split described above.
-  limb: {
-    strokes: [
-      { d: 'M258 84 C 296 132 318 180 322 228', w: 5, o: 0.28 },
-      { d: 'M322 228 C 336 270 342 304 336 352', w: 3.6, o: 0.22 },
-      { d: 'M336 352 C 344 390 340 418 330 446', w: 2.4, o: 0.17 },
-    ],
-    leaves: [
-      { x: 344, y: 200, rot: 84, s: 0.5 },
-      { x: 342, y: 300, rot: 128, s: 0.48 },
-      { x: 334, y: 400, rot: 62, s: 0.44 },
-    ],
-  },
-  // Down the middle, the closest reading of the handoff's hero descent.
-  fall: {
-    strokes: [
-      { d: 'M258 84 C 232 138 210 210 202 292', w: 5, o: 0.28 },
-      { d: 'M202 292 C 214 332 212 366 196 402', w: 3.6, o: 0.22 },
-      { d: 'M196 402 C 186 436 188 466 198 496', w: 2.4, o: 0.17 },
-    ],
-    leaves: [
-      { x: 208, y: 196, rot: 104, s: 0.56 },
-      { x: 198, y: 300, rot: 46, s: 0.52 },
-      { x: 190, y: 392, rot: 132, s: 0.46 },
-      { x: 198, y: 486, rot: 20, s: 0.4 },
-    ],
-  },
+export const DESCENT: { strokes: Branch[]; leaves: Leaf[] } = {
+  strokes: [
+    { d: 'M258 84 C 232 138 210 210 202 292', w: 5, o: 0.28 },
+    { d: 'M202 292 C 214 332 212 366 196 402', w: 3.6, o: 0.22 },
+    { d: 'M196 402 C 186 436 188 466 198 496', w: 2.4, o: 0.17 },
+  ],
+  leaves: [
+    { x: 208, y: 196, rot: 104, s: 0.56 },
+    { x: 198, y: 300, rot: 46, s: 0.52 },
+    { x: 190, y: 392, rot: 132, s: 0.46 },
+    { x: 198, y: 486, rot: 20, s: 0.4 },
+  ],
 };
-
-/** A frame with a descent appended to its bough. Identity-stable when there is nothing to add. */
-export function withDescent(frame: Frame, descent: Descent): Frame {
-  if (descent === 'none') return frame;
-  const d = DESCENTS[descent];
-  return {
-    ...frame,
-    bough: {
-      ...frame.bough,
-      strokes: [...frame.bough.strokes, ...d.strokes],
-      leaves: [...frame.bough.leaves, ...d.leaves],
-    },
-  };
-}
 
 /**
  * The crown's GROWTH branches — the handoff's *"New branches append off the (390,14) bough and
@@ -454,8 +407,21 @@ export function growthFrame(
   };
 }
 
-/** The crown as drawn — its base frame plus whichever descent `DESCENT` selects. */
-export const CROWN: Frame = withDescent(CROWN_BASE, DESCENT);
+/**
+ * The crown as drawn: `CROWN_BASE`'s canopy plus the `DESCENT` limb.
+ *
+ * ⚠️ **`CROWN_BASE` stays exported and is not an implementation detail** — the containment guard
+ * measures the two separately, because the whole claim is that the canopy is still fully clear of
+ * the card column and exactly one named limb crosses it.
+ */
+export const CROWN: Frame = {
+  ...CROWN_BASE,
+  bough: {
+    ...CROWN_BASE.bough,
+    strokes: [...CROWN_BASE.bough.strokes, ...DESCENT.strokes],
+    leaves: [...CROWN_BASE.bough.leaves, ...DESCENT.leaves],
+  },
+};
 
 export const FRAME: Record<BoughlightVariant, Frame> = { hero: HERO, crown: CROWN };
 

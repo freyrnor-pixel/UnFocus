@@ -29,7 +29,9 @@ import { GROWTH_LEVELS } from '@/lib/growth';
 import {
   CLEAR_ZONE,
   CROWN,
+  CROWN_BASE,
   CROWN_GROWTH,
+  DESCENT,
   FIELD_OPACITY,
   FRAME,
   HALO_PEAK,
@@ -63,8 +65,47 @@ describe('the crown never enters the card column', () => {
   // (which holds at ANY rotation, so editing a `rot` cannot silently invalidate this), and every
   // mote by its own r-50*scale orb. All three are conservative — this can over-report an
   // intrusion, never miss one, which is the direction a guard should err in.
-  it('has no stroke, leaf or mote inside CLEAR_ZONE', () => {
-    expect(clearZoneOffenders(CROWN)).toEqual([]);
+  // ⚠️ **THE CROWN ENTERS THE ZONE NOW, ON PURPOSE (2026-09-26), AND THIS RULE IS REWRITTEN
+  // RATHER THAN RELAXED.** The maintainer asked for the branch to come down; `DESCENT` is that
+  // limb, and it crosses the box.
+  //
+  // Deleting the rule was not an option and neither was keeping it, because its PREMISE turned
+  // out to be wrong independently of the descent: `CLEAR_ZONE` is x 84–306 and this app's real
+  // card column is **x 15–375** (measured off the shipped baseline — see the correction at
+  // `CLEAR_ZONE`). At a 16px gutter there is no placement that avoids the cards, so "keeps art
+  // out of the card column" was never what this checked. What it really protects is the MIDDLE
+  // of the screen, which is still worth protecting.
+  //
+  // So it becomes a BOUNDED INTRUSION rule, which is strictly stronger than the old one for
+  // everything except the one named limb:
+  //   · the canopy — halo, glow, motes, the original bough — is still FULLY clear, and
+  //   · only elements of `DESCENT` may cross, and only while they stay quiet.
+  it('keeps the canopy out of the card column entirely', () => {
+    expect(clearZoneOffenders(CROWN_BASE)).toEqual([]);
+  });
+
+  it('lets ONLY the descent cross, and only while it stays quiet', () => {
+    // Every intruder must be one of the descent's own elements. `clearZoneOffenders` names what
+    // it finds, so this compares the names rather than a count — a new mote drifting into the
+    // box would be caught even if the total happened to match.
+    const offenders = clearZoneOffenders(CROWN);
+    const base = CROWN_BASE.bough;
+    const descentStrokeIdx = DESCENT.strokes.map((_, i) => base.strokes.length + i);
+    const descentLeafIdx = DESCENT.leaves.map((_, i) => base.leaves.length + i);
+    const allowed = (name: string) =>
+      descentStrokeIdx.some((i) => name.startsWith(`stroke ${i}:`)) ||
+      descentLeafIdx.some((i) => name.startsWith(`leaf ${i} `));
+    expect(offenders.filter((o) => !allowed(o))).toEqual([]);
+    // ...and it does cross, or this whole block is describing a limb that is not there.
+    expect(offenders.length).toBeGreaterThan(0);
+
+    // The ceiling that makes the intrusion acceptable: quieter than the base bough's trunk, and
+    // thin. At 45% transmission (#737's tinted veil) `o 0.28` composites to ~12.6% of the tint
+    // behind a card — present, and nowhere near the 0.42 the 2026-08-17 art was pulled at.
+    for (const b of DESCENT.strokes) {
+      expect(b.o).toBeLessThanOrEqual(0.28);
+      expect(b.w).toBeLessThanOrEqual(5);
+    }
   });
 
   // ⚠️ The hero is exempt and that is the brief's own intent, not an oversight — see
@@ -86,7 +127,10 @@ describe('the crown never enters the card column', () => {
       x1: CLEAR_ZONE.x1 + 24,
       y1: CLEAR_ZONE.y1 + 24,
     };
-    expect(clearZoneOffenders(CROWN, grown)).toEqual([]);
+    // `CROWN_BASE`, not `CROWN`: the descent crosses the zone by design, so the margin is a
+    // property of the CANOPY — it is what keeps the canopy from creeping down to the card column
+    // a pixel at a time. The descent's own ceiling is asserted above.
+    expect(clearZoneOffenders(CROWN_BASE, grown)).toEqual([]);
   });
 });
 
@@ -129,13 +173,26 @@ describe('the strength ladder stays under the art that was deleted', () => {
     expect(Math.max(...loudest)).toBeLessThan(DELETED_ART_OPACITY);
   });
 
-  it('keeps each bough ordered trunk-to-twig', () => {
-    // A bough reads as a bough because the strokes thin and fade outward together. Both frames
-    // list theirs from the trunk out, so both sequences must be monotonically decreasing in
-    // width AND in alpha — which is a real property of the drawing, not a coding convention.
-    for (const [name, frame] of Object.entries(FRAME)) {
-      const widths = frame.bough.strokes.map((b) => b.w);
-      const alphas = frame.bough.strokes.map((b) => b.o);
+  it('keeps each LIMB ordered trunk-to-twig', () => {
+    // A bough reads as a bough because the strokes thin and fade outward together.
+    //
+    // ⚠️ **PER LIMB since 2026-09-26, and the change is the guard being wrong rather than the
+    // drawing.** This ran over `frame.bough.strokes` as ONE list, which models a bough as a
+    // CHAIN. A bough with two limbs of different lengths is a TREE: the crown is a canopy
+    // (6.5 → 4.2 → 3.0) plus a descent (5.0 → 3.6 → 2.4), and no ordering of those six is
+    // monotonic — the descent's trunk is legitimately thicker than the canopy's outermost twig,
+    // because it is a different limb.
+    //   The cost of the old model was paid in the drawing: the descent's first draft was drawn at
+    // w 2.8 to fit under the flat ladder, rendered, and MEASURED INVISIBLE (0.3–0.5% of pixels).
+    // Making the drawing wrong to keep the model right is the wrong way round.
+    const limbs: [string, { w: number; o: number }[]][] = [
+      ['hero', HERO.bough.strokes],
+      ['crown canopy', CROWN_BASE.bough.strokes],
+      ['crown descent', DESCENT.strokes],
+    ];
+    for (const [name, strokes] of limbs) {
+      const widths = strokes.map((b) => b.w);
+      const alphas = strokes.map((b) => b.o);
       expect({ name, widths }).toEqual({ name, widths: [...widths].sort((a, b) => b - a) });
       expect({ name, alphas }).toEqual({ name, alphas: [...alphas].sort((a, b) => b - a) });
     }
@@ -199,8 +256,11 @@ describe('the growth channel', () => {
       x1: CLEAR_ZONE.x1 + 24,
       y1: CLEAR_ZONE.y1 + 24,
     };
+    // Growth branches hang off the CANOPY, so the canopy plus every tier of them is what has to
+    // stay clear. Taken with 'lets ONLY the descent cross' above, that covers the rendered frame:
+    // canopy + growth is empty here, and the descent is the only thing that ever intrudes there.
     for (let level = 0; level <= CROWN_GROWTH.length; level++) {
-      const grown = growthFrame(CROWN, 'crown', level);
+      const grown = growthFrame(CROWN_BASE, 'crown', level);
       expect({ level, offenders: clearZoneOffenders(grown, margin) }).toEqual({ level, offenders: [] });
     }
   });
@@ -208,8 +268,13 @@ describe('the growth channel', () => {
   it('thickens the canopy without making the drawing louder', () => {
     // Every growth stroke is thinner and fainter than the base bough's faintest, so a maxed-out
     // streak adds density, never weight. Without this a tier could quietly out-shout the trunk.
-    const quietestBase = Math.min(...CROWN.bough.strokes.map((b) => b.o));
-    const thinnestBase = Math.min(...CROWN.bough.strokes.map((b) => b.w));
+    // ⚠️ **`CROWN_BASE`, not `CROWN` (2026-09-26).** Growth appends to the CANOPY, so the rung it
+    // must stay under is the canopy's faintest (w 3.0 / o 0.20) — not the descent's outermost
+    // twig (w 2.4 / o 0.17), which is a different limb and legitimately thinner. Measuring
+    // against the whole bough would force every growth tier under the descent's tip and quietly
+    // shrink the reward channel to nothing.
+    const quietestBase = Math.min(...CROWN_BASE.bough.strokes.map((b) => b.o));
+    const thinnestBase = Math.min(...CROWN_BASE.bough.strokes.map((b) => b.w));
     for (const [i, g] of CROWN_GROWTH.entries()) {
       expect({ i, o: g.branch.o < quietestBase }).toEqual({ i, o: true });
       expect({ i, w: g.branch.w < thinnestBase }).toEqual({ i, w: true });
