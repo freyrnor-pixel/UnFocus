@@ -956,7 +956,7 @@ const en = {
     other: 'Other',
   },
   // --- Session A2·2: WeekListCard chrome + sticky-header overflow (Decision 011) ---
-  toBuySection: (n: number) => `To buy (${n})`,
+  toBuySection: (n: number) => `In list (${n})`,
   /**
    * Quick-add tray (2026-08-20) — one-tap bundles that append to the list you are looking at,
    * so a week list can be started without typing. Ids match `SHOPPING_STARTERS` in
@@ -1398,6 +1398,8 @@ const en = {
   addDishSheetTitle: 'Add dish to monthly list',
   noDishesAvailable: 'No saved dishes yet — add one on the Meals screen first.',
   addDishBtn: 'Add dish',
+  /** The Monthly card's one primary action (2026-09-26): month → week, the chain's own step. */
+  makeWeekListFromMonthlyBtn: 'Make week list from here',
   deleteDish: 'Delete dish',
   duplicateDishBtn: 'Duplicate dish',
   dishCopySuffix: ' (copy)',
@@ -3111,7 +3113,7 @@ const no: typeof en = {
     other: 'Annet',
   },
   // --- Session A2·2: WeekListCard chrome + sticky-header overflow (Decision 011) ---
-  toBuySection: (n: number) => `Å kjøpe (${n})`,
+  toBuySection: (n: number) => `I liste (${n})`,
   shoppingStarters: {
     trayLabel: 'Legg til raskt',
     basics: 'Basisvarer',
@@ -3119,7 +3121,7 @@ const no: typeof en = {
     cleaning: 'Rengjøring',
     added: (n: number) => `${n} ${n === 1 ? 'vare' : 'varer'} lagt til`,
   },
-  inCartSection: (n: number) => `I kurven (${n})`,
+  inCartSection: (n: number) => `I kurv (${n})`,
   recentlyUsedSection: (n: number) => `Brukt nylig (${n})`,
   purchasedSection: (n: number) => `Kjøpt (${n})`,
   fromMonthlySection: 'Fra månedsliste',
@@ -3795,6 +3797,7 @@ const no: typeof en = {
   addDishSheetTitle: 'Legg rett til i månedslisten',
   noDishesAvailable: 'Ingen lagrede retter ennå — legg til en på Måltider-siden først.',
   addDishBtn: 'Legg til rett',
+  makeWeekListFromMonthlyBtn: 'Lag ukeliste herfra',
   deleteDish: 'Slett rett',
   duplicateDishBtn: 'Dupliser rett',
   dishCopySuffix: ' (kopi)',
@@ -4946,7 +4949,7 @@ const is: typeof en = {
     personal: 'Snyrtivörur',
     other: 'Annað',
   },
-  toBuySection: (n: number) => `Að kaupa (${n})`,
+  toBuySection: (n: number) => `Á lista (${n})`,
   shoppingStarters: {
     trayLabel: 'Bæta við hratt',
     basics: 'Grunnvörur',
@@ -5631,6 +5634,7 @@ const is: typeof en = {
   addDishSheetTitle: 'Setja rétt á mánaðarlistann',
   noDishesAvailable: 'Engir vistaðir réttir enn — bættu einum við á Matar-síðunni fyrst.',
   addDishBtn: 'Bæta við rétti',
+  makeWeekListFromMonthlyBtn: 'Búa til vikulista héðan',
   deleteDish: 'Eyða rétti',
   duplicateDishBtn: 'Afrita rétt',
   dishCopySuffix: ' (afrit)',

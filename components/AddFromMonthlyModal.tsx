@@ -17,7 +17,8 @@
  *             components/FormControls (Checkbox), constants/theme, lib/i18n, lib/money (formatKr),
  *             lib/useAppTheme, react-native-reanimated, store/useShoppingStore (ShoppingItem type),
  *             store/useMonthlyListStore (MonthlyList type)
- *   Used by → components/WeekListCard.tsx (rendered once per card, replacing the inline panel)
+ *   Used by → components/WeekListCard.tsx (rendered once per card, replacing the inline panel),
+ *             app/(tabs)/shopping.tsx (the Monthly card's "Make week list from here", preselectAll)
  *   Data    → none directly — `items`/`lists` and the batch `onAdd` callback are owned by the parent
  *
  * Edit notes:
@@ -60,21 +61,27 @@ type Props = {
   lists: MonthlyList[];
   onAdd: (items: ShoppingItem[]) => void;
   onClose: () => void;
+  /** Open with every item already ticked (2026-09-26) — the Monthly card's "Make week list
+   *  from here" opens it this way, so the default is "take the whole base" and the user
+   *  only unticks what this week doesn't need. The week card's "From monthly" keeps the
+   *  empty start. */
+  preselectAll?: boolean;
 };
 
-export default function AddFromMonthlyModal({ visible, items, lists, onAdd, onClose }: Props) {
+export default function AddFromMonthlyModal({ visible, items, lists, onAdd, onClose, preselectAll = false }: Props) {
   const theme = useAppTheme();
   const t = useT();
   const { reducedMotion } = useAccessibility();
 
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<string | null>(null);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const allIds = () => new Set(preselectAll ? items.map((i) => i.id) : []);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => (visible ? allIds() : new Set()));
   const wasVisible = useRef(visible);
   if (visible && !wasVisible.current) {
     setSearch('');
     setCategory(null);
-    setSelectedIds(new Set());
+    setSelectedIds(allIds());
   }
   wasVisible.current = visible;
 

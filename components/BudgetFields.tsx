@@ -19,7 +19,7 @@
  * evaluates the number).
  *
  * Connections:
- *   Imports → components/FormControls (Input), constants/theme, lib/i18n, lib/reminders
+ *   Imports → components/FormControls (Input), constants/theme (Spacing, FIELD_GLOW_CLEARANCE), lib/i18n, lib/reminders
  *             (syncReminders — payday moves the monthly reminder, the same re-sync app/settings.tsx
  *             does for `monthlyResetDate`), lib/useAppTheme, store/useMonthlyListStore,
  *             store/useSettingsStore
@@ -30,7 +30,7 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Input } from '@/components/FormControls';
-import { Spacing } from '@/constants/theme';
+import { FIELD_GLOW_CLEARANCE, Spacing } from '@/constants/theme';
 import { useT } from '@/lib/i18n';
 import { syncReminders } from '@/lib/reminders';
 import { useScaledStyles } from '@/lib/useAppTheme';
@@ -136,5 +136,7 @@ export default function BudgetFields() {
 }
 
 const baseStyles = StyleSheet.create({
-  fields: { gap: Spacing.sm },
+  // `padding: FIELD_GLOW_CLEARANCE` — the room each focused field's glow needs (constants/theme.ts);
+  // flush inside the card, the halo audit measured 0px of it on every side.
+  fields: { gap: Spacing.sm, padding: FIELD_GLOW_CLEARANCE },
 });

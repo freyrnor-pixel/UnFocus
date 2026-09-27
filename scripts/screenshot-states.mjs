@@ -781,6 +781,20 @@ async function main() {
         }
         await closeOverlays(page);
         await page.waitForTimeout(900);
+        // Re-settle the pager (2026-09-26) — a WEB-ONLY artefact, not an app bug. Since the config
+        // panel moved inline into the card (#741), focusing its stepper made the browser scroll
+        // the pager's `overflow: hidden` track (measured: scrollLeft 160 of a 2150px track) to
+        // bring the focused field into view. react-native-web positions pages with a transform,
+        // so that track's scrollLeft must be 0; native has no such scroll. Both themes had
+        // blessed the resulting half-swipe as the baseline. Nav taps don't touch scrollLeft, so
+        // reset it directly on every clipped container.
+        await page.evaluate(() => {
+          document.activeElement?.blur?.();
+          for (const el of document.querySelectorAll('*')) {
+            if (el.scrollLeft > 0 && getComputedStyle(el).overflowX === 'hidden') el.scrollLeft = 0;
+          }
+        });
+        await page.waitForTimeout(600);
         // Only shoot it if the starter card is actually gone — otherwise this is another
         // confident capture of the state it was meant to replace.
         if (!(await page.getByText("Set the day's energy", { exact: true }).first().isVisible({ timeout: 1500 }).catch(() => false))) {
