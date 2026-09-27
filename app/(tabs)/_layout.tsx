@@ -15,8 +15,8 @@
  * longer react-navigation's own tab-bar slot), applying the bottom safe-area inset itself the
  * way ScreenScaffold's old bottomBlock did.
  *
- * Also renders ONE shared L1/L2 background (ScreenBackground + a cross-faded
- * HomeHeroBackground) behind the whole pager, instead of each of the
+ * Also renders ONE shared L1/L2 background (ScreenBackground + ParticleBackground; the
+ * cross-faded HomeHeroBackground was removed 2026-09-27 — one colour on every tab) behind the whole pager, instead of each of the
  * 3 screens mounting its own via ScreenScaffold. react-native-pager-view slides each
  * screen's whole subtree horizontally, so a per-screen background used to slide right
  * along with the content — reading as "each screen has its own picture" instead of a fixed
@@ -33,7 +33,7 @@
  *   Imports → expo-router/js-top-tabs (TopTabs — Expo Router's own SDK-56 top-tabs
  *             wrapper, not @react-navigation/material-top-tabs directly; see Edit notes),
  *             react-native-safe-area-context, components/BottomNav, components/ScreenBackground,
- *             components/HomeHeroBackground, lib/siteNav
+ *             components/ParticleBackground, lib/siteNav
  *   Note    → the navigator's `initialRouteName` is the user's chosen starting tab
  *             (fixed at the centre tab since 2026-08-21 — see START_TAB_ROUTE below),
  *             frozen at mount. That is NOT the same thing as `unstable_settings.
@@ -208,19 +208,15 @@
  *     ever goes flat again after a react-navigation/expo-router upgrade, check this
  *     sceneStyle override first.
  */
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, StyleSheet, View } from 'react-native';
+import React, { useMemo, useRef, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { TopTabs, MaterialTopTabBarProps } from 'expo-router/js-top-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BottomNav, { NAV_FLOAT_GAP, NAV_PAINTED_HEIGHT } from '@/components/BottomNav';
 import ScreenBackground from '@/components/ScreenBackground';
 import TourSpotlight from '@/components/TourSpotlight';
-import HomeHeroBackground from '@/components/HomeHeroBackground';
 import ParticleBackground from '@/components/ParticleBackground';
-import { useAccessibility } from '@/lib/useAppTheme';
-import { useSettingsStore } from '@/store/useSettingsStore';
-import { START_TAB_ROUTE, TAB_ROUTE_NAME } from '@/lib/siteNav';
-import { Duration } from '@/constants/motion';
+import { START_TAB_ROUTE } from '@/lib/siteNav';
 import { CHROME_FLOAT_INSET } from '@/constants/theme';
 
 // Max horizontal drift (px) of the shared background as you swipe across the tabs — a
@@ -347,18 +343,6 @@ export const unstable_settings = { initialRouteName: START_TAB_ROUTE };
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
-  const { reducedMotion } = useAccessibility();
-  // ⚠️ **`reduceEffects` reaches this file as of 2026-09-01, and until then it did not reach the
-  // swipe at all.** The switch had exactly three consumers — two in `components/Surface.tsx`, one
-  // in `components/ScreenBackground.tsx` — so "reduce visual effects" turned off card blur, card
-  // shadows and the orb field and left every per-frame animation in the pager running. The report
-  // was *"even when visual effects turned off it stutters"*, and that is the gap it names: the
-  // parallax below runs a JS listener on EVERY frame of every swipe and an eased tween on every
-  // settle, and the hero layer cross-fades a full-screen SVG on every tab change.
-  //   Folded into one flag rather than checked separately at each site: `reducedMotion` already
-  // stills all of this, and a user who asked for fewer effects is asking for the same thing here.
-  const reduceEffects = useSettingsStore((st) => st.reduceEffects);
-  const stillBackdrop = reducedMotion || reduceEffects;
   // Which tab is currently showing. It STARTS on the centre tab, always — see
   // `START_TAB_ROUTE` above for why this stopped reading `settings.startScreen` on 2026-08-21.
   // This is still state because the pager writes the live tab back into it (the backdrop and
@@ -366,7 +350,6 @@ export default function TabsLayout() {
   const [activeRouteName, setActiveRouteName] = useState<string>(START_TAB_ROUTE);
   // Frozen at mount so nothing can re-key the navigator mid-session.
   const startRouteName = useRef(activeRouteName).current;
-  const isHomeActive = activeRouteName === TAB_ROUTE_NAME['/'];
 
   // The pager's live scroll position (0..n-1 across the tabs), lifted up from the tab bar
   // (see TabBarWithBackgroundSync). Null until the first tab-bar render sets it. We only ever
@@ -398,40 +381,18 @@ export default function TabsLayout() {
   //   `styles.bgLayer` keeps its ±MAX_PARALLAX oversize deliberately: removing it would resize
   // the backdrop SVG's canvas and move pixels, and this change is meant to move none.
 
-  // Both backgrounds stay mounted; we cross-fade the hero layer's opacity instead of
-  // swapping which one is mounted (see file header). ScreenBackground sits underneath at
-  // full opacity; HomeHeroBackground overlays it and fades in on Home, out elsewhere — so
-  // no SVG/gradient view is created or destroyed at the frame a swipe settles (the old
-  // remount was a per-swipe hitch). reducedMotion snaps instead of animating (§7).
-  const heroOpacity = useRef(new Animated.Value(isHomeActive ? 1 : 0)).current;
-  useEffect(() => {
-    const to = isHomeActive ? 1 : 0;
-    if (stillBackdrop) {
-      heroOpacity.setValue(to);
-      return;
-    }
-    const anim = Animated.timing(heroOpacity, {
-      toValue: to,
-      duration: Duration.card,
-      useNativeDriver: true,
-    });
-    anim.start();
-    return () => anim.stop();
-  }, [isHomeActive, stillBackdrop, heroOpacity]);
 
   return (
       <View style={{ flex: 1 }}>
         {/* Shared L1/L2 background, rendered once behind the whole pager (see file header).
-            ScreenBackground is the shared blue field + corner branch accents (same on every
-            tab); HomeHeroBackground is an extra focal glow that cross-fades in over it on Home.
+            ScreenBackground is the one field, the same colour on every tab (2026-09-27: the
+            per-tab hue and Home's cross-faded HomeHeroBackground glow were removed — the
+            maintainer's "only one colour, and particles").
             The group is FIXED — it no longer drifts with the pager (2026-09-09; see the
             deletion note above for the per-frame bridge cost that bought). `styles.bgLayer`
             keeps its ±MAX_PARALLAX oversize so this change moves no pixels. */}
         <View style={styles.bgLayer} pointerEvents="none">
           <ScreenBackground activeRoute={activeRouteName} />
-          <Animated.View style={[StyleSheet.absoluteFill, { opacity: heroOpacity }]} pointerEvents="none">
-            <HomeHeroBackground />
-          </Animated.View>
           {/* L2: the ambient particle field, restored 2026-09-01 — see that file's header for
               why it was deleted and why it came back. Mounted ONCE here, in the same fixed
               backdrop layer as the field itself, so the dots and the field stay in register. It gates itself on `particlesEnabled`/`reducedMotion`/`reduceEffects`

@@ -922,10 +922,10 @@ describe('the backdrop — under everything, and out of the middle', () => {
     // Exactly one `<Svg` per canvas component, and no new one minted for the crown.
     expect(s.match(/<CrownArt/g) ?? []).toHaveLength(1);
     expect(s.match(/<CrownDefs/g) ?? []).toHaveLength(1);
-    // ...and it goes to the NEUTRAL canvas only. Handing it to the two hue buffers or the growth
-    // layer as well would draw three copies and put the layer count straight back.
+    // ...and it goes to the NEUTRAL canvas only. Handing it to the growth layer as well would
+    // draw a second copy and put the layer count straight back.
     expect(s).toMatch(/id="sbOrbNeutral"[\s\S]{0,240}?crown=\{/);
-    for (const id of ['sbOrbHueA', 'sbOrbHueB', 'sbOrbGrowth']) {
+    for (const id of ['sbOrbGrowth']) {
       expect({ id, gets: /crown=/.test(s.slice(s.indexOf(`id="${id}"`), s.indexOf(`id="${id}"`) + 200)) })
         .toEqual({ id, gets: false });
     }
@@ -1154,46 +1154,29 @@ describe('the backdrop — under everything, and out of the middle', () => {
     expect(s).not.toMatch(/createAnimatedComponent\(\s*G\s*\)/);
     // No animated prop may be driven inside the canvas at all — `animatedProps` is the door.
     expect(s).not.toMatch(/animatedProps=/);
-    // The three fades are View styles instead.
-    for (const name of ['hueAStyle', 'hueBStyle', 'tintStyle']) {
+    // The growth fade is a View style instead.
+    for (const name of ['tintStyle']) {
       expect(`${name}: ${new RegExp(`const ${name} = useAnimatedStyle`).test(s)}`).toBe(`${name}: true`);
     }
     // Android is asked to hold each animating layer as a texture, or the blend re-rasterises.
     expect(s).toMatch(/renderToHardwareTextureAndroid/);
   });
 
-  it('draws the screen-hue copy on the SAME discs, never new ones', () => {
-    // ⚠️ **The card surface has NO contrast headroom, and that is why this is checked rather
-    // than trusted** (measured 2026-08-27, round 20). `surfaceGlass` over `#000000` composites
-    // to `#242424`, which measures **L 0.0176** — against a ceiling of **0.0178** for Notes
-    // (`#B660FF`, the ladder's bottom rung) to clear AA 4.5:1 on it. A ground of grey **1** is
-    // already enough to push the composite over. So the safety of every chromatic token rests
-    // entirely on nothing lighting the pixels a card sits on: not on the wash being DIM, which
-    // is what round 20's brief and this repo's own first reading of it both assumed, but on the
-    // GEOMETRY. A per-tab hue is therefore free — and a per-tab hue on a new, more central disc
-    // would not be, at any opacity.
+  it('draws ONE field on every tab — no per-tab hue (2026-09-27)', () => {
+    // Maintainer: *"When I swipe between screens the background changes colour. It shouldn't any
+    // more. Only one colour, and particles."* The round-20 per-tab hue (two crossfading orb
+    // canvases fed from `getScreenColor`) and the pager's Home-only HomeHeroBackground glow were
+    // both deleted. This pins the deletion: nothing in the backdrop may key a COLOUR off the
+    // active route again.
     const s = code('components/ScreenBackground.tsx');
-    // The hue field indexes into ORBS rather than declaring geometry of its own. Anything else
-    // (a literal cx/cy/r, a second array) is a disc this file's centre check never sees.
-    expect(s).toMatch(/const SCREEN_HUE_ORB_INDEXES = \[[\d,\s]+\] as const;/);
-    // Every canvas resolves its discs through ORBS by index and draws them from that record —
-    // the shape changed on 2026-08-31 (one canvas per layer), the property did not.
-    // The canvas resolves its discs through ORBS by index — the shape changed on 2026-08-31
-    // (one canvas per layer) and again on 2026-09-07 (the neutral pair merged into one canvas,
-    // so the loop maps over indexes and reads `ORBS[i]` inside), the property did not.
+    expect(s).not.toMatch(/getScreenColor|ScreenKey|sbOrbHue|orbScreenOpacity/);
+    const layout = code('app/(tabs)/_layout.tsx');
+    expect(layout).not.toMatch(/<HomeHeroBackground/);
+    // The canvas still resolves its discs through ORBS by index, and nothing draws a disc from a
+    // literal — a hand-written cx is a disc the centre check never sees.
     expect(s).toMatch(/const idxs = indexes \?\? ORBS\.map\(\(_, i\) => i\);/);
     expect(s).toMatch(/const o = ORBS\[i\];/);
-    expect(s).toMatch(/rx=\{o\.rx \+ grow\}/);
-    expect(s).toMatch(/ry=\{o\.ry \+ grow\}/);
-    // …and NOTHING draws a disc from a literal. A hand-written cx is a disc the centre check
-    // above never sees, which is the whole failure this test exists to prevent.
     expect(s).not.toMatch(/<Ellipse[^>]*cx=\{-?[\d.]+\}/);
-    // Every index it names must exist in ORBS.
-    const orbCount = [...s.matchAll(/\{\s*cx:\s*-?[\d.]+,\s*cy:\s*-?[\d.]+,\s*rx:\s*[\d.]+,\s*ry:\s*[\d.]+,\s*weight:\s*[\d.]+,\s*tone:/g)].length;
-    const idx = s.match(/const SCREEN_HUE_ORB_INDEXES = \[([\d,\s]+)\]/)![1]
-      .split(',').map((n) => Number(n.trim())).filter((n) => !Number.isNaN(n));
-    expect(idx.length).toBeGreaterThan(0);
-    for (const i of idx) expect(i).toBeLessThan(orbCount);
   });
 });
 

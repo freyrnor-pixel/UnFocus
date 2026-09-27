@@ -70,7 +70,6 @@ function palette(name: 'LIGHT' | 'DARK') {
     orbWarm: str('orbWarm'),
     orbGrowth: str('orbGrowth'),
     orbOpacity: num('orbOpacity'),
-    orbScreenOpacity: num('orbScreenOpacity'),
   };
 }
 
@@ -89,7 +88,7 @@ const lerp = (a: RGB, b: RGB, t: number): RGB => [
 ];
 
 /** The backdrop colour at a viewBox point, with every optional layer at its worst case. */
-function groundAt(p: ReturnType<typeof palette>, x: number, y: number, hue: string): RGB {
+function groundAt(p: ReturnType<typeof palette>, x: number, y: number): RGB {
   const t = y / 607;
   const stops = p.base.map(parseHex);
   let c: RGB = t <= 0.55
@@ -109,7 +108,6 @@ function groundAt(p: ReturnType<typeof palette>, x: number, y: number, hue: stri
   const all = ORBS.map((_, i) => i);
   paint(all.filter((i) => ORBS[i].tone === 'cool'), p.orbCool, p.orbOpacity);
   paint(all.filter((i) => ORBS[i].tone === 'warm'), p.orbWarm, p.orbOpacity);
-  paint(all, hue, p.orbScreenOpacity);          // the per-tab hue layer, fully crossed in
   paint(all, p.orbGrowth, p.orbOpacity);        // growth at the cap (settings.showGrowth on)
   return c;
 }
@@ -123,7 +121,6 @@ function groundAt(p: ReturnType<typeof palette>, x: number, y: number, hue: stri
  * the frame, and the frame is exactly where nothing has to meet a contrast floor.
  */
 const BAND = { x0: 12, x1: 268, y0: 70, y1: 545 };
-const HUES = ['#FFD700', '#3B82F6', '#22C55E', '#10B981', '#EF4444'];
 const STEP = 4;
 
 /** Split an `rgba(r,g,b,a)` pane token into its colour and its alpha. */
@@ -145,19 +142,17 @@ function worstCase(mode: 'light' | 'dark') {
   const { rgb: fill, a: alpha } = paneOf(theme.surfaceGlass);
   let worst: { failure: string | null; at: string; ground: RGB; card: RGB } | null = null;
   let brightest = -1;
-  for (const hue of HUES) {
-    for (let x = BAND.x0; x <= BAND.x1; x += STEP) {
-      for (let y = BAND.y0; y <= BAND.y1; y += STEP) {
-        const ground = groundAt(p, x, y, hue);
-        const card = compositeOver(ground, fill, alpha);
-        const failure = cardFailure(card, tokens);
-        const L = relativeLuminance(ground);
-        if (failure || L > brightest) {
-          if (failure && !worst?.failure) worst = { failure, at: `${x},${y} hue ${hue}`, ground, card };
-          else if (!worst?.failure && L > brightest) worst = { failure, at: `${x},${y} hue ${hue}`, ground, card };
-        }
-        if (L > brightest) brightest = L;
+  for (let x = BAND.x0; x <= BAND.x1; x += STEP) {
+    for (let y = BAND.y0; y <= BAND.y1; y += STEP) {
+      const ground = groundAt(p, x, y);
+      const card = compositeOver(ground, fill, alpha);
+      const failure = cardFailure(card, tokens);
+      const L = relativeLuminance(ground);
+      if (failure || L > brightest) {
+        if (failure && !worst?.failure) worst = { failure, at: `${x},${y}`, ground, card };
+        else if (!worst?.failure && L > brightest) worst = { failure, at: `${x},${y}`, ground, card };
       }
+      if (L > brightest) brightest = L;
     }
   }
   return { worst: worst!, tokens, alpha, brightestGround: brightest };
@@ -285,14 +280,12 @@ describe('the backdrop may not light a card out of its contrast band', () => {
     //   So the probe drives the model past what the palette can reach, to prove the model still
     // SEES the field. A guard that cannot be shown failing is the thing this file exists to
     // avoid becoming.
-    const loud = { ...p, orbOpacity: 1, orbScreenOpacity: 1, orbCool: '#FFFFFF', orbWarm: '#FFFFFF' };
+    const loud = { ...p, orbOpacity: 1, orbCool: '#FFFFFF', orbWarm: '#FFFFFF' };
     let failed = false;
-    for (const hue of HUES) {
-      for (let x = BAND.x0; x <= BAND.x1 && !failed; x += STEP) {
-        for (let y = BAND.y0; y <= BAND.y1 && !failed; y += STEP) {
-          const card = compositeOver(groundAt(loud, x, y, hue), paneOf(theme.surfaceGlass).rgb, alpha);
-          if (cardFailure(card, tokens)) failed = true;
-        }
+    for (let x = BAND.x0; x <= BAND.x1 && !failed; x += STEP) {
+      for (let y = BAND.y0; y <= BAND.y1 && !failed; y += STEP) {
+        const card = compositeOver(groundAt(loud, x, y), paneOf(theme.surfaceGlass).rgb, alpha);
+        if (cardFailure(card, tokens)) failed = true;
       }
     }
     expect(failed).toBe(true);
@@ -340,11 +333,9 @@ describe('the backdrop may not light a card out of its contrast band', () => {
       const theme = THEMES.default[mode];
       const border = parseHex(theme.border);
       let worst = 99;
-      for (const hue of HUES) {
-        for (let x = BAND.x0; x <= BAND.x1; x += STEP) {
-          for (let y = BAND.y0; y <= BAND.y1; y += STEP) {
-            worst = Math.min(worst, contrastRatio(border, groundAt(p, x, y, hue)));
-          }
+      for (let x = BAND.x0; x <= BAND.x1; x += STEP) {
+        for (let y = BAND.y0; y <= BAND.y1; y += STEP) {
+          worst = Math.min(worst, contrastRatio(border, groundAt(p, x, y)));
         }
       }
       expect(`${mode} border-on-field ${worst.toFixed(2)}:1 >= 3: ${worst >= 3}`)
