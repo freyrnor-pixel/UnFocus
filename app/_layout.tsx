@@ -22,6 +22,7 @@
  *             lib/notifications (syncNotificationCategories/onNotificationAction/cancelReNudge,
  *             plus onMedicineAction/cancelTrayReNudge for the medicine tray reminders),
  *             lib/taskNotifications (snoozeTaskReminder),
+ *             lib/useOtaAutoApply (download a seen OTA, apply it on return from background),
  *             lib/medicineNotifications (registerMedicineCategory/snoozeTrayReminder) +
  *             lib/medicineSchedule (isTrayId — guards the tray id off a notification payload),
  *             lib/widgets/sync (syncWidgetsAndOverview — pushes today to the home-screen widgets
@@ -218,6 +219,7 @@ import { useTaskStore } from '@/store/useTaskStore';
 import AppModalHost from '@/components/AppModal';
 import CardExpandHost from '@/components/CardExpandHost';
 import LaunchReveal from '@/components/LaunchReveal';
+import { useOtaAutoApply } from '@/lib/useOtaAutoApply';
 
 // Cap OS-level font scaling (Dynamic Type / Android font size) so it can't overflow the
 // app's chrome — BottomNav, FAB, chips, etc. (MAX_FONT_SCALE lives in constants/theme.ts,
@@ -676,6 +678,10 @@ export default function RootLayout() {
   // whatever we've got. Worst case that's the one frame of Home the routeSettled gate
   // exists to avoid, which is a cosmetic blemish — categorically better than a dead launch.
   const [failsafeElapsed, setFailsafeElapsed] = useState(false);
+  // Download a newer OTA as soon as it is seen, and apply it when the user comes back after a
+  // real absence — see lib/useOtaAutoApply.ts for why the default "next cold start" stranded
+  // installs one update behind.
+  useOtaAutoApply();
   useEffect(() => {
     const id = setTimeout(() => setFailsafeElapsed(true), SPLASH_FAILSAFE_MS);
     return () => clearTimeout(id);
