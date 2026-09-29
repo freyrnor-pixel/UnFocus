@@ -34,8 +34,10 @@
  *   Used by → app/settings.tsx (Data tab → Local account card's Backup & restore section),
  *             app/onboarding/restore.tsx (first-run "restore my data" step),
  *             app/_layout.tsx (saveAutoBackup on app background)
- *   Data    → reads/writes EVERY table in unfocus.db; restore DELETEs then
- *             re-INSERTs all rows inside one transaction (FKs off for the swap)
+ *   Data    → reads/writes every table in unfocus.db EXCEPT `peers` (pairing secrets are
+ *             device-local, never exported or restored); restore DELETEs then re-INSERTs
+ *             all rows inside one transaction (FKs off for the swap), keeps this phone's
+ *             settings.device_id, and winds user_version back for an older backup
  *
  * Edit notes:
  *   - NATIVE modules (expo-file-system / expo-sharing / expo-document-picker) —
@@ -109,6 +111,15 @@ function currentSchemaVersion(): number {
   return db.getFirstSync<{ user_version: number }>('PRAGMA user_version')?.user_version ?? 0;
 }
 
+/**
+ * Tables that belong to THIS phone, never to a backup (2026-09-29). `peers` holds the LAN
+ * pairing secrets: a shared backup file used to carry them, and anyone holding the file could
+ * sign sync envelopes as a paired phone. They are left out of every export, and a restore
+ * neither clears nor refills them — the phone keeps its own pairings, and a backup moved to a
+ * new phone arrives unpaired (re-pairing is one QR scan).
+ */
+const DEVICE_LOCAL_TABLES = new Set(['peers']);
+
 /** Every user table (excludes SQLite internals + Android's metadata table). */
 function listTables(): string[] {
   return db
@@ -125,9 +136,11 @@ function tableColumns(table: string): Set<string> {
   );
 }
 
-function buildBackup(opts: { redactName?: boolean } = {}): BackupFile {
+/** Exported for __tests__/backup.test.ts; callers go through the export functions below. */
+export function buildBackup(opts: { redactName?: boolean } = {}): BackupFile {
   const tables: Record<string, Row[]> = {};
   for (const table of listTables()) {
+    if (DEVICE_LOCAL_TABLES.has(table)) continue;
     let rows = db.getAllSync<Row>(`SELECT * FROM "${table}"`);
     if (opts.redactName && table === 'settings') {
       rows = rows.map((r) => ({ ...r, user_name: '' }));
@@ -316,7 +329,12 @@ export async function pickAndParseBackup(): Promise<ParsedBackup> {
  * — the transaction rolls back, leaving current data intact.
  */
 export function restoreBackup(data: BackupFile): void {
-  const liveTables = new Set(listTables());
+  const liveTables = new Set(listTables().filter((t) => !DEVICE_LOCAL_TABLES.has(t)));
+  // This install's sync identity survives the restore. A backup made on another phone
+  // carries THAT phone's device_id; taking it would give two paired phones the same id,
+  // which breaks the LWW tiebreak and makes each read the other's edits as its own.
+  const liveDeviceId =
+    (db.getFirstSync('SELECT device_id AS d FROM settings WHERE id = 1') as { d?: string } | null)?.d ?? '';
 
   // PRAGMA foreign_keys can't change inside a transaction, so toggle it around.
   db.execSync('PRAGMA foreign_keys = OFF');
@@ -349,6 +367,7 @@ export function restoreBackup(data: BackupFile): void {
       // Guarantee the settings singleton exists even if the backup somehow lacked
       // it — initDb() also re-creates it on the reload that follows a restore.
       db.execSync('INSERT OR IGNORE INTO settings (id) VALUES (1)');
+      if (liveDeviceId) db.runSync('UPDATE settings SET device_id = ? WHERE id = 1', [liveDeviceId]);
       // An OLDER backup's rows are pre-migration data: the columns exist (they took their
       // DEFAULTs on insert, exactly as an ALTER would have given them), but every data
       // migration since — back-fills, the default Monthly list built from settings, and so

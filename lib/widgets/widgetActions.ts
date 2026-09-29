@@ -47,7 +47,14 @@ export function toggleTaskDone(id: string): { done: boolean } | null {
     if (!row) return null;
     const done = row.done ? 0 : 1;
     const now = new Date().toISOString();
-    db.runSync('UPDATE tasks SET done = ?, updated_at = ? WHERE id = ?', [done, now, id]);
+    // `done_on` follows `done` (see store/useTaskStore.ts's Task.doneOn) so a monthly
+    // recurring task ticked from the widget still comes back next month.
+    db.runSync('UPDATE tasks SET done = ?, done_on = ?, updated_at = ? WHERE id = ?', [
+      done,
+      done ? todayStr() : '',
+      now,
+      id,
+    ]);
     db.runSync('UPDATE task_steps SET done = ? WHERE task_id = ?', [done, id]);
     checkpoint();
     return { done: !!done };

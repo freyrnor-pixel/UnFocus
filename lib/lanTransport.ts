@@ -57,6 +57,9 @@ export const SERVICE_DOMAIN = 'local.';
 /** Default TCP port the peer listener binds. Chosen high/unprivileged. */
 export const DEFAULT_PORT = 47653;
 
+/** Largest unterminated frame a connection may buffer before it is dropped (see the `data` handler). */
+export const MAX_FRAME_CHARS = 1_000_000;
+
 /** A discovered peer on the LAN (pre-trust — 038d decides if it is paired). */
 export type LanPeer = {
   /** Advertised device id (from the TXT record). Stable per install once 038d persists it. */
@@ -176,6 +179,13 @@ function wrapSocket(
       } catch {
         /* drop malformed frame — a 038d verify layer would also reject it */
       }
+    }
+    // Bytes arrive here BEFORE any envelope is verified, from anything on the LAN that can
+    // open the port. Without a cap, a sender that never writes a newline grows this partial
+    // tail until the app runs out of memory. One row delta is a few KB; 1 MB is generous.
+    if (buffer.length > MAX_FRAME_CHARS) {
+      buffer = '';
+      connection.close();
     }
   });
   socket.on('error', () => {

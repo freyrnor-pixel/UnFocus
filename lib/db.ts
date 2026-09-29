@@ -1438,6 +1438,22 @@ export function initDb() {
     // than the truth — so a card added later appears instead of vanishing for anyone who has
     // ever reordered. Presentation only, device-local, same as hidden_cards above.
     'ALTER TABLE settings ADD COLUMN card_order TEXT DEFAULT \'{}\'',
+    // ── 2026-09-29: the DATE a task was ticked (lib/taskReset.ts) ─────────────────────────
+    // A monthly recurring task is one row with one `done` flag and a `task_date` that is its
+    // START boundary, so nothing could tell "done this month" from "done in March" — once
+    // ticked it read done forever. `done_on` (local YYYY-MM-DD) is what the reset compares
+    // against the latest occurrence. Stamped with `done`, cleared with it. SYNCED (unlike
+    // `done_at`): it is a fact about the item, and a peer needs it to reset the same way.
+    // Back-fill from the last edit for rows already done — the best honest guess there is;
+    // `date(…, 'localtime')` turns the UTC stamp into the device's local day.
+    "ALTER TABLE tasks ADD COLUMN done_on TEXT DEFAULT ''",
+    "UPDATE tasks SET done_on = COALESCE(date(NULLIF(updated_at, ''), 'localtime'), '') WHERE done = 1 AND COALESCE(done_on, '') = ''",
+    // ── 2026-09-29: task steps join live sync (lib/liveSync.ts) ───────────────────────────
+    // A shared task used to arrive on the peer without its checklist. Same three bookkeeping
+    // columns every synced table carries; a removed step becomes a tombstone, not a DELETE.
+    "ALTER TABLE task_steps ADD COLUMN updated_at TEXT DEFAULT ''",
+    "ALTER TABLE task_steps ADD COLUMN origin_device_id TEXT DEFAULT ''",
+    'ALTER TABLE task_steps ADD COLUMN deleted_at TEXT DEFAULT NULL',
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an
@@ -1446,20 +1462,27 @@ export function initDb() {
   // migration runs once more (harmless — duplicate-column errors are swallowed),
   // then the version is advanced and later launches skip the applied ones.
   const appliedVersion = db.getFirstSync<{ user_version: number }>('PRAGMA user_version')?.user_version ?? 0;
+  // `reached` is how far the log has genuinely been applied. It stops at the first REAL
+  // failure (2026-09-29): user_version used to jump to migrations.length regardless, so a
+  // migration that failed once — a locked DB, a bad statement — was recorded as applied and
+  // never tried again. Stopping there instead retries it (and everything after it, in order)
+  // on the next launch, since later entries may depend on it. "duplicate column" is the one
+  // expected error: the column is there, which is what the ALTER wanted.
+  let reached = migrations.length;
   for (let i = appliedVersion; i < migrations.length; i++) {
     try {
       db.execSync(migrations[i]);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      // Expected once a column exists — anything else means a migration silently
-      // failed and new columns/features may be missing.
       if (!msg.includes('duplicate column')) {
         console.error(`Migration failed: ${migrations[i]}`, e);
+        reached = i;
+        break;
       }
     }
   }
-  // PRAGMA can't be parameterised; migrations.length is a trusted integer.
-  db.execSync(`PRAGMA user_version = ${migrations.length}`);
+  // PRAGMA can't be parameterised; `reached` is a trusted integer.
+  if (reached !== appliedVersion) db.execSync(`PRAGMA user_version = ${reached}`);
 }
 
 /**
@@ -1475,48 +1498,57 @@ export function pruneOldData() {
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - RETENTION_DAYS);
   const c = dateStr(cutoff);
-  try {
-    // Only completed, dated, non-recurring tasks are safe to forget: undone
-    // tasks are still live backlog (backlogTasks() surfaces them regardless of
-    // age), undated Whenever tasks (has_start_date=0) use `task_date` as their
-    // creation date rather than a real deadline, and recurring definitions are
-    // config, not dated history.
-    db.runSync(
-      "DELETE FROM tasks WHERE recurring = 'none' AND has_start_date = 1 AND done = 1 AND task_date < ?",
-      [c]
-    );
-    // An episode the user still considers open is live data, not history — the same
-    // reasoning as the tasks guard above ("undone tasks are still live backlog"). Before
-    // this guard existed, an episode open longer than the retention window was silently
-    // deleted out from under the user on the next cold start.
-    // Note `episode_state != 'ongoing'` is NULL-unsafe BY DESIGN: a row with a NULL state
-    // fails the predicate and is KEPT. Failing safe here means not deleting.
-    db.runSync("DELETE FROM health_logs WHERE log_date < ? AND episode_state != 'ongoing'", [c]);
-    db.runSync('DELETE FROM habit_logs WHERE log_date < ?', [c]);
-    db.runSync('DELETE FROM purchase_log WHERE purchased_at < ?', [c]);
-    db.runSync('DELETE FROM shared_tasks WHERE date < ?', [c]);
-    db.runSync('DELETE FROM shared_shopping_items WHERE created_at < ?', [c]);
-    db.runSync('DELETE FROM receipts WHERE receipt_date < ?', [c]);
-    db.runSync('DELETE FROM energy_logs WHERE log_date < ?', [c]);
-    // Only day-shaped keys ('YYYY-MM-DD') are dated history; 'w:'-prefixed week
-    // keys don't match the GLOB and are left as config.
-    db.runSync("DELETE FROM energy_budgets WHERE period_key GLOB '____-__-__' AND period_key < ?", [c]);
-    // Today-only boosts ('b:YYYY-MM-DD', 2026-08-02) are dated history too, but the day-key
-    // GLOB above can't see them — 'b:2026-08-02' matches neither the pattern nor the plain
-    // date comparison. Without this line they would accumulate forever. Compare from
-    // character 3 so the 'b:' prefix doesn't skew the date ordering.
-    db.runSync(
-      "DELETE FROM energy_budgets WHERE period_key GLOB 'b:____-__-__' AND substr(period_key,3) < ?",
-      [c]
-    );
-    db.runSync('DELETE FROM inbox_items WHERE created_at < ?', [c]);
-    // Dose history is dated; the `medicines` rows themselves are config and stay.
-    db.runSync('DELETE FROM medicine_doses WHERE log_date < ?', [c]);
-    // Manually captured moments are dated history like any other log row. Nothing here
-    // is "still live" the way an undone task or an open episode is — a moment is a record
-    // of a passing instant, so the plain date cutoff is the whole rule.
-    db.runSync('DELETE FROM moments WHERE log_date < ?', [c]);
-  } catch { /* never block startup on cleanup */ }
+  // Each statement is tried on its own (2026-09-29). They shared one `try` until then, so
+  // one failing DELETE silently skipped every prune after it, for good.
+  const prune = (sql: string) => {
+    try {
+      db.runSync(sql, [c]);
+    } catch {
+      /* never block startup on cleanup — and never let one table stop the rest */
+    }
+  };
+  // Only completed, dated, non-recurring tasks are safe to forget: undone
+  // tasks are still live backlog (backlogTasks() surfaces them regardless of
+  // age), undated Whenever tasks (has_start_date=0) use `task_date` as their
+  // creation date rather than a real deadline, and recurring definitions are
+  // config, not dated history.
+  prune("DELETE FROM tasks WHERE recurring = 'none' AND has_start_date = 1 AND done = 1 AND task_date < ?");
+  // Tombstones older than the window (2026-09-29). A tombstone only exists to tell a paired
+  // peer about a delete, and lib/liveSync.ts refuses to create a row from a delta older than
+  // this same window, so after a year it has nothing left to protect. Without this, deleted
+  // recurring/undone tasks and removed steps stayed in the file forever. `deleted_at` is ISO,
+  // which compares correctly against the `YYYY-MM-DD` cutoff.
+  prune('DELETE FROM task_steps WHERE task_id IN (SELECT id FROM tasks WHERE deleted_at IS NOT NULL AND deleted_at < ?)');
+  prune('DELETE FROM tasks WHERE deleted_at IS NOT NULL AND deleted_at < ?');
+  prune('DELETE FROM task_steps WHERE deleted_at IS NOT NULL AND deleted_at < ?');
+  // An episode the user still considers open is live data, not history — the same
+  // reasoning as the tasks guard above ("undone tasks are still live backlog"). Before
+  // this guard existed, an episode open longer than the retention window was silently
+  // deleted out from under the user on the next cold start.
+  // Note `episode_state != 'ongoing'` is NULL-unsafe BY DESIGN: a row with a NULL state
+  // fails the predicate and is KEPT. Failing safe here means not deleting.
+  prune("DELETE FROM health_logs WHERE log_date < ? AND episode_state != 'ongoing'");
+  prune('DELETE FROM habit_logs WHERE log_date < ?');
+  prune('DELETE FROM purchase_log WHERE purchased_at < ?');
+  prune('DELETE FROM shared_tasks WHERE date < ?');
+  prune('DELETE FROM shared_shopping_items WHERE created_at < ?');
+  prune('DELETE FROM receipts WHERE receipt_date < ?');
+  prune('DELETE FROM energy_logs WHERE log_date < ?');
+  // Only day-shaped keys ('YYYY-MM-DD') are dated history; 'w:'-prefixed week
+  // keys don't match the GLOB and are left as config.
+  prune("DELETE FROM energy_budgets WHERE period_key GLOB '____-__-__' AND period_key < ?");
+  // Today-only boosts ('b:YYYY-MM-DD', 2026-08-02) are dated history too, but the day-key
+  // GLOB above can't see them — 'b:2026-08-02' matches neither the pattern nor the plain
+  // date comparison. Without this line they would accumulate forever. Compare from
+  // character 3 so the 'b:' prefix doesn't skew the date ordering.
+  prune("DELETE FROM energy_budgets WHERE period_key GLOB 'b:____-__-__' AND substr(period_key,3) < ?");
+  prune('DELETE FROM inbox_items WHERE created_at < ?');
+  // Dose history is dated; the `medicines` rows themselves are config and stay.
+  prune('DELETE FROM medicine_doses WHERE log_date < ?');
+  // Manually captured moments are dated history like any other log row. Nothing here
+  // is "still live" the way an undone task or an open episode is — a moment is a record
+  // of a passing instant, so the plain date cutoff is the whole rule.
+  prune('DELETE FROM moments WHERE log_date < ?');
 }
 
 export default db;

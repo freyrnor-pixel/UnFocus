@@ -20,7 +20,8 @@
  *             (touchRow/softDelete on every local add/update/remove), lib/syncService.ts
  *             (buildDelta on broadcast, parseDelta + applyDelta on receive)
  *   Data    → reads/writes the sync-meta columns (updated_at, origin_device_id,
- *             deleted_at) on the `tasks`, `shopping_items` and `people` tables
+ *             deleted_at) on the `tasks`, `shopping_items`, `people`, `tags` and `task_steps`
+ *             tables (task_steps since 2026-09-29)
  *
  * Edit notes:
  *   - LWW compares ISO-8601 `updated_at` strings lexicographically — that only works
@@ -44,10 +45,10 @@ import { SQLValue } from '@/lib/dataAccess';
  * roster is the one thing that HAS to sync before anything else can: without it, "assigned
  * to Sam" means a different person on each phone.
  */
-export type SyncTable = 'tasks' | 'shopping_items' | 'people' | 'tags';
+export type SyncTable = 'tasks' | 'shopping_items' | 'people' | 'tags' | 'task_steps';
 
 /** Every value `parseDelta` will accept for `table`. Kept next to the type so the two can't drift. */
-const SYNC_TABLES: readonly SyncTable[] = ['tasks', 'shopping_items', 'people', 'tags'] as const;
+const SYNC_TABLES: readonly SyncTable[] = ['tasks', 'shopping_items', 'people', 'tags', 'task_steps'] as const;
 
 /** Whitelisted syncable data columns per table (meta columns handled separately). */
 const TABLE_COLUMNS: Record<SyncTable, string[]> = {
@@ -65,6 +66,10 @@ const TABLE_COLUMNS: Record<SyncTable, string[]> = {
     'has_start_date', 'finish_time',
     'recurring_week_interval', 'recurring_monthly_mode', 'recurring_month_day',
     'recurring_month_ordinal', 'recurring_month_weekday',
+    // The DAY it was ticked (2026-09-29) — what lets a monthly task come back next month
+    // (lib/taskReset.ts). Unlike `done_at` below this is a fact about the item, not a line in
+    // your day, and a peer needs it to reset the same row the same way.
+    'done_on',
     // Who it's FOR and who it came FROM (2026-07-28). Assignment was previously
     // device-local, which made a shared to-do list unusable: both phones saw the task and
     // neither could see whose it was.
@@ -103,6 +108,13 @@ const TABLE_COLUMNS: Record<SyncTable, string[]> = {
     // device a person uses is how the receiver tells a live person from a hand-kept one.
     'name', 'color', 'device_id', 'daily_capacity', 'weekly_capacity',
     'sort_order', 'created_at',
+  ],
+  task_steps: [
+    // A task's checklist (2026-09-29). Before this a shared task arrived on the peer with no
+    // steps at all. `task_id` must sync so a new step lands under the right task; a step
+    // whose task the receiver doesn't hold fails its FOREIGN KEY and is dropped, which is
+    // the right outcome (the task delta normally arrives first, and re-broadcasts carry both).
+    'task_id', 'title', 'done', 'order_index',
   ],
   tags: [
     // A tag is nothing but a shared name, so every data column syncs. There is no
@@ -179,9 +191,14 @@ export function parseDelta(input: unknown): RowDelta | null {
  * false if a newer/equal local row won and it was ignored. Upserts on `id`;
  * a tombstone (deletedAt set) marks the row deleted without dropping it.
  */
-export function applyDelta(delta: RowDelta): boolean {
+export function applyDelta(delta: RowDelta, nowMs: number = Date.now()): boolean {
   const local = localMeta(delta.table, delta.id);
   if (!incomingWins(local, delta)) return false;
+  // Replaying a captured envelope is a no-op for a row we hold (an equal stamp never wins,
+  // see incomingWins), but a row pruneOldData() has since hard-deleted has no local stamp to
+  // lose to, so an old delta would resurrect it. Nothing legitimately that old is still in
+  // flight: refuse to CREATE a row from a delta older than the retention window.
+  if (!local && isOlderThanRetention(delta.updatedAt, nowMs)) return false;
 
   const allowed = TABLE_COLUMNS[delta.table];
   const cols: string[] = ['id', 'updated_at', 'origin_device_id', 'deleted_at'];
@@ -213,23 +230,50 @@ export function applyDelta(delta: RowDelta): boolean {
   return true;
 }
 
+/** Mirrors lib/db.ts's RETENTION_DAYS (365); not imported, to keep this module's one db dependency. */
+const RETENTION_MS = 365 * 86400000;
+
+function isOlderThanRetention(stamp: string, nowMs: number): boolean {
+  const ms = Date.parse(stamp);
+  return Number.isFinite(ms) && nowMs - ms > RETENTION_MS;
+}
+
 /**
  * Stamp a local edit so it will win future merges and can be emitted as a delta.
  * Call this whenever the app mutates a syncable row locally.
  */
 export function touchRow(table: SyncTable, id: string, selfDeviceId: string, now = new Date().toISOString()): void {
   db.runSync(`UPDATE ${table} SET updated_at = ?, origin_device_id = ? WHERE id = ?`, [
-    now,
+    monotonicStamp(table, id, now),
     selfDeviceId,
     id,
   ]);
 }
 
+/**
+ * `now`, or 1 ms past the row's current `updated_at` when that is already later.
+ *
+ * LWW compares wall clocks, so a phone whose clock runs behind its peer's used to LOSE its
+ * own edit to the very version it was editing: the peer's row said 10:05, this phone said
+ * 10:02 "now", and the next merge threw the newer edit away. Stamping strictly after the
+ * version being replaced (the core of a hybrid logical clock) makes a local edit always beat
+ * what it edited, whatever the clocks say. Concurrent edits on both phones still resolve by
+ * timestamp, which is all LWW promises.
+ */
+export function monotonicStamp(table: SyncTable, id: string, now: string): string {
+  const row = db.getFirstSync(`SELECT updated_at AS u FROM ${table} WHERE id = ?`, [id]) as { u?: string } | null;
+  const current = row?.u ?? '';
+  if (!current || current < now) return now;
+  const ms = Date.parse(current);
+  return Number.isFinite(ms) ? new Date(ms + 1).toISOString() : now;
+}
+
 /** Soft-delete a local row (tombstone) so the deletion propagates and sticks. */
 export function softDelete(table: SyncTable, id: string, selfDeviceId: string, now = new Date().toISOString()): void {
+  const stamp = monotonicStamp(table, id, now);
   db.runSync(
     `UPDATE ${table} SET deleted_at = ?, updated_at = ?, origin_device_id = ? WHERE id = ?`,
-    [now, now, selfDeviceId, id],
+    [stamp, stamp, selfDeviceId, id],
   );
 }
 

@@ -8,7 +8,7 @@
  * We drive it with a db mock whose getAllSync answers sqlite_master + PRAGMA
  * table_info, and assert the INSERT/DELETE calls it makes.
  */
-import { restoreBackup, BackupFile } from '@/lib/backup';
+import { buildBackup, restoreBackup, BackupFile } from '@/lib/backup';
 
 const mockRunSync = jest.fn();
 const mockExecSync = jest.fn();
@@ -18,12 +18,15 @@ jest.mock('@/lib/db', () => ({
   default: {
     // sqlite_master → live tables; PRAGMA table_info("X") → that table's columns.
     getAllSync: jest.fn((sql: string) => {
-      if (sql.includes('sqlite_master')) return [{ name: 'tasks' }, { name: 'settings' }];
+      if (sql.includes('sqlite_master')) return [{ name: 'tasks' }, { name: 'settings' }, { name: 'peers' }];
+      if (sql.includes('table_info("peers")')) return [{ name: 'device_id' }, { name: 'secret' }];
+      if (sql.startsWith('SELECT * FROM "peers"')) return [{ device_id: 'p', secret: 'SECRET' }];
+      if (sql.startsWith('SELECT * FROM')) return [{ id: 1 }];
       if (sql.includes('table_info("tasks")')) return [{ name: 'id' }, { name: 'title' }];
       if (sql.includes('table_info("settings")')) return [{ name: 'id' }, { name: 'user_name' }];
       return [];
     }),
-    getFirstSync: jest.fn(() => ({ user_version: 5 })),
+    getFirstSync: jest.fn((sql: string) => (sql.includes('device_id') ? { d: 'this-phone' } : { user_version: 5 })),
     runSync: (...args: unknown[]) => mockRunSync(...args),
     execSync: (...args: unknown[]) => mockExecSync(...args),
     withTransactionSync: (fn: () => void) => fn(),
@@ -106,5 +109,27 @@ describe('restoreBackup', () => {
     restoreBackup(backup({ tasks: [] })); // schemaVersion 5 === live 5
     const pragmas = execSync.mock.calls.map((c) => c[0]).filter((s: string) => s.includes('user_version'));
     expect(pragmas).toEqual([]);
+  });
+
+  // 2026-09-29: pairing secrets and this phone's sync identity are device-local.
+  it('neither clears nor refills the peers table', () => {
+    restoreBackup(backup({ tasks: [], peers: [{ device_id: 'x', secret: 'leaked' }] }));
+    const sql = [...execSync.mock.calls.map((c) => String(c[0])), ...runSync.mock.calls.map((c) => String(c[0]))];
+    expect(sql.some((q) => q.includes('"peers"'))).toBe(false);
+  });
+
+  it('keeps this phone\'s device_id instead of the backup\'s', () => {
+    restoreBackup(backup({ settings: [{ id: 1, user_name: 'x', device_id: 'other-phone' }] }));
+    const keep = runSync.mock.calls.find((c) => String(c[0]).includes('SET device_id'));
+    expect(keep?.[1]).toEqual(['this-phone']);
+  });
+});
+
+describe('buildBackup', () => {
+  it('leaves the pairing secrets out', () => {
+    const file = buildBackup();
+    expect(Object.keys(file.tables)).not.toContain('peers');
+    expect(JSON.stringify(file)).not.toContain('SECRET');
+    expect(Object.keys(file.tables)).toEqual(expect.arrayContaining(['tasks', 'settings']));
   });
 });

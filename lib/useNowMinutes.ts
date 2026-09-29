@@ -15,6 +15,7 @@
  *             app/(tabs)/plans.tsx + app/(tabs)/index.tsx (the day log's cutoff, and their
  *             own render-scope `today`), app/(tabs)/habits.tsx + app/(tabs)/health.tsx
  *             (2026-08-13 — subscribed for the DATE, not the minute: see below),
+ *             components/DateChipRow.tsx (2026-09-29 — same, for its week strip),
  *             lib/__tests__/useNowMinutes.test.ts, lib/__tests__/todayFreshness.test.ts
  *   Data    → none — reads the system clock only
  *

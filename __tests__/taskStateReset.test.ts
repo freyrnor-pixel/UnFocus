@@ -174,6 +174,41 @@ describe('normalizeRecurringTasks — the app tidying up, not the user acting', 
   });
 });
 
+// 2026-09-29: `doneOn` follows `done` on every path, and a monthly task comes back.
+describe('doneOn — the day a task was ticked', () => {
+  it('is stamped by toggle and cleared by un-toggling', () => {
+    useTaskStore.setState({ tasks: [task({ id: 't1' })] });
+    useTaskStore.getState().toggle('t1');
+    expect(useTaskStore.getState().tasks[0].doneOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    useTaskStore.getState().toggle('t1');
+    expect(useTaskStore.getState().tasks[0].doneOn).toBe('');
+  });
+
+  it('is stamped when done arrives through a plain update (the step cascade\'s path)', () => {
+    useTaskStore.setState({ tasks: [task({ id: 't1' })] });
+    useTaskStore.getState().update('t1', { done: true });
+    expect(writtenColumns()).toContain('done_on');
+    expect(useTaskStore.getState().tasks[0].doneOn).not.toBe('');
+  });
+
+  it('is left alone by an edit that does not change done', () => {
+    useTaskStore.setState({ tasks: [task({ id: 't1', done: true, doneOn: '2026-08-01' })] });
+    useTaskStore.getState().update('t1', { title: 'renamed' });
+    expect(useTaskStore.getState().tasks[0].doneOn).toBe('2026-08-01');
+  });
+
+  it('normalize brings a monthly task back once a later occurrence has arrived, keeping its date', () => {
+    useTaskStore.setState({
+      tasks: [task({ id: 'm1', recurring: 'monthly', monthDay: 15, date: '2026-01-01', done: true, doneOn: '2026-07-15' })],
+    });
+    useTaskStore.getState().normalizeRecurringTasks(TODAY); // Aug 15 has passed
+    const next = useTaskStore.getState().tasks[0];
+    expect(next.done).toBe(false);
+    expect(next.doneOn).toBe('');
+    expect(next.date).toBe('2026-01-01');
+  });
+});
+
 describe('notToday — a date, and nothing else', () => {
   it('moves the task to tomorrow and dates it', () => {
     useTaskStore.setState({ tasks: [task({ id: 't1', hasStartDate: false, date: '2026-08-01' })] });
