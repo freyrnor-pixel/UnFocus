@@ -193,7 +193,8 @@ import { isTrayId } from '@/lib/medicineSchedule';
 import { snoozeTaskReminder } from '@/lib/taskNotifications';
 import { saveAutoBackup } from '@/lib/backup';
 import { syncWidgetsAndOverview } from '@/lib/widgets/sync';
-import { startSync, stopSync } from '@/lib/syncService';
+import { onRemoteRowApplied, startSync, stopSync } from '@/lib/syncService';
+import { syncReminders } from '@/lib/reminders';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useAutomationStore } from '@/store/useAutomationStore';
@@ -566,6 +567,31 @@ export default function RootLayout() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded, lanSyncEnabled, deviceId]);
 
+  // A paired peer's change lands in SQLite through lib/liveSync's applyDelta, which never
+  // touches a store — so reload whichever store it changed (2026-09-29). Batched on a short
+  // timer: a peer re-broadcasting a whole list sends one delta per row, and one reload per
+  // row would re-render the list n times for one change.
+  useEffect(() => {
+    const pending = new Set<string>();
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const flush = () => {
+      timer = null;
+      if (pending.has('tasks') || pending.has('task_steps')) useTaskStore.getState().load();
+      if (pending.has('shopping_items')) useShoppingStore.getState().load();
+      if (pending.has('people')) usePeopleStore.getState().load();
+      if (pending.has('tags')) useTagStore.getState().load();
+      pending.clear();
+    };
+    const unsubscribe = onRemoteRowApplied((table) => {
+      pending.add(table);
+      if (!timer) timer = setTimeout(flush, 300);
+    });
+    return () => {
+      unsubscribe();
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
+
   // Auto-backup on background; keep the widgets + persistent overview notification
   // current on every foreground/background transition (they show "today", which the
   // user may have changed elsewhere or which may have rolled over to a new day).
@@ -595,6 +621,9 @@ export default function RootLayout() {
         // Re-arm any monthly recurring task's reminder for its next occurrence
         // (see the boot-effect call site's comment above).
         useTaskStore.getState().syncMonthlyTaskNotifications();
+        // Same for the monthly-reset reminder when its day is 29–31 (lib/reminders.ts arms
+        // those as a one-off for the clamped date). Idempotent for every other setting.
+        void syncReminders();
       }
       if (state === 'active' || state === 'background') {
         void syncWidgetsAndOverview();

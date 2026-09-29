@@ -12,7 +12,8 @@
  *
  * Connections:
  *   Imports → lib/lanTransport, lib/peerAuth, lib/liveSync, store/usePeersStore
- *   Used by → app/_layout.tsx (start/stop on settings.lanSyncEnabled), app/pair-device.tsx
+ *   Used by → app/_layout.tsx (start/stop on settings.lanSyncEnabled; onRemoteRowApplied →
+ *             reloads the store an inbound delta changed), app/pair-device.tsx
  *             + app/settings.tsx (isSyncAvailable, to gate the sync UI on a real build),
  *             lib/syncRow.ts (pairs broadcastRow with liveSync's touchRow — the four stores
  *             go through THAT, not through broadcastRow directly, on the edit path),
@@ -37,6 +38,24 @@ import { SyncTable, RowDelta, buildDelta, applyDelta, parseDelta } from '@/lib/l
 import { usePeersStore } from '@/store/usePeersStore';
 
 let transport: LanTransport | null = null;
+
+/**
+ * Who to tell when an inbound delta changed SQLite (2026-09-29). applyDelta writes the DB
+ * only; without this, a peer's edit sat invisible in memory until the next foreground
+ * (tasks, shopping) or the next cold start (people, tags). A listener rather than an import
+ * of the stores: every synced store already imports this module to broadcast, so importing
+ * them back would be a cycle. app/_layout.tsx registers the one listener, which reloads.
+ */
+type AppliedListener = (table: SyncTable) => void;
+const appliedListeners = new Set<AppliedListener>();
+
+/** Subscribe to "a peer's change landed in `table`". Returns the unsubscribe. */
+export function onRemoteRowApplied(listener: AppliedListener): () => void {
+  appliedListeners.add(listener);
+  return () => {
+    appliedListeners.delete(listener);
+  };
+}
 /** deviceId -> live outbound/inbound connection, for every currently-reachable trusted peer. */
 const connections = new Map<string, LanConnection>();
 
@@ -86,7 +105,7 @@ export function startSync(self: { deviceId: string; name: string }): void {
       // Only now, with a cryptographically verified sender, associate this
       // connection with that peer's deviceId for future broadcastRow() sends.
       setConnection(envelope.from, conn);
-      applyDelta(parsed);
+      if (applyDelta(parsed)) appliedListeners.forEach((l) => l(parsed.table));
     },
   });
 

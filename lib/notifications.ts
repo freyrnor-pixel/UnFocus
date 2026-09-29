@@ -144,18 +144,82 @@ export async function scheduleMonthlyReminder(
   }).catch(ignore);
 }
 
+/**
+ * The monthly reminder as a one-off at `date`, under the same identifier as the repeating
+ * one so either replaces the other. For a reset day of 29–31: a native MONTHLY trigger with
+ * `day: 31` simply doesn't fire in a 30-day month or February, while Settings promises
+ * "a short month resets on its last day" — so lib/reminders.ts arms the clamped date itself
+ * and re-arms it on every foreground.
+ */
+export async function scheduleMonthlyReminderAt(date: Date, content: Content) {
+  await cancelMonthlyReminder();
+  await Notifications.scheduleNotificationAsync({
+    identifier: 'monthly-reset',
+    content,
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date },
+  }).catch(ignore);
+}
+
 export async function cancelMonthlyReminder() {
   await Notifications.cancelScheduledNotificationAsync('monthly-reset').catch(ignore);
 }
 
+// ── Per-task serialisation (2026-09-29) ──────────────────────────────────────
+// Every task reminder is cancel-everything-then-schedule, spread over many awaits, and the
+// store fires it unawaited. Two quick edits to the same task used to interleave: edit A's
+// cancel ran, edit B's cancel ran, A scheduled days {Mon, Thu}, B scheduled {Mon} — and A's
+// Thursday reminder outlived the edit that removed it. Each task id now has a queue; an
+// operation starts only after the previous one for that id has settled. Different tasks
+// still run concurrently.
+const taskQueues = new Map<string, Promise<void>>();
+
+function serialTask(id: string, op: () => Promise<void>): Promise<void> {
+  const prev = taskQueues.get(id) ?? Promise.resolve();
+  const next = prev.then(op, op);
+  const settled = next.catch(ignore);
+  taskQueues.set(id, settled);
+  // Drop the entry once this is the tail, so the map doesn't grow one key per task forever.
+  void settled.then(() => {
+    if (taskQueues.get(id) === settled) taskQueues.delete(id);
+  });
+  return settled;
+}
+
+export function scheduleTaskNotification(
+  id: string,
+  date: Date,
+  content: Content,
+  end?: { date: Date; content: Content }
+): Promise<void> {
+  return serialTask(id, () => scheduleTaskNotificationNow(id, date, content, end));
+}
+
+export function scheduleWeeklyTaskNotifications(id: string, occurrences: WeeklyTaskOccurrence[]): Promise<void> {
+  return serialTask(id, () => scheduleWeeklyTaskNotificationsNow(id, occurrences));
+}
+
+export function scheduleDailyTaskNotification(
+  id: string,
+  hour: number,
+  minute: number,
+  content: Content,
+  end?: { hour: number; minute: number; content: Content }
+): Promise<void> {
+  return serialTask(id, () => scheduleDailyTaskNotificationNow(id, hour, minute, content, end));
+}
+
+export function cancelTaskNotification(id: string): Promise<void> {
+  return serialTask(id, () => cancelTaskNotificationNow(id));
+}
+
 // ── Per-task reminder (one-off, fires at a specific date/time) ───────────────
-export async function scheduleTaskNotification(
+async function scheduleTaskNotificationNow(
   id: string,
   date: Date,
   content: Content,
   end?: { date: Date; content: Content }
 ) {
-  await cancelTaskNotification(id);
+  await cancelTaskNotificationNow(id);
   await Notifications.scheduleNotificationAsync({
     identifier: `task-${id}`,
     content: { ...content, data: { taskId: id }, categoryIdentifier: 'task-reminder' },
@@ -182,11 +246,11 @@ export type WeeklyTaskOccurrence = {
 };
 
 // Recurring task reminders: one repeating weekly trigger per occurrence.
-export async function scheduleWeeklyTaskNotifications(
+async function scheduleWeeklyTaskNotificationsNow(
   id: string,
   occurrences: WeeklyTaskOccurrence[]
 ) {
-  await cancelTaskNotification(id);
+  await cancelTaskNotificationNow(id);
   for (const o of occurrences) {
     await Notifications.scheduleNotificationAsync({
       identifier: `task-${id}-${o.suffix}`,
@@ -204,14 +268,14 @@ export async function scheduleWeeklyTaskNotifications(
 // Recurring DAILY task reminder: a real repeating native trigger, mirroring
 // scheduleWeeklyTaskNotifications — unlike monthly recurrence, "every day" has
 // a direct native trigger so no next-occurrence/re-arm dance is needed.
-export async function scheduleDailyTaskNotification(
+async function scheduleDailyTaskNotificationNow(
   id: string,
   hour: number,
   minute: number,
   content: Content,
   end?: { hour: number; minute: number; content: Content }
 ) {
-  await cancelTaskNotification(id);
+  await cancelTaskNotificationNow(id);
   await Notifications.scheduleNotificationAsync({
     identifier: `task-${id}-daily`,
     content: { ...content, data: { taskId: id }, categoryIdentifier: 'task-reminder' },
@@ -226,7 +290,7 @@ export async function scheduleDailyTaskNotification(
   }
 }
 
-export async function cancelTaskNotification(id: string) {
+async function cancelTaskNotificationNow(id: string) {
   // Clears the one-off reminders, the daily-recurring pair, and every weekly
   // occurrence (start + end for each of the seven possible days), so it works
   // whatever kind the task is.

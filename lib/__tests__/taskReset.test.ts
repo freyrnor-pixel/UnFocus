@@ -38,8 +38,14 @@ function recurringTask(over: Partial<ResettableTask> = {}): ResettableTask {
     date: '2026-08-10',
     done: false,
     doneAt: '',
+    doneOn: '',
     recurring: 'daily',
+    recurringDays: [],
     weekInterval: 1,
+    monthlyMode: 'day',
+    monthDay: 1,
+    monthOrdinal: 'first',
+    monthWeekday: 0,
     hasStartDate: false,
     ...over,
   };
@@ -72,7 +78,7 @@ describe('rule 1 — recurring normalization rolls the row forward instead of co
     // into today as a done flag, and it does not become a counter either — the patch has
     // exactly three fields and none of them is a number.
     const patch = recurringResetPatch(recurringTask({ done: true, doneAt: '08:30' }), TODAY);
-    expect(patch).toEqual({ date: TODAY, done: false, doneAt: '' });
+    expect(patch).toEqual({ date: TODAY, done: false, doneAt: '', doneOn: '' });
   });
 
   it('leaves a task already carrying today alone — null, so the caller writes nothing', () => {
@@ -130,9 +136,41 @@ describe('rule 1 — recurring normalization rolls the row forward instead of co
     expect(patch).toBeNull();
   });
 
-  it('leaves one-off and monthly tasks alone', () => {
+  it('leaves one-off tasks and undone monthly tasks alone', () => {
     expect(recurringResetPatch(recurringTask({ recurring: 'none' }), TODAY)).toBeNull();
     expect(recurringResetPatch(recurringTask({ recurring: 'monthly' }), TODAY)).toBeNull();
+  });
+
+  // 2026-09-29: a ticked monthly task used to read done forever.
+  describe('monthly — the completion clears once a later occurrence arrives, the date never moves', () => {
+    const monthly = (over: Partial<ResettableTask>) =>
+      recurringTask({ recurring: 'monthly', monthlyMode: 'day', monthDay: 15, date: '2026-01-01', hasStartDate: true, done: true, ...over });
+
+    it('stays done within the month it was ticked in', () => {
+      // Ticked Aug 15; latest occurrence on/before Aug 17 is Aug 15.
+      expect(recurringResetPatch(monthly({ doneOn: '2026-08-15' }), TODAY)).toBeNull();
+    });
+
+    it('stays done until the next occurrence arrives, even when ticked between two', () => {
+      expect(recurringResetPatch(monthly({ doneOn: '2026-08-10' }), '2026-08-14')).toBeNull(); // latest = Jul 15
+    });
+
+    it('comes back once the next occurrence arrives', () => {
+      expect(recurringResetPatch(monthly({ doneOn: '2026-07-20' }), TODAY)).toEqual({ done: false, doneAt: '', doneOn: '' });
+    });
+
+    it('keeps its start boundary — no date in the patch', () => {
+      const patch = recurringResetPatch(monthly({ doneOn: '2026-07-20' }), TODAY);
+      expect(patch).not.toHaveProperty('date');
+    });
+
+    it('an undated tick reads as "earlier" and comes back', () => {
+      expect(recurringResetPatch(monthly({ doneOn: '' }), TODAY)).toEqual({ done: false, doneAt: '', doneOn: '' });
+    });
+
+    it('does nothing before the series has had any occurrence', () => {
+      expect(recurringResetPatch(monthly({ date: '2026-09-01', doneOn: '' }), TODAY)).toBeNull();
+    });
   });
 });
 

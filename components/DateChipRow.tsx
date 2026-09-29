@@ -9,8 +9,9 @@
  *
  * Connections:
  *   Imports → components/PressableScale, components/IconButton, components/Collapsible,
- *             components/DatePickerCalendar, constants/theme, lib/date (dateStr,
- *             dayOfWeekMon0), lib/haptics (tap), lib/i18n, lib/useAppTheme
+ *             components/DatePickerCalendar, constants/theme, lib/date (dateStr, parseDateStr, todayStr,
+ *             dayOfWeekMon0), lib/haptics (tap), lib/i18n, lib/useAppTheme,
+ *             lib/useNowMinutes (re-render at midnight)
  *   Used by → app/health-form.tsx (start + end date fields),
  *             components/EpisodeCloseSheet.tsx ("Pick a time" → the stop date)
  *   Data    → none — controlled; the caller owns the `YYYY-MM-DD` value
@@ -41,7 +42,8 @@ import PressableScale from '@/components/PressableScale';
 import IconButton from '@/components/IconButton';
 import Collapsible from '@/components/Collapsible';
 import DatePickerCalendar from '@/components/DatePickerCalendar';
-import { dateStr, dayOfWeekMon0 } from '@/lib/date';
+import { dateStr, dayOfWeekMon0, parseDateStr, todayStr } from '@/lib/date';
+import { useNowMinutes } from '@/lib/useNowMinutes';
 import { tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
@@ -60,15 +62,21 @@ export default function DateChipRow({ value, onChange, expanded, setExpanded }: 
   const styles = useScaledStyles(baseStyles);
   const { dayLabels } = t;
 
+  // Subscribed for the DATE (the same pattern as the Habits/Health tabs, see
+  // lib/useNowMinutes.ts): the strip used to be computed once at mount, so a form left open
+  // across midnight — or a week boundary — kept offering last week's days. `todayKey` is the
+  // memo's only real input.
+  useNowMinutes();
+  const todayKey = todayStr();
   const weekDays = useMemo(() => {
-    const today = new Date();
+    const today = parseDateStr(todayKey);
     const mon0 = dayOfWeekMon0(today);
     return Array.from({ length: 7 }, (_, i) => {
       const d = new Date(today);
       d.setDate(today.getDate() - mon0 + i);
       return { value: dateStr(d), dayIdx: i, dayNum: d.getDate() };
     });
-  }, []);
+  }, [todayKey]);
 
   return (
     <>

@@ -26,13 +26,14 @@
  * exactly like one from yesterday, the same promise lib/episodes.ts makes about a
  * week-old episode. `lib/__tests__/taskReset.test.ts` asserts the absence.
  *
- * Deliberately dependency-free apart from lib/date and lib/cardType (both themselves pure)
+ * Deliberately dependency-free apart from lib/date, lib/cardType and lib/taskRecurrence (all pure)
  * — same rule as lib/cardLayout.ts and lib/cardType.ts, so the store, the screens and the
  * tests can share ONE set of rules with no import cycle. Do not reach a store from here;
  * pass what you need in.
  *
  * Connections:
  *   Imports → lib/date (addDays, dayOfWeekMon0), lib/cardType (isCompletable),
+ *             lib/taskRecurrence (previousOccurrenceDate — pure, type-only store import),
  *             store/useTaskStore (type-only — erased at compile time, so no runtime cycle)
  *   Used by → store/useTaskStore.ts (normalizeRecurringTasks / notToday / washedAwayTasks /
  *             bringBack), app/(tabs)/plans.tsx (the active-list filter + the "Washed away"
@@ -40,12 +41,13 @@
  *   Data    → none (pure functions)
  *
  * Edit notes:
- *   - **Monthly recurrence is deliberately OUT of the normalization.** A monthly task's
- *     `task_date` is a start boundary the user picked on a real calendar, its occurrences
- *     are weeks apart, and the schema has no per-occurrence completion row — so "was this
- *     done for THIS month" cannot be answered by rolling a single date forward a day at a
- *     time without making "done" mean "done since yesterday". Daily and weekly are what
- *     the reset covers; a monthly reset needs a record this table doesn't have.
+ *   - **Monthly recurrence resets differently: its date never moves.** A monthly task's
+ *     `task_date` is a start boundary the user picked on a real calendar and its
+ *     occurrences are weeks apart, so rolling it forward a day at a time would make "done"
+ *     mean "done since yesterday". Instead `tasks.done_on` (2026-09-29) records the day it
+ *     was ticked, and `done` clears once a later occurrence has arrived
+ *     (`monthlyResetPatch`). Before that column existed a ticked monthly task read done
+ *     forever.
  *   - **The known cost of clearing `done`**, stated so it reads as a decision: the day log
  *     (lib/dayLog.ts) files a completed task under `task.date`, so once a recurring task
  *     rolls forward, its completion no longer appears in the PAST day's log. The
@@ -64,6 +66,7 @@
  */
 import { addDays, dayOfWeekMon0 } from '@/lib/date';
 import { isCompletable } from '@/lib/cardType';
+import { previousOccurrenceDate, type OccurrenceFields } from '@/lib/taskRecurrence';
 import type { Task } from '@/store/useTaskStore';
 
 /**
@@ -73,10 +76,7 @@ import type { Task } from '@/store/useTaskStore';
 export const WASH_AWAY_HOURS = 72;
 
 /** The fields the recurring reset reads. A full `Task` satisfies it. */
-export type ResettableTask = Pick<
-  Task,
-  'date' | 'done' | 'doneAt' | 'recurring' | 'weekInterval' | 'hasStartDate'
->;
+export type ResettableTask = Pick<Task, 'done' | 'doneAt' | 'doneOn'> & OccurrenceFields;
 
 /** The fields the wash-away filter reads. A full `Task` satisfies it. */
 export type DecayableTask = Pick<
@@ -84,8 +84,8 @@ export type DecayableTask = Pick<
   'date' | 'done' | 'recurring' | 'hasStartDate' | 'cardType' | 'lastActedAt'
 >;
 
-/** The patch `recurringResetPatch` hands back — never anything but these three fields. */
-export type RecurringResetPatch = { date: string; done?: false; doneAt?: '' };
+/** The patch `recurringResetPatch` hands back — never anything but these four fields. */
+export type RecurringResetPatch = { date?: string; done?: false; doneAt?: ''; doneOn?: '' };
 
 /** Whole weeks between the Mondays of two dates (b − a). Mirrors lib/taskRecurrence.ts. */
 function weeksBetweenMondays(a: string, b: string): number {
@@ -124,11 +124,27 @@ function rolledForwardDate(task: ResettableTask, today: string): string | null {
  * every boot and every foreground, and only writes the rows that come back non-null.
  */
 export function recurringResetPatch(task: ResettableTask, today: string): RecurringResetPatch | null {
+  if (task.recurring === 'monthly') return monthlyResetPatch(task, today);
   const date = rolledForwardDate(task, today);
   if (!date) return null;
   // The completion belonged to the day the row was carrying, which is now behind us. There
   // is no third state to fall into: the task is simply still to do again.
-  return task.done || task.doneAt ? { date, done: false, doneAt: '' } : { date };
+  return task.done || task.doneAt ? { date, done: false, doneAt: '', doneOn: '' } : { date };
+}
+
+/**
+ * A monthly task keeps its `date` (a start boundary, see the header) and only ever has its
+ * completion cleared: once an occurrence LATER than the day it was ticked has arrived, the
+ * tick belonged to an earlier month and the task is to do again. `doneOn` '' on a done row
+ * (a tick nothing dated) reads as "some earlier occurrence", so it comes back too — the
+ * alternative is the done-forever bug this exists to fix.
+ */
+function monthlyResetPatch(task: ResettableTask, today: string): RecurringResetPatch | null {
+  if (!task.done) return null;
+  const latest = previousOccurrenceDate(task, today);
+  if (!latest) return null;
+  if (task.doneOn && task.doneOn >= latest) return null;
+  return { done: false, doneAt: '', doneOn: '' };
 }
 
 /** Where "Not today" puts a task: tomorrow. That is the entire rule. */

@@ -19,25 +19,32 @@ Legend: **Fixed** = fixed in this pass, with a regression test. **Open** = repor
 | F7 | `app/_layout.tsx` foreground | The widget writes habit ticks (`toggleHabitDone`) and tray doses (`takeTray`) straight to SQLite, but only tasks, shopping and notes were reloaded on foreground. So `useHabitStore.increment()` wrote an absolute count from stale memory, or inserted a **second** `habit_logs` row for the same day, and `takeDose()` de-duplicated against stale memory, so a widget "Taken" followed by an in-app tap logged the dose **twice**. Both stores are now reloaded. | — (lifecycle wiring; tsc) |
 | F8 | `lib/backup.ts` `restoreBackup` | Restoring an **older** backup inserted pre-migration rows but left `user_version` at the current value, so no data migration ran over them. For example: no default Monthly list, un-migrated shopping statuses, empty `last_acted_at`. `user_version` is now wound back to the backup's version, and the reload's `initDb()` replays those migrations just like a real upgrade. | `__tests__/backup.test.ts` |
 
-## Open — real defects, not fixed here
+## Round 2 — the open items, all fixed (same day)
 
-| # | Severity | Where | Issue | Suggested fix |
-|---|---|---|---|---|
-| O1 | High | `lib/taskReset.ts` (documented gap) | A **monthly recurring task, once ticked, stays done forever**. `recurringResetPatch` only covers daily/weekly, and the row has no completion date. | Store a done **date** (e.g. `done_on`) and clear `done` when the last occurrence ≤ today is after it. |
-| O2 | High (privacy) | `lib/backup.ts` `buildBackup` | The share-sheet export only redacts `user_name`. It still contains `peers.secret` (the LAN HMAC pairing keys) and `settings.device_id`. Anyone holding the file can sign sync envelopes as a paired device on the same network. Restoring on a second phone also clones the first phone's `device_id`, which breaks the LWW tiebreak between the two. | Drop the `peers` table from both exports, and do not restore `device_id` (keep the live one). |
-| O3 | Medium | `lib/syncService.ts` `onEnvelope` | `applyDelta` writes SQLite but no store reloads. An inbound peer change stays invisible until the next foreground (tasks/shopping) or the next cold start (people, tags). | After `applyDelta` returns true, debounce-reload the store for `delta.table`. |
-| O4 | Medium | `lib/notifications.ts` `scheduleMonthlyReminder` | The monthly-reset reminder uses a native MONTHLY trigger with `day: monthlyResetDate`. With 29–31 it is skipped in shorter months, which contradicts the Settings copy. | Schedule it as a one-off for `monthlyResetDayIn(...)` and re-arm on foreground, the same pattern as F4. |
-| O5 | Medium | `lib/db.ts` migration runner | `user_version` is advanced to `migrations.length` even when a migration fails with a non-"duplicate column" error. That migration is never retried. | Stop at the first real failure: set `user_version = i` and break. |
-| O6 | Low–Med | `lib/lanTransport.ts` socket `data` | The frame buffer is unbounded and filled **before** any authentication. Any host on the LAN can grow it without a newline until the app runs out of memory, whenever sync is on. | Cap the buffer (e.g. 1 MB) and destroy the socket past it. |
-| O7 | Low | `lib/notifications.ts` `scheduleWeeklyTaskNotifications` / `cancelTaskNotification` | Cancel-then-schedule is async and runs unawaited from store actions. Two quick edits that change a weekly task's days can interleave and leave a stale `task-<id>-sN` armed. | Serialise per task id (a promise chain keyed by id). |
-| O8 | Low | `lib/peerAuth.ts` | No nonce or timestamp, so a captured envelope can be replayed. LWW limits this to re-applying an equal-or-newer state. The HMAC compare is also not constant-time. | Include `updatedAt` freshness in the signed body. Use a constant-time compare. |
-| O9 | Low | `lib/liveSync.ts` | LWW uses each phone's wall clock (`updatedAt`), so clock skew between phones silently discards the "later" edit. Inherent to the design. Noted because nothing surfaces it. | Hybrid logical clock, or at least a skew check at pairing. |
-| O10 | Low | `lib/db.ts` `pruneOldData` | All the DELETEs share one `try`, so one failing statement skips every prune after it. | One try per statement. |
-| O11 | Low | `components/DateChipRow.tsx` | The week strip is computed in `useMemo([])`, so it goes stale when the app stays open across midnight or a week boundary. | Key the memo on `todayStr()` / `useNowMinutes`. |
-| O12 | Info | `store/useTaskStore.ts` | `task_steps` are not synced, so a shared task arrives without its steps. | Add `task_steps` as a sync table if shared checklists matter. |
+| # | Where | Fix | Test |
+|---|---|---|---|
+| O1 | `lib/taskReset.ts`, `store/useTaskStore.ts`, `lib/db.ts` | New `tasks.done_on` (local date ticked). `update()` stamps it whenever `done` changes, so every completion path gets it, and the widget's direct write sets it too. A monthly task's `done` clears once an occurrence later than `done_on` has arrived (`previousOccurrenceDate`), and its `date` (start boundary) never moves. Existing done rows are back-filled from `updated_at`. Synced. | `lib/__tests__/taskReset.test.ts`, `__tests__/taskStateReset.test.ts` |
+| O2 | `lib/backup.ts` | `peers` is left out of every export, and a restore neither clears nor refills it. A restore keeps this phone's `settings.device_id`. | `__tests__/backup.test.ts` |
+| O3 | `lib/syncService.ts`, `app/_layout.tsx` | New `onRemoteRowApplied()`. The root layout reloads the store an inbound delta changed, batched on a 300 ms timer. | — (lifecycle wiring) |
+| O4 | `lib/reminders.ts`, `lib/notifications.ts` | A reset day of 29–31 is armed as a one-off for the next clamped date (`nextMonthlyReminderDate`) and re-armed on every foreground. Days 1–28 keep the native MONTHLY trigger. | `lib/__tests__/monthlyReminderDate.test.ts` |
+| O5 | `lib/db.ts` `initDb` | Stops at the first real failure and records only what was applied, so a failed migration is retried next launch. Checked against a real SQLite engine (sql.js): the whole log applies cleanly on a fresh DB and when replayed from version 0 (the restore path). | `lib/__tests__/migrationsRealSqlite.test.ts` |
+| O6 | `lib/lanTransport.ts` | Caps the partial frame at `MAX_FRAME_CHARS` (1 MB) and drops the connection past it. | — |
+| O7 | `lib/notifications.ts` | Per-task-id operation queue around schedule/cancel. The test fails without the queue and passes with it. | `lib/__tests__/taskNotificationQueue.test.ts` |
+| O8 | `lib/liveSync.ts` | **Correction:** `peerAuth` already compared tags in constant time, so round 1 was wrong about that. Replay of a delta for a row we hold was already a no-op, because an equal stamp never wins. What remained was resurrecting a pruned row, so `applyDelta` now refuses to *create* a row from a delta older than the retention window. | `lib/__tests__/liveSyncTaskColumns.test.ts` |
+| O9 | `lib/liveSync.ts` | `touchRow`/`softDelete` stamp `max(now, row.updated_at + 1 ms)` (`monotonicStamp`), so a local edit always beats the version it edited even when this phone's clock runs behind. Concurrent edits still resolve by timestamp. | same |
+| O10 | `lib/db.ts` `pruneOldData` | One try per statement. Tombstones (tasks, steps) older than the window are now pruned too; they used to stay forever. | — |
+| O11 | `components/DateChipRow.tsx` | The week strip is keyed on `todayStr()` and re-renders via `useNowMinutes()`. | — |
+| O12 | `lib/liveSync.ts`, `store/useTaskStore.ts`, `lib/db.ts` | `task_steps` is a sync table (bookkeeping columns migrated in). Add, toggle, reorder and the task↔step cascade stamp and broadcast, and remove is a tombstone. | `lib/__tests__/liveSyncTaskColumns.test.ts` |
+
+Known limits left as-is:
+- Home-screen widget writes to SQLite directly and can't broadcast. A widget tick reaches a paired phone only with the next in-app edit of that row. It is stamped, so it wins that merge.
+- An inbound task delta reloads the store but doesn't re-arm that task's reminder on this phone. It is re-armed on the next local edit or on the settings-driven full re-sync.
 
 ## Verification
 
-- `npx tsc --noEmit`: clean.
-- `npx jest`: 143 suites, 2700 passed, 1 skipped (was 142 / 2684). The 16 new tests cover F1, F4–F6 and F8.
-- F7 is lifecycle wiring with no unit test. It needs a device check: tick a habit from the widget, reopen the app, tap the habit once, and the count should be widget + 1.
+- Round 1: `tsc` clean; jest 143 suites / 2700 passed (was 142 / 2684).
+- Round 2: `tsc` clean; jest numbers in the PR.
+- Device checks (lifecycle wiring no unit test can see):
+  1. F7: tick a habit from the widget, reopen the app, tap the habit once. The count should be widget + 1.
+  2. O3: with two paired phones, edit a task on one. It should appear on the other within a second, without reopening the app.
+  3. O1: tick a monthly task, move the phone's date past the next occurrence, and reopen. The task should be back to not done.

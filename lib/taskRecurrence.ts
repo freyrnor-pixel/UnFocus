@@ -12,7 +12,8 @@
  *             from here)
  *   Used by → store/useTaskStore.ts (re-exports taskOccursOn for existing
  *             callers/tests, e.g. __tests__/taskOccursOn.test.ts), lib/taskNotifications.ts
- *             (nextOccurrenceDate, for monthly reminders)
+ *             (nextOccurrenceDate, for monthly/every-n-weeks/not-yet-started reminders),
+ *             lib/taskReset.ts (previousOccurrenceDate, the monthly done-reset)
  *   Data    → none (pure functions)
  */
 import type { Task, MonthOrdinal } from '@/store/useTaskStore';
@@ -46,7 +47,14 @@ function weeksBetweenMondays(a: string, b: string): number {
  *  - monthly → day-of-month (clamped when the month is shorter) OR nth/last weekday
  * `hasStartDate` acts as a start boundary for recurring tasks (no earlier occurrences).
  */
-export function taskOccursOn(task: Task, date: string): boolean {
+/** The fields occurrence resolution reads. A full `Task` satisfies it. */
+export type OccurrenceFields = Pick<
+  Task,
+  | 'recurring' | 'date' | 'hasStartDate' | 'recurringDays' | 'weekInterval'
+  | 'monthlyMode' | 'monthDay' | 'monthOrdinal' | 'monthWeekday'
+>;
+
+export function taskOccursOn(task: OccurrenceFields, date: string): boolean {
   if (task.recurring === 'none') return task.date === date;
   if (task.hasStartDate && date < task.date) return false;
 
@@ -86,11 +94,27 @@ export function taskOccursOn(task: Task, date: string): boolean {
  * 62 days comfortably covers the longest possible gap between monthly
  * occurrences (at most one calendar month).
  */
-export function nextOccurrenceDate(task: Task, fromDate: string, maxDays = 62): string | null {
+export function nextOccurrenceDate(task: OccurrenceFields, fromDate: string, maxDays = 62): string | null {
   const start = new Date(fromDate + 'T12:00:00');
   for (let i = 0; i < maxDays; i++) {
     const d = new Date(start);
     d.setDate(start.getDate() + i);
+    const ds = dateStr(d);
+    if (taskOccursOn(task, ds)) return ds;
+  }
+  return null;
+}
+
+/**
+ * The latest date on or before `onOrBefore` on which `task` occurs, or null if none falls
+ * within `maxDays` of it. The mirror of nextOccurrenceDate, for lib/taskReset.ts's monthly
+ * reset ("has an occurrence arrived since this was ticked?").
+ */
+export function previousOccurrenceDate(task: OccurrenceFields, onOrBefore: string, maxDays = 62): string | null {
+  const start = new Date(onOrBefore + 'T12:00:00');
+  for (let i = 0; i < maxDays; i++) {
+    const d = new Date(start);
+    d.setDate(start.getDate() - i);
     const ds = dateStr(d);
     if (taskOccursOn(task, ds)) return ds;
   }

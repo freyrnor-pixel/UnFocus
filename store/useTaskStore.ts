@@ -237,6 +237,13 @@ export type Task = {
    * which moves on any edit by any device.
    */
   doneAt: string;
+  /**
+   * The local `YYYY-MM-DD` the task was ticked (2026-09-29), '' when not done. What lets a
+   * MONTHLY recurring task come back: lib/taskReset.ts clears `done` once an occurrence
+   * after this date has arrived. Stamped by update() whenever `done` changes, so every
+   * completion path gets it without remembering to. Synced, unlike `doneAt`.
+   */
+  doneOn: string;
   recurring: Recurring;
   recurringDays: number[]; // 0=Mon … 6=Sun (weekly)
   /** Weekly interval: 1 = every week, 2 = every 2nd, 3 = every 3rd. */
@@ -335,6 +342,7 @@ export type TaskInput = {
   durationMinutes?: number;
   done: boolean;
   doneAt?: string;
+  doneOn?: string;
   recurring: Recurring;
   recurringDays: number[];
   weekInterval?: number;
@@ -531,6 +539,7 @@ function rowToTask(row: Row): Task {
     durationMinutes: readInt(row, 'duration_minutes') || undefined,
     done: readBool(row, 'done'),
     doneAt: readStr(row, 'done_at'),
+    doneOn: readStr(row, 'done_on'),
     recurring: readStr(row, 'recurring', 'none') as Recurring,
     recurringDays: readJson<number[]>(row, 'recurring_days', []),
     weekInterval: readInt(row, 'recurring_week_interval', 1) || 1,
@@ -579,6 +588,7 @@ const TASK_COLUMNS: FieldMap<Task> = {
   durationMinutes: { col: 'duration_minutes', to: (v) => v ?? null },
   done: { col: 'done', to: (v) => (v ? 1 : 0) },
   doneAt: { col: 'done_at', to: (v) => v ?? '' },
+  doneOn: { col: 'done_on', to: (v) => v ?? '' },
   recurring: { col: 'recurring' },
   recurringDays: { col: 'recurring_days', to: (v) => JSON.stringify(v ?? []) },
   weekInterval: { col: 'recurring_week_interval', to: (v) => v ?? 1 },
@@ -697,7 +707,8 @@ export const useTaskStore = create<TaskStore>((set, get) => {
 
     // Group steps onto their owning task in a single pass (one query, not N+1).
     const byTask = new Map<string, TaskStep[]>();
-    for (const step of loadAll('task_steps', rowToTaskStep, { orderBy: 'order_index' })) {
+    // Removed steps are tombstones since steps joined live sync (2026-09-29), same as tasks.
+    for (const step of loadAll('task_steps', rowToTaskStep, { orderBy: 'order_index', where: 'deleted_at IS NULL' })) {
       const list = byTask.get(step.taskId);
       if (list) list.push(step);
       else byTask.set(step.taskId, [step]);
@@ -715,6 +726,7 @@ export const useTaskStore = create<TaskStore>((set, get) => {
       // A brand-new task is never done, so it has no completion time. toggle() /
       // completeDirect() are the only writers.
       doneAt: '',
+      doneOn: '',
       hint: t.hint ?? '',
       followsTaskId: t.followsTaskId ?? null,
       weekInterval: t.weekInterval ?? 1,
@@ -762,7 +774,12 @@ export const useTaskStore = create<TaskStore>((set, get) => {
       // the wash-away window (lib/taskReset.ts). A caller that has already decided the stamp
       // — bringBack() — keeps its own; the automatic paths bypass update() entirely rather
       // than passing a flag, so there is no way to edit a task here without it counting.
-      const acted = { lastActedAt: patch.lastActedAt ?? actedNow() };
+      const acted: Partial<Task> = { lastActedAt: patch.lastActedAt ?? actedNow() };
+      // `doneOn` follows `done` on every path — toggle, completeDirect, the step cascade,
+      // a notification action — so a monthly task always knows which day it was ticked.
+      if ('done' in patch && !('doneOn' in patch) && patch.done !== task.done) {
+        acted.doneOn = patch.done ? todayStr() : '';
+      }
       // Re-derive duration whenever Start or Finish changed, and persist it alongside
       // the patch so the Home day-view's start–end rendering stays in sync.
       if (!('time' in patch) && !('finishTime' in patch)) return { ...patch, ...acted };
@@ -797,6 +814,9 @@ export const useTaskStore = create<TaskStore>((set, get) => {
     // update() (which keeps notification + live-sync wiring intact and preserves the
     // just-updated step state, since update() re-reads the task from current state).
     db.runSync('UPDATE task_steps SET done = ? WHERE task_id = ?', [willBeDone ? 1 : 0, id]);
+    // Steps are a synced table (2026-09-29): a cascaded flag the peer never hears about would
+    // leave its checklist disagreeing with the task it just learned is done.
+    syncRows('task_steps', task.steps.map((st) => st.id));
     set((s) => ({
       tasks: s.tasks.map((t) =>
         t.id === id ? { ...t, steps: t.steps.map((st) => ({ ...st, done: willBeDone })) } : t
@@ -822,6 +842,7 @@ export const useTaskStore = create<TaskStore>((set, get) => {
     // See toggle() — a note cannot be completed by any path.
     if (!isCompletable(task.cardType)) return;
     db.runSync('UPDATE task_steps SET done = 1 WHERE task_id = ?', [id]);
+    syncRows('task_steps', task.steps.map((st) => st.id));
     set((s) => ({
       tasks: s.tasks.map((t) =>
         t.id === id ? { ...t, steps: t.steps.map((st) => ({ ...st, done: true })) } : t
@@ -1033,6 +1054,7 @@ export const useTaskStore = create<TaskStore>((set, get) => {
     const orderIndex = existingSteps.length === 0 ? 0 : Math.max(...existingSteps.map((s) => s.orderIndex)) + 1;
     const step: TaskStep = { id: generateId(), taskId, title, done: false, orderIndex };
     insertRow('task_steps', rowValues(step, TASK_STEP_COLUMNS));
+    syncRow('task_steps', step.id);
     set((s) => ({
       tasks: s.tasks.map((t) => (t.id === taskId ? { ...t, steps: [...t.steps, step] } : t)),
     }));
@@ -1040,7 +1062,10 @@ export const useTaskStore = create<TaskStore>((set, get) => {
   },
 
   removeStep(id) {
-    db.runSync('DELETE FROM task_steps WHERE id = ?', [id]);
+    // Tombstone, not DELETE: a synced row has to outlive its removal long enough to tell a
+    // peer, or the peer's copy would put the step back on its next broadcast.
+    softDelete('task_steps', id, useSettingsStore.getState().deviceId);
+    broadcastRow('task_steps', id);
     set((s) => ({
       tasks: s.tasks.map((t) => ({ ...t, steps: t.steps.filter((step) => step.id !== id) })),
     }));
@@ -1052,6 +1077,7 @@ export const useTaskStore = create<TaskStore>((set, get) => {
     if (!owner || !step) return;
     const done = !step.done;
     updateRow('task_steps', { done: done ? 1 : 0 }, 'id = ?', [id]);
+    syncRow('task_steps', id);
     set((s) => ({
       tasks: s.tasks.map((t) =>
         t.id === owner.id ? { ...t, steps: t.steps.map((st) => (st.id === id ? { ...st, done } : st)) } : t
@@ -1083,6 +1109,7 @@ export const useTaskStore = create<TaskStore>((set, get) => {
     const b = sorted[swapIdx];
     updateRow('task_steps', { order_index: b.orderIndex }, 'id = ?', [a.id]);
     updateRow('task_steps', { order_index: a.orderIndex }, 'id = ?', [b.id]);
+    syncRows('task_steps', [a.id, b.id]);
     set((s) => ({
       tasks: s.tasks.map((t) =>
         t.id === owner.id
