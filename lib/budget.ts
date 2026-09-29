@@ -7,7 +7,7 @@
  * place so all three surfaces share a single calculation instead of three copies.
  *
  * Connections:
- *   Imports → lib/date (parseDateStr, todayStr)
+ *   Imports → lib/date (monthlyResetDayIn, parseDateStr, todayStr)
  *   Used by → app/budget.tsx, app/(tabs)/shopping.tsx, app/(tabs)/index.tsx (feeds
  *             components/HomeShoppingCard)
  *   Data    → pure function; callers pass in receipts/settings, no store access here
@@ -18,7 +18,7 @@
  *   - daysElapsed is inclusive of both the reset day and today.
  *   - Returns null when there's no budget set or no reset boundary yet (nothing to pace against).
  */
-import { parseDateStr, todayStr } from '@/lib/date';
+import { monthlyResetDayIn, parseDateStr, todayStr } from '@/lib/date';
 
 export type SpendPace = {
   actualPerDay: number;
@@ -40,7 +40,8 @@ export function computeSpendPace(
   const todayD = parseDateStr(today);
   const daysElapsed = Math.max(1, Math.round((todayD.getTime() - resetD.getTime()) / MS_PER_DAY) + 1);
 
-  const nextResetD = new Date(resetD.getFullYear(), resetD.getMonth() + 1, monthlyResetDate);
+  // Clamped: `new Date(y, m + 1, 31)` for a February rolls into March and stretches the period.
+  const nextResetD = monthlyResetDayIn(resetD.getFullYear(), resetD.getMonth() + 1, monthlyResetDate);
   const periodLength = Math.max(1, Math.round((nextResetD.getTime() - resetD.getTime()) / MS_PER_DAY));
 
   const spendSinceReset = receipts

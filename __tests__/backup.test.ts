@@ -93,4 +93,18 @@ describe('restoreBackup', () => {
     expect(pragmas[0]).toBe('PRAGMA foreign_keys = OFF');
     expect(pragmas[pragmas.length - 1]).toBe('PRAGMA foreign_keys = ON');
   });
+
+  // 2026-09-29: an older backup's rows are pre-migration data; winding user_version back makes
+  // the reload's initDb() replay the data migrations over them, as a real upgrade would.
+  it('winds user_version back to an OLDER backup\'s schema version', () => {
+    restoreBackup({ ...backup({ tasks: [] }), schemaVersion: 3 });
+    const pragmas = execSync.mock.calls.map((c) => c[0]).filter((s: string) => s.includes('user_version'));
+    expect(pragmas).toEqual(['PRAGMA user_version = 3']);
+  });
+
+  it('leaves user_version alone for a same-version backup', () => {
+    restoreBackup(backup({ tasks: [] })); // schemaVersion 5 === live 5
+    const pragmas = execSync.mock.calls.map((c) => c[0]).filter((s: string) => s.includes('user_version'));
+    expect(pragmas).toEqual([]);
+  });
 });

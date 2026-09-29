@@ -14,6 +14,7 @@ import {
   getMonthDates,
   getWeekRangeContaining,
   weekOfMonthlyCycle,
+  monthlyBoundaryOnOrBefore,
   dateRangeForCycleWeek,
   formatDisplayDate,
   formatDateRange,
@@ -341,5 +342,36 @@ describe('localMinutesOf', () => {
 
   it('agrees with nowHHMM, which is built from it', () => {
     expect(formatMinutesAsTime(localMinutesOf(new Date()))).toBe(nowHHMM());
+  });
+});
+
+// 2026-09-29: a reset day of 29–31 used to overflow a short month (`setDate(31)` in a 30-day
+// month rolls into the next), putting the boundary days late or in the future.
+describe('monthlyBoundaryOnOrBefore (clamped to short months)', () => {
+  it('clamps to the last day of a short month', () => {
+    expect(monthlyBoundaryOnOrBefore('2026-04-30', 31)).toBe('2026-04-30');
+    expect(monthlyBoundaryOnOrBefore('2026-02-28', 30)).toBe('2026-02-28');
+  });
+  it('falls back to last month\'s clamped day before this month\'s arrives', () => {
+    expect(monthlyBoundaryOnOrBefore('2026-03-05', 31)).toBe('2026-02-28');
+    expect(monthlyBoundaryOnOrBefore('2026-03-01', 30)).toBe('2026-02-28');
+    expect(monthlyBoundaryOnOrBefore('2026-05-10', 31)).toBe('2026-04-30');
+  });
+  it('crosses the year', () => {
+    expect(monthlyBoundaryOnOrBefore('2026-01-10', 25)).toBe('2025-12-25');
+  });
+  it('is the reset day itself on the reset day', () => {
+    expect(monthlyBoundaryOnOrBefore('2026-09-25', 25)).toBe('2026-09-25');
+  });
+});
+
+describe('monthly cycle after a short month', () => {
+  it('week 1 of the cycle containing 2026-03-01 (reset day 30) is the week of Feb 28, not a future week', () => {
+    const range = dateRangeForCycleWeek('2026-03-01', 30, 1, 0);
+    expect(range.startDate <= '2026-03-01').toBe(true);
+    expect(range).toEqual({ startDate: '2026-02-23', endDate: '2026-03-01' });
+  });
+  it('counts weeks from the clamped boundary', () => {
+    expect(weekOfMonthlyCycle('2026-03-08', 31)).toBe(2); // 8 days after Feb 28
   });
 });

@@ -349,6 +349,18 @@ export function restoreBackup(data: BackupFile): void {
       // Guarantee the settings singleton exists even if the backup somehow lacked
       // it — initDb() also re-creates it on the reload that follows a restore.
       db.execSync('INSERT OR IGNORE INTO settings (id) VALUES (1)');
+      // An OLDER backup's rows are pre-migration data: the columns exist (they took their
+      // DEFAULTs on insert, exactly as an ALTER would have given them), but every data
+      // migration since — back-fills, the default Monthly list built from settings, and so
+      // on — ran against the data this restore just deleted. Winding user_version back to
+      // the backup's makes the reload's initDb() replay those migrations over the restored
+      // rows, the same way a real upgrade from that version would have. Duplicate-column
+      // errors from the ALTERs are swallowed there, as on every first launch.
+      const backupVersion = data.schemaVersion;
+      if (typeof backupVersion === 'number' && Number.isInteger(backupVersion) && backupVersion >= 0
+        && backupVersion < currentSchemaVersion()) {
+        db.execSync(`PRAGMA user_version = ${backupVersion}`);
+      }
     });
   } finally {
     db.execSync('PRAGMA foreign_keys = ON');

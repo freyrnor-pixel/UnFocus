@@ -107,7 +107,7 @@
  *             components/PressableScale, components/SectionRail,
  *             constants/theme, react-native (AppState — the payday-boundary check also
  *             runs on app foreground now, not just navigation focus; see the edit note),
- *             lib/date (todayStr, dateStr, getWeekRangeContaining, weekOfMonthlyCycle,
+ *             lib/date (todayStr, dateStr, getWeekRangeContaining, weekOfMonthlyCycle, monthlyBoundaryOnOrBefore,
  *             dateRangeForCycleWeek, formatDateRange), lib/haptics (success,
  *             heavy, warning), lib/i18n, lib/money (formatKr), lib/shoppingGroups (groupByDish,
  *             groupByCategory, computeListGroups, listProgress, catalogItemsForList),
@@ -567,7 +567,7 @@ import TabSlider from '@/components/TabSlider';
 import NewMonthlyListRow from '@/components/NewMonthlyListRow';
 import { success, heavy, warning, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
-import { todayStr, dateStr, getWeekRangeContaining, weekOfMonthlyCycle, dateRangeForCycleWeek, formatDateRange } from '@/lib/date';
+import { todayStr, dateStr, getWeekRangeContaining, weekOfMonthlyCycle, dateRangeForCycleWeek, formatDateRange, monthlyBoundaryOnOrBefore } from '@/lib/date';
 import { useAppTheme, useAccessibility } from '@/lib/useAppTheme';
 import { useKeyboardLift } from '@/lib/useKeyboardLift';
 import { Fonts, FontSize, HitSlop, MIN_TAP_TARGET, OpticalCenter, Radius, SCREEN_GAP, Spacing, TITLE_FIELD, Type } from '@/constants/theme';
@@ -919,10 +919,20 @@ export default function ShoppingScreen() {
     const today = todayStr();
     if (advanceRecurringLists(today)) loadShopping();
 
-    const periodKey = today.slice(0, 7); // YYYY-MM
+    // Due once the most recent payday boundary has passed without a reset since. The boundary
+    // is clamped to short months (a reset day of 31 is Apr 30), and comparing against it —
+    // rather than `getDate() >= monthlyResetDate` within the calendar month — also catches a
+    // period the app was never opened in (payday the 28th, next open the 2nd). A reset stamped
+    // earlier in the boundary's own calendar month still counts, as it always has: a manual
+    // "reset all" on the 20th covers the 25th's payday.
     const settings = useSettingsStore.getState();
-    const alreadyResetThisPeriod = settings.lastMonthlyReset.slice(0, 7) === periodKey;
-    if (!alreadyResetThisPeriod && new Date().getDate() >= settings.monthlyResetDate) {
+    const last = settings.lastMonthlyReset.slice(0, 10);
+    const boundary = monthlyBoundaryOnOrBefore(today, settings.monthlyResetDate);
+    const alreadyResetThisPeriod = last !== '' && (last >= boundary || last.slice(0, 7) === boundary.slice(0, 7));
+    // Never stamped (an install older than onboarding's stamp): keep the old first-run rule of
+    // waiting for this month's own reset day rather than opening the sheet on first launch.
+    const waitingForFirstPayday = last === '' && boundary.slice(0, 7) !== today.slice(0, 7);
+    if (!alreadyResetThisPeriod && !waitingForFirstPayday) {
       setResetReviewVisible(true);
     }
   }, [loadShopping, advanceRecurringLists]);
