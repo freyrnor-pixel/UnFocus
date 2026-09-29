@@ -136,6 +136,8 @@ type Props<T extends string | number> = {
   style?: StyleProp<ViewStyle>;
 };
 
+/** How far an `attachedTop` track's fill reaches up under the header — see the style array. */
+const SEAM_TUCK = 2;
 const TRACK_PAD = 3;
 const TRACK_GAP = 3;
 /** Segment height. 34 since 2026-08-10 (was 38) — the maintainer asked for the sticky tab row
@@ -344,6 +346,14 @@ export default function TabSlider<T extends string | number>({
         // header card and the bottom nav follow — see ScreenScaffold's `viewportInset`.
         attachedTop && { borderTopLeftRadius: 0, borderTopRightRadius: 0 },
         style,
+        // Tucked UNDER the header (2026-09-28). The header and this bar are two absolute views
+        // that only abut, and on some densities that shared edge rounds to two device pixels —
+        // a hairline where scrolled content flickers through. ScreenScaffold's hairline overlap
+        // stopped covering it on 2026-09-01, when the sticky block moved down by the same
+        // hairline. So the track's own fill reaches SEAM_TUCK up behind the (zIndex-higher,
+        // opaque) header, and the padding gives it back: the visible band and the centring of
+        // the segments are unchanged. Last in the array so a caller's style can't undo it.
+        attachedTop && { marginTop: -SEAM_TUCK, paddingTop: SEAM_TUCK },
       ]}
     >
       <View style={styles.row} onLayout={onTrackLayout}>{content}</View>

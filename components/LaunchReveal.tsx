@@ -31,6 +31,8 @@
  *     mount instead would put the logo above where the native splash had it, i.e. a jump on the
  *     first frame, which is exactly what this component exists to avoid. The name is absolutely
  *     positioned under the logo box so it costs the layout nothing.
+ *   - **Android draws no mark (2026-09-28)** — the OS's own splash logo is circle-masked and
+ *     sized by the OS, so this layer's copy was a second, different picture. See `DRAW_MARK`.
  *   - reducedMotion drops the travel and the scale but keeps the colour dissolve — the setting
  *     is about movement, and a screen appearing with no transition at all is the abrupt cut the
  *     maintainer asked us to remove.
@@ -38,7 +40,7 @@
  *     and takes touches, so a tap landing during the reveal can't hit a half-revealed app.
  */
 import React, { useEffect } from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Image, Platform, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Extrapolation,
   interpolate,
@@ -77,6 +79,19 @@ const FIELD_TO_APP_AT = 0.88;
 /** How far the whole mark pushes toward the viewer as the field lets go of it. */
 const EXIT_SCALE = 0.04;
 
+/**
+ * Whether this layer draws its own logo + name (2026-09-28, maintainer: *"the startup still has
+ * one picture, then another"* — after #738 had already fixed iOS's double fade).
+ *
+ * On Android 12+ the native splash is drawn by the OS's SplashScreen API, which sizes the icon
+ * itself and masks it to a circle — NOT the `imageWidth` box on a flat field that this component
+ * copies. So the "same frame" handoff this file is built on does not hold there: the OS's round
+ * logo vanished and this square card + name appeared in its place, i.e. two pictures. On Android
+ * this is now the field alone — white, dissolving into the app — so the only logo the user sees
+ * is the OS's. iOS's storyboard does draw the exact box, so it keeps the mark.
+ */
+const DRAW_MARK = Platform.OS !== 'android';
+
 const AnimatedText = Animated.createAnimatedComponent(Text);
 
 export default function LaunchReveal({ onDone }: { onDone: () => void }) {
@@ -88,10 +103,11 @@ export default function LaunchReveal({ onDone }: { onDone: () => void }) {
   const exit = useSharedValue(0);
 
   useEffect(() => {
-    const nameMs = reducedMotion ? 0 : Duration.launchName;
+    const nameMs = reducedMotion || !DRAW_MARK ? 0 : Duration.launchName;
     name.value = withTiming(1, { duration: nameMs, easing: Ease.enter });
     exit.value = withDelay(
-      nameMs + Duration.launchHold,
+      // No mark → nothing to hold on; the field starts letting go immediately.
+      DRAW_MARK ? nameMs + Duration.launchHold : 0,
       withTiming(
         1,
         { duration: reducedMotion ? Duration.modalOut : Duration.launchOut, easing: Ease.exit },
@@ -111,7 +127,8 @@ export default function LaunchReveal({ onDone }: { onDone: () => void }) {
   // once it already matches what is behind it.
   const fieldStyle = useAnimatedStyle(() => ({
     backgroundColor: interpolateColor(
-      interpolate(exit.value, [MARK_OUT_AT, FIELD_TO_APP_AT], [0, 1], Extrapolation.CLAMP),
+      // Without a mark there is no phase 1 to wait out, so the colour travel starts at 0.
+      interpolate(exit.value, [DRAW_MARK ? MARK_OUT_AT : 0, FIELD_TO_APP_AT], [0, 1], Extrapolation.CLAMP),
       [0, 1],
       [SPLASH_BACKGROUND, theme.bg],
     ),
@@ -147,14 +164,16 @@ export default function LaunchReveal({ onDone }: { onDone: () => void }) {
       importantForAccessibility="no-hide-descendants"
       accessibilityElementsHidden
     >
-      <Animated.View style={[styles.mark, markStyle]}>
-        <View style={styles.logoBox}>
-          <Image source={require('../assets/icon.png')} style={styles.logo} resizeMode="contain" />
-        </View>
-        <AnimatedText style={[styles.name, nameStyle]} allowFontScaling={false} numberOfLines={1}>
-          {SPLASH_WORDMARK}
-        </AnimatedText>
-      </Animated.View>
+      {DRAW_MARK ? (
+        <Animated.View style={[styles.mark, markStyle]}>
+          <View style={styles.logoBox}>
+            <Image source={require('../assets/icon.png')} style={styles.logo} resizeMode="contain" />
+          </View>
+          <AnimatedText style={[styles.name, nameStyle]} allowFontScaling={false} numberOfLines={1}>
+            {SPLASH_WORDMARK}
+          </AnimatedText>
+        </Animated.View>
+      ) : null}
     </Animated.View>
   );
 }
