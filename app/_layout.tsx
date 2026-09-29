@@ -585,6 +585,13 @@ export default function RootLayout() {
         useTaskStore.getState().normalizeRecurringTasks(todayStr());
         useShoppingStore.getState().load();
         useNotesStore.getState().load();
+        // The widget can also tick a habit (toggleHabitDone) and log a medicine tray
+        // (takeTray). Both stores write from memory — habit increment() writes an absolute
+        // count and inserts a log row when it holds none; takeDose() de-dupes against its
+        // in-memory doses — so a stale copy here would overwrite the widget's tick or log
+        // the same dose twice on the next in-app tap.
+        useHabitStore.getState().load();
+        useMedicineStore.getState().load();
         // Re-arm any monthly recurring task's reminder for its next occurrence
         // (see the boot-effect call site's comment above).
         useTaskStore.getState().syncMonthlyTaskNotifications();

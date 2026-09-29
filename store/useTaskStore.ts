@@ -186,7 +186,7 @@ import {
 } from '@/lib/dataAccess';
 import { replaceById, updateById } from '@/lib/storeCrud';
 import { generateId } from '@/lib/id';
-import { dateStr, nowHHMM } from '@/lib/date';
+import { addDays, dateStr, nowHHMM, todayStr } from '@/lib/date';
 import { taskOccursOn } from '@/lib/taskRecurrence';
 import {
   canPostpone,
@@ -203,7 +203,7 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 import { useSharedStore } from '@/store/useSharedStore';
 import { useGoalStore } from '@/store/useGoalStore';
 import { cancelTaskNotification } from '@/lib/notifications';
-import { syncTaskNotification as scheduleTaskReminder } from '@/lib/taskNotifications';
+import { syncTaskNotification as scheduleTaskReminder, usesNextOccurrenceReminder } from '@/lib/taskNotifications';
 import { syncTaskCalendarEvent, cancelTaskCalendarEvent } from '@/lib/taskCalendar';
 import { softDelete } from '@/lib/liveSync';
 import { broadcastRow } from '@/lib/syncService';
@@ -1180,8 +1180,12 @@ export const useTaskStore = create<TaskStore>((set, get) => {
   },
 
   syncMonthlyTaskNotifications() {
+    // Asked as of YESTERDAY so a daily/weekly series whose start date is TODAY is included
+    // one more time: its one-off "first occurrence" reminder has to be swapped for the
+    // native repeating trigger on the day the series begins, and nothing else re-syncs it.
+    const yesterday = addDays(todayStr(), -1);
     get()
-      .tasks.filter((t) => t.recurring === 'monthly')
+      .tasks.filter((t) => usesNextOccurrenceReminder(t, yesterday))
       .forEach(syncTaskNotification);
   },
 

@@ -19,6 +19,7 @@ import {
   snoozeTaskReminder,
   RENUDGE_DELAY_MS,
   TaskNotifSettings,
+  usesNextOccurrenceReminder,
 } from '@/lib/taskNotifications';
 import type { Task } from '@/store/useTaskStore';
 
@@ -230,6 +231,68 @@ describe('monthly-recurring tasks (2026-07-20 — next-occurrence one-off, re-ar
     syncTaskNotification(task({ recurring: 'monthly', monthlyMode: 'day', monthDay: 25 }), baseSettings);
     expect(scheduleWeekly).not.toHaveBeenCalled();
     expect(scheduleDaily).not.toHaveBeenCalled();
+  });
+});
+
+// ── 2026-09-29: the one-off path never schedules a past instant, and covers the series a
+// native repeating trigger can't express (every-n-weeks, a start date still ahead).
+describe('next-occurrence reminders (2026-09-29)', () => {
+  beforeEach(() => {
+    // Wednesday 2026-07-15, 11:00 — after a 10:00 reminder on the 15th has gone.
+    jest.useFakeTimers().setSystemTime(new Date('2026-07-15T11:00:00'));
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('skips today\'s monthly occurrence once its time has passed (a past DATE trigger fires at once on Android)', () => {
+    syncTaskNotification(task({ recurring: 'monthly', monthlyMode: 'day', monthDay: 15, time: '10:00' }), baseSettings);
+    expect(schedule).toHaveBeenCalledTimes(1);
+    const [, date] = schedule.mock.calls[0];
+    expect(date.getTime()).toBeGreaterThan(Date.now());
+    expect(date.getMonth()).toBe(7); // August 15, not July 15
+    expect(date.getDate()).toBe(15);
+  });
+
+  it('still schedules today\'s monthly occurrence when its time is ahead', () => {
+    syncTaskNotification(task({ recurring: 'monthly', monthlyMode: 'day', monthDay: 15, time: '18:00' }), baseSettings);
+    const [, date] = schedule.mock.calls[0];
+    expect(date.getMonth()).toBe(6);
+    expect(date.getDate()).toBe(15);
+  });
+
+  it('arms an every-other-week task as a one-off on an ON week, not a weekly trigger', () => {
+    // Anchored Monday 2026-07-06; every 2 weeks on Wednesday → Jul 8, Jul 22 (Jul 15 is off).
+    syncTaskNotification(
+      task({ recurring: 'weekly', recurringDays: [2], weekInterval: 2, hasStartDate: true, date: '2026-07-06' }),
+      baseSettings
+    );
+    expect(scheduleWeekly).not.toHaveBeenCalled();
+    const [, date] = schedule.mock.calls[0];
+    expect(date.getMonth()).toBe(6);
+    expect(date.getDate()).toBe(22);
+  });
+
+  it('does not start a daily series before its start date', () => {
+    syncTaskNotification(task({ recurring: 'daily', hasStartDate: true, date: '2026-07-20' }), baseSettings);
+    expect(scheduleDaily).not.toHaveBeenCalled();
+    const [, date] = schedule.mock.calls[0];
+    expect(date.getDate()).toBe(20);
+  });
+
+  it('uses the native repeating trigger once the series has started', () => {
+    syncTaskNotification(task({ recurring: 'daily', hasStartDate: true, date: '2026-07-15' }), baseSettings);
+    expect(scheduleDaily).toHaveBeenCalledTimes(1);
+    expect(schedule).not.toHaveBeenCalled();
+  });
+
+  it('usesNextOccurrenceReminder names exactly that set', () => {
+    expect(usesNextOccurrenceReminder(task({ recurring: 'monthly' }), '2026-07-15')).toBe(true);
+    expect(usesNextOccurrenceReminder(task({ recurring: 'weekly', weekInterval: 2 }), '2026-07-15')).toBe(true);
+    expect(usesNextOccurrenceReminder(task({ recurring: 'weekly', weekInterval: 1, recurringDays: [0] }), '2026-07-15')).toBe(false);
+    expect(usesNextOccurrenceReminder(task({ recurring: 'daily', hasStartDate: true, date: '2026-07-16' }), '2026-07-15')).toBe(true);
+    expect(usesNextOccurrenceReminder(task({ recurring: 'daily', hasStartDate: true, date: '2026-07-15' }), '2026-07-15')).toBe(false);
+    expect(usesNextOccurrenceReminder(task({ recurring: 'none' }), '2026-07-15')).toBe(false);
   });
 });
 

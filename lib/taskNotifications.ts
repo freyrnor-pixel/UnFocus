@@ -26,7 +26,11 @@
  *     as a one-off for their NEXT occurrence only (lib/taskRecurrence.ts's
  *     nextOccurrenceDate) — the caller (useTaskStore's syncMonthlyTaskNotifications,
  *     called from app/_layout.tsx on boot + every foreground) re-arms it for the
- *     following occurrence once the current one has passed.
+ *     following occurrence once the current one has passed. Every-n-weeks (n > 1) tasks
+ *     and daily/weekly tasks whose start date is still ahead take the same path
+ *     (`usesNextOccurrenceReminder`) — a native repeating trigger can express neither.
+ *   - The one-off path never schedules a past instant: a past DATE trigger fires at once
+ *     on Android, so an occurrence whose time has gone is skipped for the next one.
  *   - `snoozeTaskReminder` (2026-07-27) is the "Remind me later" half of the interactive
  *     notification actions. It deliberately does NOT respect quiet hours: the user just
  *     asked to be reminded in 15 minutes, so deferring that to the morning would ignore an
@@ -35,7 +39,7 @@
  */
 import type { Task } from '@/store/useTaskStore';
 import type { Language } from '@/store/useSettingsStore';
-import { toExpoWeekday, dateStr } from '@/lib/date';
+import { addDays, toExpoWeekday, dateStr } from '@/lib/date';
 import { parseTimeStrict } from '@/lib/time';
 import { getTranslations } from '@/lib/i18n';
 import { nextOccurrenceDate } from '@/lib/taskRecurrence';
@@ -79,6 +83,48 @@ function deferOccurrencePastQuietHours(o: WeeklyTaskOccurrence, s: TaskNotifSett
 }
 
 /**
+ * Does this recurring task need its reminder armed as a one-off for the NEXT occurrence
+ * (and re-armed on every foreground), rather than a native repeating trigger?
+ *
+ *   - monthly — no native trigger says "day-of-month, clamped" or "nth/last weekday".
+ *   - weekly every n > 1 weeks — a native WEEKLY trigger fires every week, so an
+ *     every-other-week task used to ring on its off weeks too.
+ *   - daily/weekly with a start date still ahead — a repeating trigger would start
+ *     ringing now, before the series has begun.
+ *
+ * The store's `syncMonthlyTaskNotifications` re-arms exactly this set.
+ */
+export function usesNextOccurrenceReminder(task: Task, today: string = dateStr(new Date())): boolean {
+  if (task.recurring === 'monthly') return true;
+  if (task.recurring === 'weekly' && task.weekInterval > 1) return true;
+  if ((task.recurring === 'daily' || task.recurring === 'weekly') && task.hasStartDate && task.date > today) return true;
+  return false;
+}
+
+/**
+ * The start instant of the task's next occurrence that is still in the future, or null.
+ *
+ * `nextOccurrenceDate` is inclusive of today, so on an occurrence day whose reminder time
+ * has already passed it hands back today — and a DATE trigger in the past fires
+ * IMMEDIATELY on Android. Since this is re-armed on every foreground, that meant the same
+ * stale reminder popping each time the app was opened for the rest of that day. Step past
+ * it to the following occurrence instead.
+ */
+function nextFutureOccurrenceStart(task: Task, time: string, nowMs: number = Date.now()): Date | null {
+  let from = dateStr(new Date(nowMs));
+  // Two looks are enough: today's occurrence (possibly past), then the next one after it.
+  for (let i = 0; i < 2; i++) {
+    const next = nextOccurrenceDate(task, from);
+    if (!next) return null;
+    const start = new Date(`${next}T${time}:00`);
+    if (isNaN(start.getTime())) return null;
+    if (start.getTime() > nowMs) return start;
+    from = addDays(next, 1);
+  }
+  return null;
+}
+
+/**
  * Schedule (or cancel) the reminder(s) for a single task, honouring the given
  * notification setting and language. Both task kinds are covered:
  *   - one-off tasks fire once at their date/time (skipped if done or in the past)
@@ -103,6 +149,27 @@ export function syncTaskNotification(task: Task, s: TaskNotifSettings): void {
     title: task.title,
     body: t.notif.overviewNothingElse,
   };
+
+  if (usesNextOccurrenceReminder(task)) {
+    const start = nextFutureOccurrenceStart(task, task.time);
+    if (!start) {
+      void cancelTaskNotification(task.id);
+      return;
+    }
+    if (task.taskType === 'time-box') {
+      const dur = task.durationMinutes ?? 30;
+      const end = new Date(start.getTime() + dur * 60 * 1000);
+      void scheduleTaskNotification(
+        task.id,
+        deferPastQuietHours(start, s),
+        minimalContent,
+        { date: deferPastQuietHours(end, s), content: minimalContent }
+      );
+    } else {
+      void scheduleTaskNotification(task.id, deferPastQuietHours(start, s), minimalContent);
+    }
+    return;
+  }
 
   if (task.recurring === 'weekly') {
     if (task.recurringDays.length === 0) {
@@ -159,32 +226,6 @@ export function syncTaskNotification(task: Task, s: TaskNotifSettings): void {
       });
     } else {
       void scheduleDailyTaskNotification(task.id, pushed.hour, pushed.minute, minimalContent);
-    }
-    return;
-  }
-
-  if (task.recurring === 'monthly') {
-    const nextDate = nextOccurrenceDate(task, dateStr(new Date()));
-    if (!nextDate) {
-      void cancelTaskNotification(task.id);
-      return;
-    }
-    const start = new Date(`${nextDate}T${task.time}:00`);
-    if (isNaN(start.getTime())) {
-      void cancelTaskNotification(task.id);
-      return;
-    }
-    if (task.taskType === 'time-box') {
-      const dur = task.durationMinutes ?? 30;
-      const end = new Date(start.getTime() + dur * 60 * 1000);
-      void scheduleTaskNotification(
-        task.id,
-        deferPastQuietHours(start, s),
-        minimalContent,
-        { date: deferPastQuietHours(end, s), content: minimalContent }
-      );
-    } else {
-      void scheduleTaskNotification(task.id, deferPastQuietHours(start, s), minimalContent);
     }
     return;
   }

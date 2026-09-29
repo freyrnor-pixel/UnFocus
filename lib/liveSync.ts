@@ -55,6 +55,16 @@ const TABLE_COLUMNS: Record<SyncTable, string[]> = {
     'title', 'task_date', 'task_time', 'task_type', 'duration_minutes', 'done',
     'recurring', 'recurring_days', 'created_at', 'sort_order', 'hint', 'follows_task_id',
     'energy_enabled', 'energy_value',
+    // When and how often it happens (added 2026-09-29). These were never on the list, so a
+    // task created on one phone arrived on the other with the column DEFAULTs: every dated
+    // task landed undated (`has_start_date` 0 → Whenever), an every-other-week task became
+    // weekly, a monthly task moved to the 1st, and a time-box lost its finish. They describe
+    // the item, not the device, so they mean the same thing on both phones. An older peer
+    // simply omits them and the receiver keeps what it has (applyDelta only writes the keys
+    // it is sent).
+    'has_start_date', 'finish_time',
+    'recurring_week_interval', 'recurring_monthly_mode', 'recurring_month_day',
+    'recurring_month_ordinal', 'recurring_month_weekday',
     // Who it's FOR and who it came FROM (2026-07-28). Assignment was previously
     // device-local, which made a shared to-do list unusable: both phones saw the task and
     // neither could see whose it was.

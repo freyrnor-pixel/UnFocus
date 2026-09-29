@@ -8,7 +8,9 @@
  *
  * Connections:
  *   Imports → —
- *   Used by → components/SharedRequestsSection.tsx, app/(tabs)/shopping.tsx, app/budget.tsx,
+ *   Used by → app/(tabs)/shopping.tsx + lib/budget.ts (monthlyBoundaryOnOrBefore /
+ *             monthlyResetDayIn — the clamped payday boundary),
+ *             components/SharedRequestsSection.tsx, app/(tabs)/shopping.tsx, app/budget.tsx,
  *             app/shared.tsx, store/useShoppingListStore.ts
  *             (formatDisplayDate — Norwegian date display, code-only, no ledger number;
  *             see Decision 028's numbering note — renders stored ISO keys as DD.MM.YYYY in NO),
@@ -124,20 +126,48 @@ export function getWeekRangeContaining(today: string, weeklyResetDay: number): {
 }
 
 /**
+ * `monthlyResetDate` (a day-of-month, 1–31) as it lands in the given month: clamped to the
+ * month's last day, so a reset day of 31 means Feb 28/29, Apr 30 and so on. `month` is
+ * 0-based (a Date's `getMonth()`), and may run past 0–11 — Date normalises the year.
+ * Settings' own copy promises exactly this ("a short month resets on its last day").
+ */
+export function monthlyResetDayIn(year: number, month: number, monthlyResetDate: number): Date {
+  const last = new Date(year, month + 1, 0).getDate();
+  return new Date(year, month, Math.min(Math.max(1, monthlyResetDate), last));
+}
+
+/**
+ * The most recent monthly-reset boundary on or before `today`, as `YYYY-MM-DD` — this
+ * month's clamped reset day if today has reached it, otherwise last month's.
+ *
+ * The one place the boundary is computed. The hand-rolled `setDate(resetDate)` it replaces
+ * overflowed a short month (reset day 31 in a 30-day month rolled into the NEXT month), so
+ * a reset day of 29–31 put the boundary days late — or in the future — in any month
+ * following a shorter one, and never reached the reset day at all in a 30-day month.
+ */
+export function monthlyBoundaryOnOrBefore(today: string, monthlyResetDate: number): string {
+  const d = parseDateStr(today);
+  const thisMonth = monthlyResetDayIn(d.getFullYear(), d.getMonth(), monthlyResetDate);
+  if (d.getDate() >= thisMonth.getDate()) return dateStr(thisMonth);
+  return dateStr(monthlyResetDayIn(d.getFullYear(), d.getMonth() - 1, monthlyResetDate));
+}
+
+/**
  * Which week (1–4) of the current monthly cycle `today` falls in, where a cycle
  * runs from one monthly-reset boundary to the next. `monthlyResetDate` is a
- * day-of-month (1–28ish); the most recent boundary is that day in the current
- * month, or in the previous month if today is earlier than it. Week 1 is the
+ * day-of-month (1–31, clamped to short months); the most recent boundary is
+ * `monthlyBoundaryOnOrBefore()`. Week 1 is the
  * reset day through day 6, week 2 is days 7–13, etc.; clamped to 1–4 so a long
  * (5-week) cycle still maps its tail into week 4. Used to decide whether a weekly
  * list scheduled for specific weeks-of-the-month is active this week.
  */
 export function weekOfMonthlyCycle(today: string, monthlyResetDate: number): number {
   const d = new Date(today + 'T12:00:00');
-  const boundary = new Date(d);
-  boundary.setDate(monthlyResetDate);
-  if (d.getDate() < monthlyResetDate) boundary.setMonth(boundary.getMonth() - 1);
-  const daysSince = Math.floor((d.getTime() - boundary.getTime()) / 86400000);
+  const boundary = parseDateStr(monthlyBoundaryOnOrBefore(today, monthlyResetDate));
+  boundary.setHours(12);
+  // Round, not floor: both ends are noon-anchored, but a DST change between them makes the
+  // span 23h/25h short of whole days, and flooring 6.96 days would land a week early.
+  const daysSince = Math.round((d.getTime() - boundary.getTime()) / 86400000);
   return Math.min(4, Math.max(1, Math.floor(daysSince / 7) + 1));
 }
 
@@ -156,10 +186,8 @@ export function dateRangeForCycleWeek(
   week: number,
   weeklyResetDay: number
 ): { startDate: string; endDate: string } {
-  const d = new Date(today + 'T12:00:00');
-  const boundary = new Date(d);
-  boundary.setDate(monthlyResetDate);
-  if (d.getDate() < monthlyResetDate) boundary.setMonth(boundary.getMonth() - 1);
+  const boundary = parseDateStr(monthlyBoundaryOnOrBefore(today, monthlyResetDate));
+  boundary.setHours(12);
   const target = new Date(boundary);
   target.setDate(boundary.getDate() + (week - 1) * 7);
   return getWeekRangeContaining(dateStr(target), weeklyResetDay);
