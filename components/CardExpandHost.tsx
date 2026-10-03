@@ -8,7 +8,7 @@
  * no z-index arithmetic, the same reasoning AppModalHost already relies on.
  *
  * Connections:
- *   Imports → components/Surface, components/CardExpandButton, constants/theme, constants/motion,
+ *   Imports → components/Surface, components/KeyboardAwareScrollView, components/CardExpandButton, constants/theme, constants/motion,
  *             lib/cardPane, lib/expandableCards, lib/i18n, lib/useAppTheme, react-native-reanimated
  *   Used by → <CardExpandHost/> mounted in app/_layout.tsx; expandCard()/collapseCard() called
  *             from lib/useCardExpand.ts (which every expandable card uses); useExpandedCardId()
@@ -103,6 +103,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import Surface from '@/components/Surface';
+import KeyboardAwareScrollView from '@/components/KeyboardAwareScrollView';
 import CardExpandButton from '@/components/CardExpandButton';
 import TodoSurface from '@/components/TodoSurface';
 import TabSlider from '@/components/TabSlider';
@@ -614,13 +615,15 @@ export default function CardExpandHost() {
                     own id (only `homeToday`). */}
                 <PaneCardContext.Provider value={entry.card ?? request.id}>
                   {scrollable ? (
-                    <ScrollView
+                    // Keyboard-aware (2026-10-03): the pane fills the screen and has no
+                    // KeyboardAvoidingView, so before this a field in its lower half was simply
+                    // covered. This lifts the focused field and adds the scroll room to do it.
+                    <KeyboardAwareScrollView
                       contentContainerStyle={styles.scrollContent}
-                      keyboardShouldPersistTaps="handled"
                       showsVerticalScrollIndicator={false}
                     >
                       <entry.Body />
-                    </ScrollView>
+                    </KeyboardAwareScrollView>
                   ) : (
                     <View style={styles.bodyFlex}>
                       <entry.Body />

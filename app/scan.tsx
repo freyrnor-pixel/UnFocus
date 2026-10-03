@@ -16,7 +16,7 @@
  * instead of a bottom tab.
  *
  * Connections:
- *   Imports → components/AppModal, components/ScreenScaffold, components/Surface, components/PressableScale, constants/theme, lib/date, lib/i18n, lib/receipt, lib/share, lib/siteNav, lib/photoStorage, store/useCatalogStore, store/useReceiptStore, store/useMonthlyListStore, store/useSharedStore, store/useShoppingStore, @expo/vector-icons (Ionicons)
+ *   Imports → components/AppModal, components/ScreenScaffold, components/Surface, components/PressableScale, constants/theme, lib/date, lib/i18n, lib/useKeyboardLift (receipt-row name fields), lib/receipt, lib/share, lib/siteNav, lib/photoStorage, store/useCatalogStore, store/useReceiptStore, store/useMonthlyListStore, store/useSharedStore, store/useShoppingStore, @expo/vector-icons (Ionicons)
  *   Used by → Expo Router route "/scan"; pushed from app/(tabs)/shopping.tsx's header
  *             "Scan" button, and its post-trip receipt pop-up (autoCapture param)
  *   Data    → confirmed items write to FOUR stores: useShoppingStore (shopping_items) + useReceiptStore.addReceipt (receipts, tagged with a monthlyListId — Shopping/Monthly redesign 2026-07-22, picked via renderMonthlyListSelector() when 2+ Monthly lists exist) + useCatalogStore.recordPurchases (purchase_log, linked via receipt_id, + store_items); QR import writes useSharedStore (shared_shopping_items / shared_tasks); scaled fontSize via useScaledStyles()
@@ -95,6 +95,7 @@ import { todayStr } from '@/lib/date';
 import { formatKr } from '@/lib/money';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import { Input } from '@/components/FormControls';
+import { useKeyboardLift } from '@/lib/useKeyboardLift';
 import Surface from '@/components/Surface';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import { goToSite } from '@/lib/siteNav';
@@ -119,6 +120,29 @@ const NORWEGIAN_STORES = [
 ];
 
 type ScreenMode = 'idle' | 'scanning' | 'result' | 'manual';
+
+/**
+ * A receipt row's name field. A bare TextInput inside a list map can't call a hook per row, so
+ * this wraps one with `useKeyboardLift` — without it, editing a name low on a long receipt
+ * typed under the keyboard (2026-10-03).
+ */
+function LiftingTextInput({ onFocus, onBlur, ...rest }: React.ComponentProps<typeof TextInput>) {
+  const lift = useKeyboardLift<TextInput>();
+  return (
+    <TextInput
+      {...rest}
+      ref={lift.ref}
+      onFocus={(e) => {
+        lift.onFocus();
+        onFocus?.(e);
+      }}
+      onBlur={(e) => {
+        lift.onBlur();
+        onBlur?.(e);
+      }}
+    />
+  );
+}
 
 export default function ScanScreen() {
   const router = useRouter();
@@ -774,7 +798,7 @@ export default function ScanScreen() {
                     <View style={[styles.checkbox, { borderColor: theme.accent }, item.selected && { backgroundColor: theme.accent }]}>
                       {item.selected && <Text style={[styles.checkMark, { color: theme.accentInk }]}>✓</Text>}
                     </View>
-                    <TextInput
+                    <LiftingTextInput
                       style={[styles.itemName, { color: theme.text }, !item.selected && { opacity: 0.42 }]}
                       value={item.name}
                       onChangeText={(v) => updateName(i, v)}

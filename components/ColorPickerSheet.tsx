@@ -8,7 +8,7 @@
  * and the hex field kept for the case where the value is already known.
  *
  * Connections:
- *   Imports → components/{AnimatedBottomSheet,Surface,Slider,PressableScale,FormControls},
+ *   Imports → components/KeyboardAwareScrollView, components/{AnimatedBottomSheet,Surface,Slider,PressableScale,FormControls},
  *             constants/theme (hexToHsl/hslToHex + tokens), lib/colorPalette (the range),
  *             lib/designLab (isValidHex/normalizeHex — one definition of a usable colour),
  *             lib/haptics, lib/i18n, lib/useAppTheme
@@ -34,8 +34,9 @@
  *     document uses, and translating it would make the screen and the report disagree.
  */
 import React, { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import AnimatedBottomSheet from '@/components/AnimatedBottomSheet';
+import KeyboardAwareScrollView from '@/components/KeyboardAwareScrollView';
 import Surface from '@/components/Surface';
 import Slider from '@/components/Slider';
 import PressableScale from '@/components/PressableScale';
@@ -140,7 +141,7 @@ export default function ColorPickerSheet({
           </View>
         </View>
 
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollBody}>
+        <KeyboardAwareScrollView style={styles.scroll} contentContainerStyle={styles.scrollBody}>
           <Text style={[styles.groupLabel, { color: theme.textMuted }]}>{t.designLab.color.pick}</Text>
           <View style={styles.grid}>
             {SWATCH_GRID.map((row, rowIndex) => (
@@ -199,7 +200,7 @@ export default function ColorPickerSheet({
             autoCapitalize="none"
             autoCorrect={false}
           />
-        </ScrollView>
+        </KeyboardAwareScrollView>
 
         <View style={styles.actions}>
           {overridden ? (

@@ -10,7 +10,7 @@
  *             lib/i18n (useT — the boolean variants' Yes/No labels),
  *             lib/useDesignLab (useLabControl, useLabShape — see the design-lab note below),
  *             components/PressableScale, components/OptionalTag, components/AnimatedBottomSheet,
- *             react-native-reanimated
+ *             react-native-reanimated, lib/useKeyboardLift (`Input` lifts itself above the keyboard)
  *   Used by → any screen wanting a themed checkbox/switch/segmented-control/input. Switch
  *             callers include components/PlanTaskCard.tsx (2026-08-04 — the quick-add
  *             "add as task/moment" row, task 15's boolean-is-a-slider rule). SegmentedControl
@@ -91,7 +91,7 @@
  *     does NOT run through `useScaledStyles` — doing so would start scaling their label text
  *     with the user's Size setting, which is a real behaviour change nobody asked for.
  */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   LayoutChangeEvent,
   StyleSheet,
@@ -114,6 +114,7 @@ import { useToggleColor } from '@/lib/useToggleColor';
 import { Duration, Ease } from '@/constants/motion';
 import { selection } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
+import { useKeyboardLift } from '@/lib/useKeyboardLift';
 import { useLabControl, useLabShape } from '@/lib/useDesignLab';
 import PressableScale from '@/components/PressableScale';
 import OptionalTag from '@/components/OptionalTag';
@@ -672,6 +673,19 @@ export const Input = React.forwardRef<TextInput, InputProps>(function Input(
   const fieldHue = useScreenColor() ?? theme.border;
   const shape = useLabShape();
   const [focused, setFocused] = useState(false);
+  // Every Input lifts itself above the keyboard on focus (2026-10-03) — the nearest
+  // keyboard-aware scroll surface does the scrolling; a no-op where there is none. The lift's
+  // ref and the caller's forwarded ref both receive the TextInput.
+  const lift = useKeyboardLift<TextInput>();
+  const setInputRef = useCallback(
+    (node: TextInput | null) => {
+      lift.ref.current = node;
+      if (typeof ref === 'function') ref(node);
+      else if (ref) ref.current = node;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [ref],
+  );
   // ── This field KEEPS its resting border, and that is a scope decision (2026-08-16) ────────
   // Brief §8 asks for recessed, borderless wells — but its own title is *"Per-Card Inline
   // Inputs"* and its first line is *"the user creates items directly inside each category
@@ -726,14 +740,16 @@ export const Input = React.forwardRef<TextInput, InputProps>(function Input(
       ) : null}
       <TextInput
         {...rest}
-        ref={ref}
+        ref={setInputRef}
         placeholderTextColor={theme.textMuted}
         onFocus={(e) => {
           setFocused(true);
+          lift.onFocus();
           onFocus?.(e);
         }}
         onBlur={(e) => {
           setFocused(false);
+          lift.onBlur();
           onBlur?.(e);
         }}
         style={[

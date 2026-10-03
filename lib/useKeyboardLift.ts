@@ -9,10 +9,12 @@
  * which measures it in window coords and scrolls just enough to clear the keyboard.
  *
  * Connections:
- *   Imports → components/ScreenScaffold (ScrollIntoViewContext)
+ *   Imports → lib/scrollIntoView (ScrollIntoViewContext — provided by ScreenScaffold,
+ *             CenterModalScreen and CardExpandHost via KeyboardAwareScrollView)
  *   Used by → components/NoteRow.tsx, components/TaskCard.tsx, components/TagPickerRow.tsx,
  *             components/WeekListCard.tsx, components/HomeNotesCard.tsx,
- *             components/ShoppingFilterBar.tsx, app/automations.tsx, app/(tabs)/shopping.tsx
+ *             components/ShoppingFilterBar.tsx, app/automations.tsx, app/(tabs)/shopping.tsx,
+ *             components/FormControls.tsx (`Input` lifts itself — every form field gets it free)
  *   Data    → none — presentational
  *
  * Edit notes:
@@ -21,12 +23,14 @@
  *     `measureInWindow`, so no wrapper is required for a single field.
  *   - Spread/compose `onFocus`/`onBlur` onto that same field. If the field already has its own
  *     onFocus/onBlur, call this hook's alongside it — don't replace one with the other.
- *   - `null` outside a scrollable ScreenScaffold (non-scrollable/FlatList screens self-manage —
+ *   - `Input` (components/FormControls.tsx) already calls this internally, so a caller passing
+ *     its own lift to an `Input` is redundant but harmless — the lift is idempotent.
+ *   - `null` outside a keyboard-aware scroll surface (non-scrollable/FlatList screens self-manage —
  *     see components/CatalogueTab.tsx, which uses FlatList's own scrollToIndex instead).
  */
 import { useContext, useEffect, useRef } from 'react';
 import { Keyboard } from 'react-native';
-import { ScrollIntoViewContext } from '@/components/ScreenScaffold';
+import { ScrollIntoViewContext } from '@/lib/scrollIntoView';
 
 type Measurable = { measureInWindow?: (cb: (x: number, y: number, w: number, h: number) => void) => void };
 

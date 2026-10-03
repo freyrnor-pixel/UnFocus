@@ -17,7 +17,7 @@
  * standalone /meals screen and the "Create grouping" screen.
  *
  * Connections:
- *   Imports → constants/theme (contrastOn, tokens), constants/motion (Spring),
+ *   Imports → components/KeyboardAwareScrollView, constants/theme (contrastOn, tokens), constants/motion (Spring),
  *             lib/useAppTheme, lib/i18n, lib/haptics, lib/money (formatKr), lib/screenColor,
  *             components/Surface, components/PressableScale, components/Button (the per-meal
  *             "Add dish" trigger — ghost), components/AddRow,
@@ -93,10 +93,11 @@
  *     "(copy)" name suffix so users can create edited variants without losing the original.
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
+import KeyboardAwareScrollView from '@/components/KeyboardAwareScrollView';
 import { CardAccentBadge } from '@/components/CardAccent';
 import PressableScale from '@/components/PressableScale';
 import Button from '@/components/Button';
@@ -790,7 +791,7 @@ export default function FoodTab({ onNotify, onAddedToWeek, embedded = false }: P
               </PressableScale>
             </View>
 
-            <ScrollView keyboardShouldPersistTaps="handled" style={styles.sheetScroll} contentContainerStyle={styles.sheetScrollContent}>
+            <KeyboardAwareScrollView style={styles.sheetScroll} contentContainerStyle={styles.sheetScrollContent}>
               <Input
                 value={dishName}
                 onChangeText={setDishName}
@@ -877,7 +878,7 @@ export default function FoodTab({ onNotify, onAddedToWeek, embedded = false }: P
                   ))}
                 </View>
               )}
-            </ScrollView>
+            </KeyboardAwareScrollView>
           </Surface>
           </Animated.View>
         </KeyboardAvoidingView>
