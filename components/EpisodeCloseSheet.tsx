@@ -11,7 +11,7 @@
  * job is to get out of the way.
  *
  * Connections:
- *   Imports → components/AnimatedBottomSheet, components/Surface, components/Button,
+ *   Imports → components/KeyboardAwareScrollView, components/AnimatedBottomSheet, components/Surface, components/Button,
  *             components/PressableScale, components/DateChipRow, components/FormControls (Input),
  *             constants/theme, lib/date (todayStr), lib/episodes (backdatedStart,
  *             reliefCandidates), lib/haptics (tap), lib/i18n, lib/useAppTheme,
@@ -40,8 +40,9 @@
  *     the keyboard covered the "did anything help" note field and the action buttons below it.
  */
 import React, { useEffect, useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
 import AnimatedBottomSheet from '@/components/AnimatedBottomSheet';
+import KeyboardAwareScrollView from '@/components/KeyboardAwareScrollView';
 import Surface from '@/components/Surface';
 import Button from '@/components/Button';
 import PressableScale from '@/components/PressableScale';
@@ -159,7 +160,7 @@ export default function EpisodeCloseSheet({ log, onClose }: Props) {
       >
         <Surface surfaceContext="overlay" style={styles.sheet}>
           <View style={[styles.handle, { backgroundColor: theme.border }]} />
-          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollBody}>
+          <KeyboardAwareScrollView contentContainerStyle={styles.scrollBody}>
             <Text style={[styles.title, { color: theme.text }]}>{log?.ailment ?? ''}</Text>
 
             {/* When did it stop? */}
@@ -275,7 +276,7 @@ export default function EpisodeCloseSheet({ log, onClose }: Props) {
               />
               <Button label={t.episodes.itsOver} onPress={() => confirm()} style={styles.action} />
             </View>
-          </ScrollView>
+          </KeyboardAwareScrollView>
         </Surface>
       </KeyboardAvoidingView>
     </AnimatedBottomSheet>

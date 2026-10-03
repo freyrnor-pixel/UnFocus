@@ -14,7 +14,7 @@
  * refactor — nothing had to be lifted into props, and `useLocalSearchParams` keeps working.
  *
  * Connections:
- *   Imports → components/Surface, components/PressableScale, constants/theme, constants/motion,
+ *   Imports → components/Surface, components/PressableScale, components/KeyboardAwareScrollView, constants/theme, constants/motion,
  *             lib/useAppTheme, lib/i18n, lib/haptics, lib/screenColor (the pane wears the
  *             domain hue its screen always had), react-native-safe-area-context
  *   Used by → the converted editor routes: app/habit-form.tsx, app/medicine-form.tsx,
@@ -46,10 +46,11 @@
  *     check — react-native-web has no soft keyboard — so it needs a device pass.
  */
 import React from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Surface from '@/components/Surface';
+import KeyboardAwareScrollView from '@/components/KeyboardAwareScrollView';
 import PressableScale from '@/components/PressableScale';
 import { Fonts, FontSize, HitSlop, MIN_TAP_TARGET, Radius, Spacing } from '@/constants/theme';
 import { getScreenColor, ScreenColorContext, type ScreenKey } from '@/lib/screenColor';
@@ -155,13 +156,12 @@ export default function CenterModalScreen({
               </PressableScale>
             </View>
             {scrollable ? (
-              <ScrollView
-                style={styles.body}
-                contentContainerStyle={styles.bodyContent}
-                keyboardShouldPersistTaps="handled"
-              >
+              // Keyboard-aware so the field being typed into scrolls clear of the keyboard once
+              // the KeyboardAvoidingView above has shrunk the pane — the KAV alone moved the
+              // pane but left a low field under its bottom edge (2026-10-03).
+              <KeyboardAwareScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
                 {children}
-              </ScrollView>
+              </KeyboardAwareScrollView>
             ) : (
               // The child scrolls itself; it gets a BOUNDED box so its own list can size
               // against something, which a growing container would not give it.

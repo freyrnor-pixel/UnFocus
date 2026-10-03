@@ -14,7 +14,8 @@
  *             debugModeEnabled — mounted once here so every screen gets it for free),
  *             lib/useAppTheme, store/useSettingsStore (tourProgress/setupComplete, read-only —
  *             see the `tourLocksScroll` edit note), lib/tourSteps (nextStep/parseProgress, the
- *             same pure helpers components/TourTarget.tsx uses),
+ *             same pure helpers components/TourTarget.tsx uses), lib/scrollIntoView +
+ *             lib/useKeyboardAwareScroll (keyboard lift + keyboard scroll room, 2026-10-03),
  *   Used by → every app screen (app/(tabs)/index.tsx, app/(tabs)/shopping.tsx, etc.); also
  *             exports ScrollIntoViewContext, consumed by components/AddRow.tsx to scroll
  *             itself above the keyboard on focus (see that Edit note below)
@@ -259,7 +260,7 @@
  *     shift down by the same amount. Zero-cost for screens that don't pass `stickyBelowHeader`.
  */
 import React, { useCallback, useRef } from 'react';
-import { Keyboard, NativeScrollEvent, NativeSyntheticEvent, PixelRatio, Platform, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
+import { NativeScrollEvent, NativeSyntheticEvent, PixelRatio, Platform, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets, type Edge } from 'react-native-safe-area-context';
 import { CHROME_FLOAT_INSET, CHROME_REST_GAP, getHeaderMetrics, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
@@ -271,27 +272,16 @@ import ScreenHeader from '@/components/ScreenHeader';
 import BottomNav, { NAV_FLOAT_GAP, NAV_PAINTED_HEIGHT } from '@/components/BottomNav';
 import DebugGeneralNoteButton from '@/components/DebugGeneralNoteButton';
 import { getScreenColor, ScreenColorContext, type ScreenKey } from '@/lib/screenColor';
+import { ScrollIntoViewContext, type Measurable } from '@/lib/scrollIntoView';
+import { useKeyboardAwareScroll } from '@/lib/useKeyboardAwareScroll';
 
-/** A host component (View) ref that can be measured in window coordinates. */
-type Measurable = {
-  measureInWindow?: (cb: (x: number, y: number, w: number, h: number) => void) => void;
-};
 
 /**
- * Scrolls a given row just above the keyboard — consumed by components/AddRow.tsx so its
- * input+confirm button stays tappable when the keyboard opens. Android's default
- * `windowSoftInputMode=resize` shrinks the visible viewport when the keyboard opens but
- * never auto-scrolls content to compensate, so an AddRow can end up hidden behind the
- * keyboard — taps land on the keyboard, not the "+" button.
- *
- * Pass the AddRow's own View node: we measure it in window coords and scroll only enough to
- * lift its bottom above the keyboard. This is correct whether the row is the LAST item of its
- * list OR sits mid-list (the per-day InlineTaskAdd rows on Today/This week) — unlike the old
- * "scroll to absolute end", which scrolled *past* a mid-list row and left it (and its button)
- * behind the keyboard (the #196 regression). `null` outside a scrollable ScreenScaffold
- * (the non-scrollable/FlatList branch handles its own keyboard avoidance).
+ * Re-exported from lib/scrollIntoView.ts (moved 2026-10-03 so non-scaffold surfaces can provide
+ * it without an import cycle). Consumed by AddRow/PadTypeRow/useKeyboardLift/`Input` to lift the
+ * field being typed into above the keyboard — see lib/useKeyboardAwareScroll.ts.
  */
-export const ScrollIntoViewContext = React.createContext<((node: Measurable | null) => void) | null>(null);
+export { ScrollIntoViewContext };
 
 /**
  * Scrolls a given node up to just below the floating header — the "take me to that section"
@@ -308,8 +298,6 @@ export const ScrollIntoViewContext = React.createContext<((node: Measurable | nu
  */
 export const ScrollToNodeContext = React.createContext<((node: Measurable | null) => void) | null>(null);
 
-/** Extra gap left between the lifted row's bottom and the top of the keyboard. */
-const KEYBOARD_MARGIN = 16;
 
 /** Breathing room between the header's bottom edge and a node scrolled to by `scrollToNode`. */
 const SCROLL_TO_MARGIN = 12;
@@ -646,27 +634,11 @@ export default function ScreenScaffold({
     },
     [onScroll],
   );
-  // Lift the given row just above the keyboard (see ScrollIntoViewContext doc). Measures the
-  // row in window coords; if its bottom is under the keyboard, scrolls up by exactly the
-  // overlap. Falls back to scrollToEnd when the node can't be measured.
-  const scrollIntoView = useCallback((node: Measurable | null) => {
-    const sv = scrollRef.current;
-    if (!sv) return;
-    if (!node?.measureInWindow) {
-      sv.scrollToEnd({ animated: true });
-      return;
-    }
-    node.measureInWindow((_x, y, _w, h) => {
-      // Keyboard.metrics() returns the keyboard rect while it's shown; screenY is its top edge
-      // in window coords. Unknown (keyboard not yet up) → no scroll now; the keyboardDidShow
-      // call from AddRow retries once metrics exist.
-      const kbTop = Keyboard.metrics?.()?.screenY ?? Number.POSITIVE_INFINITY;
-      const overlap = y + h + KEYBOARD_MARGIN - kbTop;
-      if (overlap > 0) {
-        scrollRef.current?.scrollTo({ y: scrollY.current + overlap, animated: true });
-      }
-    });
-  }, []);
+  // Lift the field being typed into above the keyboard (see ScrollIntoViewContext doc). The
+  // shared hook also supplies `keyboardPad`: the scroll room a field near the END of the content
+  // needs, which the edge-to-edge window no longer makes by shrinking.
+  const keyboard = useKeyboardAwareScroll(scrollRef, scrollY);
+  const scrollIntoView = keyboard.scrollIntoView;
 
   // Bring the given node up to just under the header (see ScrollToNodeContext doc). Measured in
   // window coords like its sibling, and converted to an absolute offset through the live
@@ -941,12 +913,16 @@ export default function ScreenScaffold({
           scrollIndicatorInsets={{ top: contentPad.paddingTop, bottom: contentPad.paddingBottom }}
           keyboardShouldPersistTaps="handled"
           onScroll={handleScroll}
+          onLayout={keyboard.onLayout}
           scrollEventThrottle={16}
           scrollEnabled={!tourLocksScroll}
         >
           <ScrollIntoViewContext.Provider value={scrollIntoView}>
             <ScrollToNodeContext.Provider value={scrollToNode}>{children}</ScrollToNodeContext.Provider>
           </ScrollIntoViewContext.Provider>
+          {/* Scroll room for a field near the end of the content while the keyboard covers the
+              bottom of this ScrollView — 0 (unmounted) whenever it doesn't. */}
+          {keyboard.keyboardPad > 0 ? <View style={{ height: keyboard.keyboardPad }} /> : null}
         </ScrollView>
       ) : (
         // Non-scrollable: children own scrolling (e.g. a FlatList). ScrollIntoViewContext is a
