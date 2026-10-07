@@ -416,8 +416,12 @@ describe('the material system stays deleted, and stays matte', () => {
     expect(b).toBeGreaterThan(r);
 
     // 2. TRANSMISSIVE ENOUGH TO SEE. At 0.75 the field contributed 3-8 levels to the card face,
-    //    i.e. under the threshold of noticing. Transmission must stay at or above half.
-    expect(alpha).toBeLessThanOrEqual(0.6);
+    //    i.e. under the threshold of noticing. Transmission was held at or above half until
+    //    2026-10-07, when the maintainer asked for *"litt"* more opacity so muted text stays
+    //    readable over the painted tree ("brukt", "igjen", "Ingenting i dag"). 0.65 is that
+    //    step and this is the new ceiling: 35% of the field still reaches the face. Going
+    //    toward 0.75 is the grey-slab defect above again — a maintainer call, not a nudge.
+    expect(alpha).toBeLessThanOrEqual(0.65);
   });
 
   it('a sheet — and now the nav bar — never lets the card behind it through', () => {

@@ -3,11 +3,16 @@
  *
  * The maintainer supplied two watercolour paintings (light + dark) and asked for them to replace
  * the SVG crown (`components/CrownArt.tsx`), with one condition taken from a Shop screenshot where
- * the trunk sat straight behind "Katalog 286 · 66 retter" and made it unreadable: **the tree is the
- * hero on Home, and only a hint on the working tabs.** So this layer takes a `strength`:
+ * the trunk sat straight behind "Katalog 286 · 66 retter" and made it unreadable. That condition
+ * was first met by drawing the tree full on Home and at 0.22 everywhere else.
  *
- *   - Home (`index`)                 → `TREE_STRENGTH.hero`  (the painting as painted)
- *   - every other tab and sub-screen → `TREE_STRENGTH.work`  (a quiet wash the cards sit over)
+ * ⚠️ **One strength on every screen since 2026-10-07** (maintainer: *"Bakgrunnen skal ikke variere
+ * mellom sidene."*). At 0.22 the blue tree faded out and the violet orb wash took over, so To-do
+ * read purple and Home read blue — a per-tab background by another route, the exact thing the
+ * 2026-09-27 ruling in `ScreenBackground.tsx` deleted. Every screen now draws `TREE_STRENGTH`
+ * (the painting as painted). Legibility over the trunk is the CARD's job now, not the
+ * backdrop's: `components/Surface.tsx`'s card fill was made denser in the same change. Don't
+ * reintroduce a per-route strength to fix a label — thicken the card under it instead.
  *
  * The step between them animates on the VIEW's opacity (a layer alpha on an already-decoded
  * bitmap, never a re-decode), and snaps when `still` is set — same contract as the orb layers in
@@ -33,11 +38,11 @@ import { Duration, Ease } from '@/constants/motion';
 const TREE_LIGHT = require('@/assets/backdrop/tree-light.png');
 const TREE_DARK = require('@/assets/backdrop/tree-dark.png');
 
-/** Layer opacity per role. `work` is low enough that no card label can land on the trunk. */
-export const TREE_STRENGTH = { hero: 1, work: 0.22 } as const;
+/** Layer opacity — the same on every screen (2026-10-07, see the header). */
+export const TREE_STRENGTH = 1;
 
 type Props = {
-  /** Target opacity, 0–1 — pass one of `TREE_STRENGTH`. */
+  /** Target opacity, 0–1 — pass `TREE_STRENGTH`. */
   strength: number;
   /** Snap instead of animating (reduced motion / reduce effects). */
   still?: boolean;

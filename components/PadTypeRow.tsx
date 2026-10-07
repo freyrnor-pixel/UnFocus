@@ -180,7 +180,7 @@ import {
   getRecessedField,
   HitSlop,
 } from '@/constants/theme';
-import { Travel } from '@/constants/motion';
+import { Duration, Travel } from '@/constants/motion';
 import { confirm as hapticConfirm } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
@@ -227,6 +227,13 @@ type Props = {
    */
   noGhostCheck?: boolean;
   style?: StyleProp<ViewStyle>;
+  /**
+   * Bump to pull the keyboard into this field from OUTSIDE the row (2026-10-07) — Home's header
+   * "+" on Notes and Shopping (components/CardAddButton.tsx). A counter rather than a boolean so
+   * the same request twice still fires; 0/undefined never focuses. The focus waits one card
+   * duration so a card the "+" just unfolded has laid the field out first.
+   */
+  focusRequest?: number;
 };
 
 export default function PadTypeRow({
@@ -242,9 +249,16 @@ export default function PadTypeRow({
   disabled,
   noGhostCheck,
   style,
+  focusRequest,
 }: Props) {
   const theme = useAppTheme();
   const isDark = useIsDark();
+  const inputRef = useRef<TextInput>(null);
+  useEffect(() => {
+    if (!focusRequest) return;
+    const id = setTimeout(() => inputRef.current?.focus(), Duration.card);
+    return () => clearTimeout(id);
+  }, [focusRequest]);
   // ── The recessed well, and the colour its focus ring lights up in (2026-08-16, brief §8) ──
   // `accent` is the CARD's categorical colour (the caller passes `getDomainColor(...).accent`),
   // which is what the brief asks the focus state to adopt — "the Task input field glows Neon
@@ -436,6 +450,7 @@ export default function PadTypeRow({
       ]}
     >
       <TextInput
+        ref={inputRef}
         style={[
           styles.input,
           // Room for the trailing arrow, only while it is mounted. An edge-specific padding

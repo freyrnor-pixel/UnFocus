@@ -95,7 +95,6 @@ const QUOTES: Record<Lang, Record<NarratorCategory, readonly string[]>> = {
     todo: [
       'Å prompte en AI til å skrive kode er vibe-coding; å dele «Vaske opp» inn i «Åpne springen» er vibe-living.',
       'Et gjøremål som føles for stort er som regel to gjøremål som står for tett.',
-      'Del det opp til det blir litt latterlig. Det er da det begynner å funke.',
       'Første steget kan gjerne være «finne fram tingen». Det teller.',
       // Deliberately NOT phrased as "nothing here is urgent": rule 23's Norwegian stem scan
       // bans `haster` outright, and a line that has to say the banned word to deny it is one
@@ -121,7 +120,6 @@ const QUOTES: Record<Lang, Record<NarratorCategory, readonly string[]>> = {
     habits: [
       'UnFocus er et verktøy, ikke en soningsvakt.',
       'Hvile er et aktivt valg, ikke et frafall.',
-      'En vane du tar opp igjen er den samme vanen. Den husker ikke pausen.',
       'Ingen streker som ryker her. Det er ikke den slags app.',
     ],
     general: [
@@ -136,7 +134,6 @@ const QUOTES: Record<Lang, Record<NarratorCategory, readonly string[]>> = {
     todo: [
       'Prompting an AI to write code is vibe-coding; splitting "Do the dishes" into "Turn on the tap" is vibe-living.',
       'A task that feels too big is usually two tasks standing too close together.',
-      'Break it down until it feels slightly ridiculous. That is when it starts working.',
       'The first step is allowed to be "go and find the thing". It counts.',
       'Nothing here is asking anything of you. It is just sitting there.',
     ],
@@ -155,7 +152,6 @@ const QUOTES: Record<Lang, Record<NarratorCategory, readonly string[]>> = {
     habits: [
       'UnFocus is a tool, not a parole officer.',
       'Rest is an active choice, not a failure.',
-      'A habit you pick up again is the same habit. It does not remember the gap.',
       'No streaks to break here. This is not that kind of app.',
     ],
     general: [
@@ -170,7 +166,6 @@ const QUOTES: Record<Lang, Record<NarratorCategory, readonly string[]>> = {
     todo: [
       'Að biðja gervigreind um að skrifa kóða er vibe-coding; að skipta „Vaska upp“ í „Skrúfa frá krananum“ er vibe-living.',
       'Verkefni sem virðist of stórt er yfirleitt tvö verkefni sem standa of þétt.',
-      'Skiptu því niður þar til það verður örlítið kjánalegt. Þá fer það að virka.',
       'Fyrsta skrefið má alveg vera „finna hlutinn“. Það telur.',
       'Ekkert hér krefst neins af þér. Það bara bíður.',
     ],
@@ -189,7 +184,6 @@ const QUOTES: Record<Lang, Record<NarratorCategory, readonly string[]>> = {
     habits: [
       'UnFocus er verkfæri, ekki fangavörður.',
       'Hvíld er virkt val, ekki uppgjöf.',
-      'Venja sem þú tekur upp aftur er sama venjan. Hún man ekki hléið.',
       'Engar keðjur til að slíta hér. Þetta er ekki þannig app.',
     ],
     general: [

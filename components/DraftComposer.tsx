@@ -76,6 +76,8 @@ type Props = {
   onMore?: (text: string) => void;
   /** Whether a press of "…" clears the field. Default true. */
   clearOnMore?: boolean;
+  /** Passed through to PadTypeRow — bump to focus the field from outside. */
+  focusRequest?: number;
 };
 
 export default function DraftComposer({
@@ -91,6 +93,7 @@ export default function DraftComposer({
   onSubmit,
   onMore,
   clearOnMore = true,
+  focusRequest,
 }: Props) {
   const [draft, setDraft] = useState('');
 
@@ -125,6 +128,7 @@ export default function DraftComposer({
       noGhostCheck={noGhostCheck}
       disabled={disabled}
       style={style}
+      focusRequest={focusRequest}
     />
   );
 }

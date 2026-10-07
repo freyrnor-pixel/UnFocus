@@ -29,7 +29,8 @@
  *             components/CardCollapseToggle, components/CardExpandButton, components/CardHintLine,
  *             constants/theme,
  *             lib/cardRegistry, lib/cardPane, lib/useCollapsedCard, lib/useCardExpand,
- *             lib/screenColor, lib/useAppTheme
+ *             lib/screenColor, lib/useAppTheme, lib/siteNav + expo-router (a registry
+ *             `expandRoute` ⤢ opens a tab instead of a pane)
  *   Used by → every card on every tab; components/SectionCard.tsx (via `CardShell`, until it
  *             is retired)
  *   Data    → settings.collapsedCards, for cards whose registry entry folds
@@ -83,6 +84,7 @@
  *     a public escape hatch: a new surface takes `Card` and an entry in the registry.
  */
 import React from 'react';
+import { usePathname, useRouter } from 'expo-router';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import Surface from '@/components/Surface';
 import SectionRail from '@/components/SectionRail';
@@ -102,6 +104,7 @@ import { useCollapsedCard } from '@/lib/useCollapsedCard';
 import CardHintLine from '@/components/CardHintLine';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
+import { goToSite } from '@/lib/siteNav';
 
 type CardProps = {
   id: CardKey;
@@ -141,6 +144,8 @@ type CardProps = {
 export default function Card({ id, count, peek, hint, countRef, controls, embedded, contentStyle, children }: CardProps) {
   const t = useT();
   const theme = useAppTheme();
+  const router = useRouter();
+  const pathname = usePathname();
   const spec = cardSpec(id);
   // Both hooks run unconditionally, unlike SectionCard's split-by-component dance. That split
   // existed because a per-day section would otherwise subscribe to the settings store; a Card is
@@ -164,6 +169,8 @@ export default function Card({ id, count, peek, hint, countRef, controls, embedd
 
   const folds = spec.fold === 'persisted';
   const expands = spec.expand === 'surface';
+  // A card with no pane but a tab of its own (`expandRoute`) still gets the ⤢ — it opens the tab.
+  const expandRoute = expands ? undefined : spec.expandRoute;
   const label = spec.title(t);
 
   // ⚠️ **Inside its own pane a card is its BODY and nothing else** (2026-08-28). Not `embedded`,
@@ -214,6 +221,8 @@ export default function Card({ id, count, peek, hint, countRef, controls, embedd
       // fold, unchanged.
       expandButton={expands ? (
         <CardExpandButton expanded={expand.expanded} onExpand={expand.onExpand} onCollapse={expand.onCollapse} />
+      ) : expandRoute ? (
+        <CardExpandButton expanded={false} onExpand={() => goToSite(router, pathname, expandRoute)} onCollapse={() => {}} />
       ) : undefined}
     >
       {children}
