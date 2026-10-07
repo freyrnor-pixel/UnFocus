@@ -354,6 +354,7 @@ function SegmentedTrack<T extends string | number>({
   compact,
 }: SegmentedControlProps<T>) {
   const theme = useAppTheme();
+  const isDark = useIsDark();
   const { reducedMotion } = useAccessibility();
   const shape = useLabShape();
   const [track, setTrack] = useState({ w: 0, h: 0 });
@@ -363,7 +364,8 @@ function SegmentedTrack<T extends string | number>({
   //   ⚠️ **0 since 2026-10-07 — the track is a FILL, not a frame.** Maintainer, on the Planner
   // card's Uke/Måned switch: a bordered track inside an already-bordered card is a card in a
   // card; *"fjern de innerste rammene og bruk heller svak bakgrunnsfarge."* The `surfaceMuted`
-  // fill alone marks the track. Kept as a named 0 rather than deleted so the geometry call
+  // fill alone marks the track — and it is the recessed FIELD well (`getRecessedField`), not
+  // `surfaceMuted`, whose dark value `#121212` drew a black slab across the card. Kept as a named 0 rather than deleted so the geometry call
   // below still states the term it subtracts.
   const trackBorder = 0;
 
@@ -416,7 +418,7 @@ function SegmentedTrack<T extends string | number>({
       style={[
         styles.segmentWrap,
         {
-          backgroundColor: theme.surfaceMuted,
+          backgroundColor: getRecessedField(theme.surface, isDark).paint,
           borderWidth: trackBorder,
           borderRadius: Radius.sm * shape.radiusScale,
           // A compact track must NOT carry the full tap-target floor, or the shorter segments
