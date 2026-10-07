@@ -92,8 +92,10 @@
  *   - **One field on every screen — no per-tab hue (2026-09-27).** Maintainer: *"When I swipe
  *     between screens the background changes colour. It shouldn't any more. Only one colour, and
  *     particles."* The round-20 per-tab hue (two double-buffered orb canvases crossfading to the
- *     active tab's `getScreenColor`) is DELETED, not gated. `activeRoute` now only picks the
- *     painted tree's strength (see `TreeBackdrop`). Don't re-add a route→colour map here.
+ *     active tab's `getScreenColor`) is DELETED, not gated. `activeRoute` no longer changes
+ *     anything visible either: it used to pick the painted tree's strength, and that per-route
+ *     step was removed 2026-10-07 for the same reason (see `TreeBackdrop`). Don't re-add a
+ *     route→colour or route→strength map here.
  *   - **The orb palette is per-theme and the two modes are not the same picture.** DARK is the
  *     one the brief is about: a black field with three dark-neon glows. LIGHT keeps its blue
  *     base gradient and the two broad `topGlow`/`botGlow` ellipses that have always been its
@@ -132,9 +134,9 @@ import TreeBackdrop, { TREE_STRENGTH } from '@/components/TreeBackdrop';
 
 type Props = {
   /**
-   * The active tab's route file name — `index`, `plans`, `shopping`, `habits`, `health`. Only
-   * picks the painted tree's strength; the field's COLOUR is the same on every tab (2026-09-27,
-   * see the edit notes in the header).
+   * The active tab's route file name — `index`, `plans`, `shopping`, `habits`, `health`. Currently
+   * unread — kept so the pager's call site stays put if a per-tab need returns. The field looks the same on every tab (2026-09-27
+   * for its colour, 2026-10-07 for the tree's strength — see the edit notes in the header).
    */
   activeRoute?: string;
   /**
@@ -622,7 +624,7 @@ function OrbLayer({ style, ...canvas }: React.ComponentProps<typeof OrbCanvas>
   );
 }
 
-function ScreenBackground({ activeRoute, decorative = true, crown = 'none' }: Props) {
+function ScreenBackground({ decorative = true, crown = 'none' }: Props) {
   const isDark = useIsDark();
   const { reducedMotion } = useAccessibility();
   const { level, intensity } = useGrowth();
@@ -811,12 +813,12 @@ function ScreenBackground({ activeRoute, decorative = true, crown = 'none' }: Pr
               crown={crown === 'none' ? undefined : crown}
             />
           </View>
-          {/* The painted tree (2026-09-26) replaces the SVG crown as the default art — full on
-              Home, a quiet wash everywhere else so no card label can land on the trunk. See
-              `components/TreeBackdrop.tsx`. Passing an SVG `crown` variant opts back into the
+          {/* The painted tree (2026-09-26) replaces the SVG crown as the default art — at ONE
+              strength on every screen since 2026-10-07 (it used to drop to 0.22 off Home, which
+              turned the field purple on the working tabs). See `components/TreeBackdrop.tsx`. Passing an SVG `crown` variant opts back into the
               old art instead of this. */}
           {crown === 'none' && (
-            <TreeBackdrop strength={activeRoute === 'index' ? TREE_STRENGTH.hero : TREE_STRENGTH.work} still={still} />
+            <TreeBackdrop strength={TREE_STRENGTH} still={still} />
           )}
           {intensity > 0 && (
             <OrbLayer style={tintStyle} id="sbOrbGrowth" color={p.orbGrowth} peak={p.orbOpacity} level={level} />

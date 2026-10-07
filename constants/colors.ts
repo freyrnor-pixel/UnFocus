@@ -1058,7 +1058,14 @@ const defaultDark: ThemePalette = {
   // with it (`glassSheen` 0.028 → 0.09, `glassBloom` 0.015 → 0.05) renders as visibly glossier and
   // costs real legibility: `textMuted` falls to **2.91:1**, against 3.45:1 here and 3.63:1 as
   // shipped. Gloss is available and it is not free; it is a maintainer call, not a tuning nudge.
-  surfaceGlass: 'rgba(58,64,94,0.55)',
+  //
+  // **0.55 → 0.65 (2026-10-07, maintainer report).** With the painted tree now drawn at full
+  // strength on every screen, muted labels over the trunk ("brukt", "igjen", "Ingenting i dag")
+  // were hard to read, and the ask was *"øk opasiteten … litt"*. The RGB was raised in step
+  // (58,64,94 → 49,54,80) so the veil over black still composites to ≈`rgb(32,35,52)` — every
+  // contrast figure above holds unchanged; only how much of a LIT field reaches the face drops,
+  // 45% → 35%. `__tests__/glassMaterial.test.ts` caps the alpha at 0.65.
+  surfaceGlass: 'rgba(49,54,80,0.65)',
   // ⚠️ **0.1882, re-derived 2026-08-26 alongside the `#242424` correction.** `surfaceRaised`
   // (the overlay/nav tier — a sheet, modal, or floating header/bar) has to stay LIGHTER than
   // plain `surface`, or "raised" reads backwards; `__tests__/glassMaterial.test.ts` asserts

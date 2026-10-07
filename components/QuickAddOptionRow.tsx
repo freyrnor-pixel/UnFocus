@@ -1,5 +1,6 @@
 /**
- * QuickAddOptionRow.tsx — one bordered cell in a quick-add's dense options grid.
+ * QuickAddOptionRow.tsx — one recessed cell in a quick-add's dense options grid (a bordered
+ * cell until 2026-10-07 — see the fill note at `content`).
  *
  * **Grid cell, 2026-08-05 (card design reset, maintainer brief point 5: options "have to be
  * compact… related options next to each other, and no open space", plus point 9's borders).**
@@ -13,8 +14,8 @@
  * rename it then.
  *
  * Connections:
- *   Imports → constants/theme (BORDER_WIDTH, computeBorderTone, FontSize, Fonts,
- *             MIN_TAP_TARGET, Radius, Spacing), lib/useAppTheme, lib/screenColor,
+ *   Imports → constants/theme (FontSize, Fonts, getRecessedField, MIN_TAP_TARGET, Radius,
+ *             Spacing), lib/useAppTheme, lib/screenColor,
  *             @expo/vector-icons, components/PressableScale
  *   Used by → components/QuickAddOptionsPanel.tsx (the grid), and through it
  *             components/PadTypeRow.tsx + components/AddRow.tsx, hence
@@ -24,8 +25,7 @@
  *
  * Edit notes:
  *   - **Cells no longer stack flush and the panel no longer draws dividers.** Each cell brings
- *     its own border at the FIELD rung of the screen's hue — the same border
- *     components/PadSheet.tsx gives a row — and QuickAddOptionsPanel spaces them. Don't re-add
+ *     its own recessed fill (a border until 2026-10-07) and QuickAddOptionsPanel spaces them. Don't re-add
  *     a divider here or between them; a bordered cell with a divider beside it reads as two
  *     separate lines.
  *   - **`wide` is for a cell whose value is a live control or a long string** (the Time row's
@@ -44,7 +44,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { ComposeOption } from '@/lib/cardRegistry';
 import PressableScale from '@/components/PressableScale';
-import { BORDER_WIDTH, computeBorderTone, FontSize, Fonts, MIN_TAP_TARGET, Radius, Spacing } from '@/constants/theme';
+import { FontSize, Fonts, getRecessedField, MIN_TAP_TARGET, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 
 type Props = {
@@ -121,10 +121,13 @@ export default function QuickAddOptionRow({
         styles.cell,
         onPress ? null : growth,
         {
-          borderWidth: BORDER_WIDTH.field,
-          // See the resting-edge note in components/FormControls.tsx (2026-09-08): this cell
-          // wore `useScreenColor()` and was the box in the "border color bug" report.
-          borderColor: computeBorderTone(theme.border, isDark, 'field'),
+          // ⚠️ **A recessed FILL, not a border, since 2026-10-07.** Maintainer, on Energy's
+          // "Sett dagens energi" cell: a bordered box inside a bordered card is a card in a
+          // card — *"fjern de innerste rammene og bruk heller svak bakgrunnsfarge."* The fill is
+          // the same well every text field draws (`getRecessedField`, see components/AddRow.tsx),
+          // so a cell and the composer beside it read as one family. Don't put the border back
+          // beside the fill; two edges on one control is the thing that was removed.
+          backgroundColor: getRecessedField(theme.surface, isDark).paint,
           borderRadius: Radius.sm,
         },
       ]}

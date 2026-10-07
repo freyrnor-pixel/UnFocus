@@ -28,6 +28,8 @@ import {
   type NarratorCategory,
 } from '@/lib/narratorQuotes';
 
+import { getTranslations } from '@/lib/i18n';
+
 const ROOT = join(__dirname, '..', '..');
 const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8');
 /** Source with comments stripped — this repo's headers name the very words being banned. */
@@ -54,6 +56,21 @@ describe('the quote table', () => {
     // the same number of times land on unrelated lines.
     const lengths = LANGS.map((lang) => narratorQuotes(category, lang).length);
     expect(new Set(lengths).size).toBe(1);
+  });
+
+  it('never repeats a card hint — an empty card draws both, one above the other', () => {
+    // 2026-10-07, maintainer report: an empty `I dag` card showed "Del det opp til det blir litt
+    // latterlig…" twice in a row — once as the card's 💡 hint (components/CardHintLine.tsx, drawn
+    // only while the card is EMPTY) and once as the narrator's aside on the same empty list. The
+    // two lines were the same string in two files. Habits carried the same collision. Exact
+    // equality is enough: the defect was a copy, not a paraphrase.
+    for (const lang of LANGS) {
+      const hints = new Set(Object.values(getTranslations(lang).cardHint));
+      const clashes = NARRATOR_CATEGORIES.flatMap((c) =>
+        narratorQuotes(c, lang).filter((q) => hints.has(q)).map((q) => `${lang}/${c}: ${q}`),
+      );
+      expect(clashes).toEqual([]);
+    }
   });
 
   it('has no blank or duplicated line inside a category', () => {

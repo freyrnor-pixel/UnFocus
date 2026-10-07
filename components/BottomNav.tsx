@@ -37,8 +37,7 @@
  *   Imports → @react-navigation/material-top-tabs (MaterialTopTabBarProps type), expo-router,
  *             constants/theme (HitSlop + the spacing/type tokens — no gradient, shadow or glow
  *             helper), constants/colors (ThemePalette, type-only), constants/motion (Travel),
- *             lib/i18n, lib/siteNav, lib/screenColor (getScreenColor — the active tab's
- *             category hue, see `navTabHue`), lib/useAppTheme (useAppTheme, useIsDark,
+ *             lib/i18n, lib/siteNav, lib/useAppTheme (useAppTheme,
  *             useScaledStyles), components/PressableScale, components/Surface
  *   Used by → app/(tabs)/_layout.tsx (as the pager's tabBar); components/ScreenScaffold
  *             (standalone fallback via bottomNav=true — currently unused by any real screen)
@@ -52,11 +51,9 @@
  *     slices SITE_ITEMS into left/right groups around a centre button** — it maps the array
  *     once — so adding or reordering an item needs no index arithmetic here at all, which is
  *     why going from five slots to three needed no code change in this file.
- *   - ⚠️ **With three tabs the categorical hue is doing MORE work, not less.** It is still the
- *     only channel marking the active tab (see the flat-equality ruling above), and 'index'
- *     stopped being neutral in lib/screenColor.ts precisely so the middle tab has one — a
- *     neutral key falls back to `theme.accent` in `navTabHue`, which would put the app's one
- *     accent under the tab the user stands in most.
+ *   - **The active tab wears `theme.accent` on every tab, both themes (2026-10-07).** The
+ *     per-category hue this note used to defend was reversed on a maintainer report — see
+ *     `navTabHue`.
  *   - BOTTOM_NAV_HEIGHT is exported for screens needing to offset overlays. NAV_FLOAT_GAP is
  *     also exported — app/(tabs)/_layout.tsx (bar positioning) and ScreenScaffold
  *     (`pagerFloatingNav` content-clearance reserve) both need the exact same number or the
@@ -95,10 +92,9 @@ import { Ionicons } from '@expo/vector-icons';
 import type { MaterialTopTabBarProps } from '@react-navigation/material-top-tabs';
 import { useT } from '@/lib/i18n';
 import { BORDER_WIDTH, Fonts, FontSize, Radius, Spacing, HitSlop, MIN_TAP_TARGET, OpticalCenter } from '@/constants/theme';
-import { getScreenColor } from '@/lib/screenColor';
 import type { ThemePalette } from '@/constants/colors';
 import { Travel } from '@/constants/motion';
-import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
+import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { goToSite, SITE_ITEMS, SiteItem, TAB_ROUTE_NAME } from '@/lib/siteNav';
 import PressableScale from '@/components/PressableScale';
 import Surface from '@/components/Surface';
@@ -154,7 +150,8 @@ export const NAV_FLOAT_GAP = Spacing.sm;
  * pill — *"do not use massive asymmetrical background circles for the active bottom nav icon"* —
  * and that stands. This is symmetric, unfilled by anything, inside the slot's own box, and does
  * not change the item's height or its 48px target: five equal slots, one of which is annotated.
- * It is NOT a selection cue (the filled glyph is), so it does not brighten when Home is active.
+ * It is NOT a selection cue (the filled glyph is), so it does not brighten when Home is active —
+ * which until 2026-10-07 it did, contradicting this line; it is now always muted.
  */
 const HOME_MARK_SIZE = 4;
 
@@ -202,31 +199,19 @@ export default function BottomNav({ state, navigation }: Props = {}) {
 }
 
 /**
- * The colour an active nav tab wears — its own CATEGORY's, in dark mode (2026-08-16, brief §7).
+ * The colour an active nav tab wears — the app's ONE accent, on every tab, in both themes
+ * (2026-10-07, maintainer report).
  *
- * *"When rendering an icon, a badge, or the glowing shadow of a button associated with a
- * specific category, you MUST use its mapped categorical color."* A nav tab is the most literal
- * case of that in the app — it IS the category — and it is now the ONLY channel the bar has:
- * with the plate gone (see the file header), a filled glyph in this hue is the whole selection
- * cue. That makes the hue load-bearing rather than decorative; don't collapse it back to a
- * single accent.
- *
- * Resolved through `lib/screenColor.ts` rather than from a table here, so a tab and the screen
- * it opens can never disagree: `SiteItem.route` is already the screen key that module is keyed
- * by.
- *
- * ⚠️ **DARK MODE ONLY, and that is measured rather than squeamish.** The five categoricals are
- * neon values chosen to glow on black; light mode keeps the 2026-08-10 "cinematic" `feat*`
- * octet, which is a set of MID-TONES that read as muddy on the nav's light glass. In light
- * mode this returns the accent and every active tab is accent-blue, as it always was.
- *
- * Home has no identity hue (`getScreenColor` reports `neutral`) and takes the accent in both
- * modes.
+ * ⚠️ **This reverses the 2026-08-16 per-category hue (brief §7), on purpose.** That rule gave
+ * each active tab its own category colour in dark mode — To-do lit up yellow, Home blue — and on
+ * device it read as an inconsistency, not as identity: *"På Gjøremål-skjermen er ikonet merket
+ * med gult. På Hjem-skjermen er ikonet merket med blå … Velg én gjennomgående aksentfarge for
+ * den aktive fanen."* The category still owns its glyphs and badges inside the screen; the bar
+ * is the one place the user compares tabs side by side, so it uses one colour. Don't put the
+ * hue back here without a new ruling.
  */
-function navTabHue(theme: ThemePalette, isDark: boolean, item: SiteItem | undefined): string {
-  if (!isDark || !item) return theme.accent;
-  const hue = getScreenColor(theme, item.route.replace('/', '') || 'index');
-  return hue.neutral ? theme.accent : hue.base;
+function navTabHue(theme: ThemePalette): string {
+  return theme.accent;
 }
 
 type NavTabItemProps = {
@@ -241,11 +226,10 @@ type NavTabItemProps = {
 
 function NavTabItem({ item, label, active, isHome, onPress, styles }: NavTabItemProps) {
   const theme = useAppTheme();
-  const isDark = useIsDark();
   // The one difference between an active tab and an inactive one: a FILLED glyph in the
-  // section's colour versus an outline glyph in muted ink. No plate, no ring, no fill, no
+  // accent versus an outline glyph in muted ink. No plate, no ring, no fill, no
   // size change — "equal visual weight" is the point of the whole bar.
-  const tint = active ? navTabHue(theme, isDark, item) : theme.textMuted;
+  const tint = active ? navTabHue(theme) : theme.textMuted;
 
   return (
     <PressableScale
@@ -273,7 +257,9 @@ function NavTabItem({ item, label, active, isHome, onPress, styles }: NavTabItem
           // "Home, dot" is worse than nothing.
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
-          style={[styles.homeMark, { backgroundColor: active ? tint : theme.textMuted }]}
+          // Always muted, active or not (2026-10-07): a dot that lit up with Home read as a
+          // second selection cue only Home had — the "blue dot" in the maintainer's report.
+          style={[styles.homeMark, { backgroundColor: theme.textMuted }]}
         />
       ) : null}
     </PressableScale>

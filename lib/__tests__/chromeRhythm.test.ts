@@ -439,8 +439,9 @@ describe('BottomNav — flat equality, no background shape', () => {
     expect(source).toMatch(/SITE_ITEMS\.map\(/);
   });
 
-  it('marks the active tab with a filled glyph in the section colour, and nothing else', () => {
-    expect(source).toMatch(/const tint = active \? navTabHue\(theme, isDark, item\) : theme\.textMuted/);
+  it('marks the active tab with a filled glyph in the one accent, and nothing else', () => {
+    expect(source).toMatch(/const tint = active \? navTabHue\(theme\) : theme\.textMuted/);
+    expect(source).toMatch(/function navTabHue\(theme: ThemePalette\): string \{\n  return theme\.accent;/);
     expect(source).toMatch(/name=\{active \? item\.activeIcon : item\.icon\}/);
     expect(source).toMatch(/color=\{tint\}/);
   });

@@ -1502,7 +1502,9 @@ export default function TodoSurface({ section, onDayReset }: Props) {
           icon="archive-outline"
           label={t.dayResetAction}
           onPress={handleDayReset}
-          style={styles.dayResetBtn}
+          // An opaque fill (2026-10-07): this is the one label in the gutter BETWEEN cards, and
+          // with the painted tree at full strength on every tab it sat on the trunk unreadably.
+          style={[styles.dayResetBtn, { backgroundColor: theme.surface }]}
         />
       )}
     </View>

@@ -86,6 +86,7 @@ import IconButton from '@/components/IconButton';
 import PadSheet from '@/components/PadSheet';
 import PadRow from '@/components/PadRow';
 import DraftComposer from '@/components/DraftComposer';
+import { useCardAddButton } from '@/components/CardAddButton';
 import PadFooterToggle from '@/components/PadFooterToggle';
 import ProgressBar from '@/components/ProgressBar';
 import Stepper from '@/components/Stepper';
@@ -169,6 +170,7 @@ export default function HomeShoppingCard({
   const theme = useAppTheme();
   const isDark = useIsDark();
   const styles = useScaledStyles(baseStyles);
+  const quickAdd = useCardAddButton('homeShopping');
   const { reducedMotion } = useAccessibility();
   // The card's one hue (border + every content accent) — this used to be lib/domainColor's
   // 'shop' identity (gold), which is a DIFFERENT hue from the screen border below (green) and
@@ -317,6 +319,7 @@ export default function HomeShoppingCard({
       prompt={t.pad.type.item}
       onSubmit={commitAdd}
       accent={screenColor.base}
+      focusRequest={quickAdd.focusRequest}
       // The labelled panel, not the inline `extras` row (2026-08-05) — same move as
       // components/HomeNotesCard.tsx, so all four Home cards and their tabs now share one
       // quick-add anatomy (DESIGN_RULES.md rule 8). It also gives the title input the whole
@@ -372,6 +375,8 @@ export default function HomeShoppingCard({
       // while empty. Reuses shopLists — same feature (the weekly shopping list), just surfaced
       // on Home, so the Shop tab's own hint fits without a new key.
       hint={totalCount === 0 ? t.cardHint.shopLists : undefined}
+      // The header "+" (2026-10-07): unfold + focus the composer. Only when there IS a composer.
+      controls={onAddItem ? quickAdd.button : undefined}
     >
 
         {/* Week pager. Both arrows always enabled — the pager wraps, so there is no dead end. */}

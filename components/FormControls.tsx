@@ -354,13 +354,20 @@ function SegmentedTrack<T extends string | number>({
   compact,
 }: SegmentedControlProps<T>) {
   const theme = useAppTheme();
+  const isDark = useIsDark();
   const { reducedMotion } = useAccessibility();
   const shape = useLabShape();
   const [track, setTrack] = useState({ w: 0, h: 0 });
   // Read once and used BOTH as the rendered border and as the term `segmentGeometry` removes,
-  // so the two can never disagree — the design lab scales this, and a pill sized against a
-  // different border than the one drawn is the bug in a second form.
-  const trackBorder = shape.borderFieldWidth * shape.borderScale;
+  // so the two can never disagree — a pill sized against a different border than the one drawn
+  // is the bug in a second form.
+  //   ⚠️ **0 since 2026-10-07 — the track is a FILL, not a frame.** Maintainer, on the Planner
+  // card's Uke/Måned switch: a bordered track inside an already-bordered card is a card in a
+  // card; *"fjern de innerste rammene og bruk heller svak bakgrunnsfarge."* The `surfaceMuted`
+  // fill alone marks the track — and it is the recessed FIELD well (`getRecessedField`), not
+  // `surfaceMuted`, whose dark value `#121212` drew a black slab across the card. Kept as a named 0 rather than deleted so the geometry call
+  // below still states the term it subtracts.
+  const trackBorder = 0;
 
   const n = options.length;
   const activeIndex = Math.max(0, options.findIndex((o) => o.value === value));
@@ -411,8 +418,7 @@ function SegmentedTrack<T extends string | number>({
       style={[
         styles.segmentWrap,
         {
-          backgroundColor: theme.surfaceMuted,
-          borderColor: theme.border,
+          backgroundColor: getRecessedField(theme.surface, isDark).paint,
           borderWidth: trackBorder,
           borderRadius: Radius.sm * shape.radiusScale,
           // A compact track must NOT carry the full tap-target floor, or the shorter segments
@@ -817,7 +823,6 @@ const styles = StyleSheet.create({
     borderRadius: Radius.sm,
     padding: 4,
     minHeight: MIN_TAP_TARGET,
-    borderWidth: 1.5,
   },
   segment: {
     flex: 1,
