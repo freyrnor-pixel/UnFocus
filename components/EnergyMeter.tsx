@@ -246,7 +246,7 @@ import PressableScale from '@/components/PressableScale';
 import Card from '@/components/Card';
 import Stepper from '@/components/Stepper';
 import QuickAddOptionRow from '@/components/QuickAddOptionRow';
-import { SegmentedControl, Switch } from '@/components/FormControls';
+import { SegmentedControl } from '@/components/FormControls';
 import EnergyConfigPanel from '@/components/EnergyConfigPanel';
 import Collapsible from '@/components/Collapsible';
 import EnergyPauseSheet from '@/components/EnergyPauseSheet';
@@ -568,8 +568,8 @@ export default function EnergyMeter() {
       /* BASE, not the total the meter shows — see `dayBaseCapacity` above for why handing
          over the sum would re-bank today's boost as the user's usual capacity. */
       dayBaseCapacity={dayBaseCapacity}
-      // Same rule as the card's row: with "Fast hver dag" on, today's amount IS the default.
-      onDayCapacity={(n) => { setDayCapacity(today, n); if (fixedDaily) saveAsDefault(n); }}
+      // Same rule as the card's row: the day's amount IS the everyday amount.
+      onDayCapacity={onDailyAmount}
       weekCapacity={weekCapacity}
       onWeekCapacity={(n) => setWeekCapacity(today, n)}
       dayBoost={dayBoost}
@@ -579,15 +579,13 @@ export default function EnergyMeter() {
 
 
   /**
-   * "Fast hver dag" (2026-10-11, V2). ON means today's amount IS the everyday default, so a step
-   * writes both; OFF means a step changes today only. Seeded from whether they already match, so
-   * a remount reads true when they do — no stored flag. In 'custom' mode the default is that
-   * weekday's own amount, which is what gets written; the mode is never changed from here.
+   * The day's amount is the EVERYDAY amount (2026-10-11, maintainer: *"Naturligvis er det fast
+   * hver dag. Ikke per dag."*). There was a "Fast hver dag" switch here whose OFF position made a
+   * step change today only — a choice nobody needed, explained by a line nobody should have to
+   * read. A step now writes today's row and the default together. A one-day change is what
+   * "Extra for today" in the ⤢ pane is for. In 'custom' mode the default is that weekday's own
+   * amount, which is what gets written; the mode is never changed from here.
    */
-  const defaultForToday = energyMode === 'custom'
-    ? energyCustomCapacities[dayOfWeekMon0(new Date(today + 'T12:00:00'))] ?? 0
-    : energyDailyCapacity;
-  const [fixedDaily, setFixedDaily] = useState(() => dayBaseCapacity === defaultForToday);
   const saveAsDefault = (n: number) => {
     if (energyMode === 'custom') {
       const next = [...energyCustomCapacities];
@@ -597,14 +595,10 @@ export default function EnergyMeter() {
       updateSettings({ energyDailyCapacity: n });
     }
   };
-  const onDailyAmount = (n: number) => {
+  function onDailyAmount(n: number) {
     setDayCapacity(today, n);
-    if (fixedDaily) saveAsDefault(n);
-  };
-  const onFixedDaily = (on: boolean) => {
-    setFixedDaily(on);
-    if (on) saveAsDefault(dayBaseCapacity);
-  };
+    saveAsDefault(n);
+  }
 
   const row = (
     rowKey: 'day' | 'week',
@@ -825,18 +819,7 @@ export default function EnergyMeter() {
           )}
           {/* The one control row. Day scope: the amount + "Fast hver dag". Week scope (or a
               weekly-only setup) keeps the adjust row and its fold, which owns the week number. */}
-          {inPane ? (
-            // In the ⤢ pane the panel below owns the day amount ("Today's energy"), so the row
-            // keeps only its switch — one stepper per number, never two.
-            showDay ? (
-              <View style={styles.dailyRow}>
-                <Text style={[styles.dailyLabel, { color: theme.text }]} numberOfLines={1}>
-                  {t.energyMeter.fixedDaily}
-                </Text>
-                <Switch checked={fixedDaily} onChange={onFixedDaily} accessibilityLabel={t.energyMeter.fixedDaily} />
-              </View>
-            ) : null
-          ) : showDay && scope === 'day' ? (
+          {inPane ? null : showDay && scope === 'day' ? (
             <View style={styles.dailyRow}>
               <Text style={[styles.dailyLabel, { color: theme.text }]} numberOfLines={1}>
                 {t.energyMeter.fixedDaily}
@@ -848,7 +831,6 @@ export default function EnergyMeter() {
                 max={DAILY_MAX}
                 accessibilityLabel={t.energyMeter.todayCapacity}
               />
-              <Switch checked={fixedDaily} onChange={onFixedDaily} accessibilityLabel={t.energyMeter.fixedDaily} />
             </View>
           ) : (
             <View style={styles.qaLine}>
@@ -863,14 +845,6 @@ export default function EnergyMeter() {
                 onPress={() => setConfigOpen((v) => !v)}
               />
             </View>
-          )}
-          {/* What the switch does, in its current position (2026-10-11, maintainer: *"Energy
-              slider, what does it do?"*). A bare label beside a number and a switch could not say
-              whether the switch moved the number, saved it, or turned Energy off. */}
-          {showDay && (inPane || scope === 'day') && (
-            <Text style={[styles.dailyHint, { color: theme.textMuted }]}>
-              {fixedDaily ? t.energyMeter.fixedDailyOn : t.energyMeter.fixedDailyOff}
-            </Text>
           )}
           {inPane ? configPanel : (
             <Collapsible open={configOpen && !(showDay && scope === 'day')}>
@@ -926,7 +900,6 @@ const styles = StyleSheet.create({
   // The V2 card's one control row: label, the day's amount, and "Fast hver dag".
   dailyRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: MIN_TAP_TARGET },
   dailyLabel: { flex: 1, minWidth: 0, fontSize: FontSize.sm, fontFamily: Fonts.medium },
-  dailyHint: { fontSize: FontSize.xs, fontFamily: Fonts.regular, marginTop: -Spacing.xs },
   overspendRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, minHeight: MIN_TAP_TARGET },
   overspendRowText: { fontSize: FontSize.sm, fontFamily: Fonts.medium, flexShrink: 1 },
   // The ROW container a `QuickAddOptionRow` assumes it is in — see both call sites' notes. Its

@@ -226,7 +226,9 @@ describe('EnergyMeter — the strip names itself, and is set from a pop-up', () 
     expect(src).toMatch(/row\('week', t\.energyMeter\.thisWeek,/);
   });
 
-  it('has exactly ONE stepper of its own — the day amount, labelled, beside "Fast hver dag"', () => {
+  it('has exactly ONE stepper of its own — the everyday amount, labelled "Hver dag"', () => {
+    // 2026-10-11 (later the same day): the "Fast hver dag" SWITCH beside it is gone — the amount
+    // is always the everyday amount (maintainer: *"Naturligvis er det fast hver dag"*).
     // ⚠️ **Reversed 2026-10-11 (V2, maintainer-approved mockup).** Until then the card had no
     // stepper: a bare ± could not say whether it moved the capacity or the spend. The V2 card
     // answers that with a LABEL and a neighbour: one row reading "Fast hver dag", the day's
@@ -237,6 +239,7 @@ describe('EnergyMeter — the strip names itself, and is set from a pop-up', () 
     expect(src).toMatch(/t\.energyMeter\.fixedDaily/);
     expect(src).toMatch(/accessibilityLabel=\{t\.energyMeter\.todayCapacity\}/);
     expect(src).not.toMatch(/EnergyConfigSheet/);
+    expect(src).not.toMatch(/<Switch\b/);
   });
 
   it('mounts the panel only inside a Collapsible driven by the card toggle — folded by default', () => {

@@ -263,22 +263,18 @@ const en = {
     /** Shown instead of a silently-full bar. Never "over budget" — it states, it does not scold. */
     budgetOver: (n: number) => `${n} past today's budget`,
     budgetAdjust: 'Adjust budget',
-    /** The V2 card's one control row (2026-10-11): ON = today's amount is the everyday default. */
-    fixedDaily: 'Same every day',
-    /** The line under that row, saying what the switch does in its CURRENT position (2026-10-11,
-        maintainer: *"Energy slider, what does it do?"*). */
-    fixedDailyOn: 'Every day starts with this amount.',
-    fixedDailyOff: 'Only today. Tomorrow goes back to the usual amount.',
+    /** The V2 card's one control row: the everyday amount (no per-day switch since 2026-10-11). */
+    fixedDaily: 'Every day',
     budgetUnits: (n: number) => `${n} units`,
     /** The ✏️'s accessibility label (was also the title of the retired EnergyConfigSheet). */
     editTitle: 'Adjust energy',
-    todayCapacity: "Today's energy",
+    todayCapacity: 'Energy every day',
     weekCapacity: "This week's energy",
     /* One line per stepper in the config sheet, saying what that stepper CHANGES (2026-08-03).
        This is the copy half of the fix for "it is not obvious to a user what is what": a ± beside
        a `7 / 10` readout cannot say whether it moves the capacity or the spend, and on the strip
        there was no room to tell them. Neither line names a good number or suggests one. */
-    todayCapacityHint: 'How much today holds. Every other day keeps its own number.',
+    todayCapacityHint: 'How much a day holds. A one-off goes under Extra for today.',
     weekCapacityHint: 'How much the whole week holds.',
     done: 'Done',
     // The "+ today only" boost, in the ✏️ editor beside the capacity stepper (2026-08-02).
@@ -2562,15 +2558,13 @@ const no: typeof en = {
       `${used} av ${cap} brukt${back > 0 ? ` · +${back} gitt tilbake` : ''}`,
     budgetOver: (n: number) => `${n} over dagens budsjett`,
     budgetAdjust: 'Juster budsjett',
-    fixedDaily: 'Fast hver dag',
-    fixedDailyOn: 'Hver dag starter med dette tallet.',
-    fixedDailyOff: 'Bare i dag. I morgen er det vanlige tallet tilbake.',
+    fixedDaily: 'Hver dag',
     budgetUnits: (n: number) => `${n} enheter`,
     editTitle: 'Juster energi',
-    todayCapacity: 'Energi i dag',
+    todayCapacity: 'Energi hver dag',
     weekCapacity: 'Energi denne uken',
     /* Se de engelske tvillingene: én linje per teller, som sier hva telleren endrer (2026-08-03). */
-    todayCapacityHint: 'Hvor mye dagen i dag rommer. Alle andre dager beholder sitt eget tall.',
+    todayCapacityHint: 'Hvor mye en dag rommer. Noe ekstra bare i dag går under Ekstra i dag.',
     weekCapacityHint: 'Hvor mye hele uken rommer.',
     done: 'Ferdig',
     boostToday: 'Ekstra i dag',
@@ -4358,15 +4352,13 @@ const is: typeof en = {
       `${used} af ${cap} notað${back > 0 ? ` · +${back} skilað` : ''}`,
     budgetOver: (n: number) => `${n} yfir fjárhag dagsins`,
     budgetAdjust: 'Stilla fjárhag',
-    fixedDaily: 'Sama alla daga',
-    fixedDailyOn: 'Hver dagur byrjar á þessari tölu.',
-    fixedDailyOff: 'Bara í dag. Á morgun gildir venjulega talan aftur.',
+    fixedDaily: 'Alla daga',
     budgetUnits: (n: number) => `${n} einingar`,
     editTitle: 'Stilla orku',
-    todayCapacity: 'Orka í dag',
+    todayCapacity: 'Orka alla daga',
     weekCapacity: 'Orka þessa viku',
     /* Sjá ensku tvíburana: ein lína á hvern teljara, sem segir hverju hann breytir. */
-    todayCapacityHint: 'Hversu mikið dagurinn í dag rúmar. Aðrir dagar halda sinni eigin tölu.',
+    todayCapacityHint: 'Hversu mikið dagur rúmar. Eitthvað aukalega bara í dag fer undir aukaorku.',
     weekCapacityHint: 'Hversu mikið öll vikan rúmar.',
     done: 'Búið',
     boostToday: 'Aukalega í dag',
