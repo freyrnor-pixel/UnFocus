@@ -353,7 +353,7 @@ export default function EnergyMeter() {
 
   const energyMode = useSettingsStore((s) => s.energyMode);
   // Subscribe to the defaults + overrides so the meter recomputes when either changes.
-  const energyDailyCapacity = useSettingsStore((s) => s.energyDailyCapacity);
+  useSettingsStore((s) => s.energyDailyCapacity);
   useSettingsStore((s) => s.energyWeeklyCapacity);
   const energyCustomCapacities = useSettingsStore((s) => s.energyCustomCapacities);
   const updateSettings = useSettingsStore((s) => s.update);
