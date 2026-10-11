@@ -735,8 +735,36 @@ type SettingsStore = Settings & {
   restoreHints: () => void;
 };
 
+/**
+ * Settings whose Settings rows were removed on 2026-10-11 ("Settings has far too many rows";
+ * reduce-visual switches "just go" — a low-end device is an optimisation problem, not a toggle).
+ * They are PINNED here rather than left at whatever was stored: with no row to switch one back,
+ * an install that had e.g. `reduceEffects` on would otherwise be stuck with it for good. Applied
+ * on load and stripped from every `update()`, so onboarding/AI-setup writes are no-ops too.
+ * Reduced motion still follows the OS (lib/useAppTheme.ts ORs the system setting in).
+ * Columns survive — this repo never drops columns.
+ */
+export const RETIRED_SETTINGS = {
+  reducedMotion: false,
+  particlesEnabled: true,
+  glassSurfaces: true,
+  reduceEffects: false,
+  leftHanded: false,
+  planTimelineHorizontal: false,
+} as const satisfies Partial<Settings>;
+
+function withoutRetired<T extends object>(patch: T): T {
+  const out = { ...patch } as Record<string, unknown>;
+  for (const k of Object.keys(RETIRED_SETTINGS)) delete out[k];
+  return out as T;
+}
+
 /** Map the single settings row to the persisted Settings (defaults mirror the old load()). */
 function rowToSettings(row: Row): Settings {
+  return { ...rowToStoredSettings(row), ...RETIRED_SETTINGS };
+}
+
+function rowToStoredSettings(row: Row): Settings {
   return {
     userName: readStr(row, 'user_name'),
     weeklyResetDay: readInt(row, 'weekly_reset_day', 0),
@@ -1087,7 +1115,9 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
     }
   },
 
-  update(patch) {
+  update(rawPatch) {
+    const patch = withoutRetired(rawPatch);
+    if (Object.keys(patch).length === 0) return;
     set((s) => {
       const next = { ...s, ...patch };
       try {

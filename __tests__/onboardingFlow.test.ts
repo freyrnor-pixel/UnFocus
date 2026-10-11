@@ -226,8 +226,10 @@ describe('basics asks for one thing on a fresh install', () => {
     expect(src).toContain('t.basics.welcomeSub');
   });
 
-  it('Settings re-run still gets the full six rows', () => {
-    expect(read('app/settings.tsx')).toMatch(/router\.push\('\/onboarding\/basics\?rows=all'\)/);
+  it('Settings no longer offers a re-run link (removed 2026-10-11 with the Layout card)', () => {
+    // Every row the re-run showed has a home in Settings or was retired (RETIRED_SETTINGS in
+    // store/useSettingsStore.ts). `?rows=all` itself still works if something links to it again.
+    expect(read('app/settings.tsx')).not.toMatch(/onboarding\/basics\?rows=all/);
   });
 
   it('still commits every row atomically, including the ones it did not draw', () => {
