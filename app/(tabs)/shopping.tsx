@@ -78,7 +78,7 @@
  * including why this needed no sync decision (`shopping_lists` isn't a synced table at all).
  *
  * Connections:
- *   Imports → components/InlineAddItem, components/BudgetFields (the Budget card's editable
+ *   Imports → components/BudgetBar (V2 budget bar), expo-keep-awake (V2 shopping mode), components/InlineAddItem, components/BudgetFields (the Budget card's editable
  *             amount + payday, 2026-09-26), components/AddDishSheet (AddDishTarget type),
  *             components/NarratorQuote (2026-08-19 — an unlocked monthly list with nothing
  *             in it; see that file's header for the three empty states it stays out of),
@@ -511,6 +511,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, LayoutAnimation, Modal, NativeScrollEvent, NativeSyntheticEvent, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { Ionicons } from '@expo/vector-icons';
 import { useShoppingStore, ShoppingItem, MonthlyResetSummary, UNALLOCATED_LIST_ID } from '@/store/useShoppingStore';
 import { useShoppingListStore, ShoppingList } from '@/store/useShoppingListStore';
@@ -607,6 +608,8 @@ type DragState = {
   mergeTargetDish: string | null;
 };
 
+
+const SHOPPING_MODE_TAG = 'unfocus-shopping-mode';
 
 export default function ShoppingScreen() {
   const theme = useAppTheme();
@@ -1453,6 +1456,22 @@ export default function ShoppingScreen() {
     for (const list of nonTemplateLists) map.set(list.id, computeListGroups(items, list.id));
     return map;
   }, [nonTemplateLists, items]);
+
+  // ── V2 shopping mode (2026-10-11): the screen stays on while you are mid-shop ──
+  // Maintainer: Handleliste's full screen = "shopping mode, screen stays on". Shipped as the
+  // STATE rather than a button: once the list on the pager has something in the cart and this
+  // tab is showing, the phone does not lock between aisles. Ticking the last item off via
+  // "Ferdig", leaving the tab, or emptying the cart releases it. No toggle to remember.
+  const midShop = !!pagerList && listProgress(groupsByList.get(pagerList.id) ?? EMPTY_LIST_GROUPS).inCart > 0;
+  useFocusEffect(
+    useCallback(() => {
+      if (!midShop) return undefined;
+      activateKeepAwakeAsync(SHOPPING_MODE_TAG).catch(() => {});
+      return () => {
+        deactivateKeepAwake(SHOPPING_MODE_TAG).catch(() => {});
+      };
+    }, [midShop])
+  );
 
   /** Rewrites the live store back to exactly what `snap` captured — undoes any add/
    *  remove/toggle/qty/merge/rename made since the snapshot, via the same store actions
