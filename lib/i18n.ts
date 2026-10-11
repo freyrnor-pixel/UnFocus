@@ -221,7 +221,6 @@ const en = {
     doneToday: (n: number) => `${n} done — small things add up`,
     andMore: (n: number) => `and ${n} more today`,
     allClear: 'Nothing left today. That counts.',
-    markDone: 'Done',
   },
   // Home Energy meter (components/EnergyMeter.tsx)
   energyMeter: {
@@ -233,7 +232,6 @@ const en = {
     notSetPeek: 'Not set for today',
     /* The adjust row's value in the EMPTY card (2026-09-08): the row is the way IN, so it says
        there is no number yet rather than showing a zero, which would read as a budget of none. */
-    notSetValue: 'Not set',
     /* These two name the meter, not just the period (2026-08-03). They were 'Today' /
        'This week' and were passed ONLY in `energyMode: 'custom'`, where two meters are on
        screen and something has to tell them apart — the far commoner single-meter case
@@ -245,7 +243,6 @@ const en = {
     today: 'Energy today',
     thisWeek: 'Energy this week',
     remaining: (n: number) => `${n} left`,
-    usedOf: (used: number, cap: number) => `${used} / ${cap} used`,
     /* The v2 Energibudsjett bar (2026-09-06). The mockup's legend is three words and they are
        the ONLY thing that says which way the glyphs read — filled is energy SPENT here, the
        inverse of the pip meter above, where a filled pip is energy you still have. Keep all
@@ -254,9 +251,6 @@ const en = {
        pips as a score. `givenBack` is deliberately not "earned" or "gained" — the energy came
        back from a habit, it was not won. */
     budgetTitle: 'Energy budget',
-    legendSpent: 'spent',
-    legendLeft: 'left',
-    legendGivenBack: 'given back',
     scopeDay: 'Today',
     scopeWeek: 'Week',
     /** Peek line: "4 of 8 spent today · +1 given back". The give-back half is dropped when 0. */
@@ -713,9 +707,6 @@ const en = {
     },
     startScreen: {
       title: 'Where should the app open?',
-      // Short form for the permanent control in Settings → Personal → Layout, where a
-      // question would read oddly next to the other field labels.
-      settingsLabel: 'Starting screen',
       sub: 'Every other tab stays one tap away.',
       home: 'Habits, notes and how you feel.',
       shopping: 'Your shopping lists.',
@@ -838,7 +829,6 @@ const en = {
   cancelBtn: 'Cancel',
   deleteFromCatalogBtn: 'Delete from catalog',
   deleteConfirmText: 'Are you sure?',
-  inKurvenSection: (n: number) => `In cart (${n})`,
   doneShoppingBtn: 'Shopping complete 🛍️',
   doneShoppingReceiptTitle: 'Got a receipt?',
   doneShoppingReceiptBody: 'Scan or upload it to log the spending, or skip.',
@@ -906,7 +896,6 @@ const en = {
   weekEmptyBody: 'Start one here whenever you need it.',
   catalogueSearchPlaceholder: 'Search the catalogue…',
   monthlyListTotal: (kr: string) => `Total: ${kr}`,
-  monthlyListEmpty: 'Nothing added yet — pick from the catalogue below.',
   /** Shown instead of `monthlyListEmpty` when the list is also locked, which hides the add
    *  composer this text would otherwise be describing — see shopping.tsx's usage. Tapping the
    *  row unlocks the list, so the copy names that action instead of pointing at "below". */
@@ -1006,7 +995,6 @@ const en = {
   unsavedListChangesBody: 'Save your changes to this list before locking it?',
   saveAndLockBtn: 'Save & lock',
   discardAndLockBtn: 'Discard & lock',
-  weekSectionEmpty: 'No lists yet.',
   listMovedToWeek: (n: number) => `Moved to Week ${n}`,
   expandListLabel: 'Expand list',
   collapseListLabel: 'Collapse list',
@@ -1029,9 +1017,6 @@ const en = {
   todoPlanModeLabel: 'Plan mode',
   todoPlanModeOn: 'Keep writing',
   todoPlanModeOff: 'One at a time',
-  // The To-do tab's one group rail (2026-08-21): the three cards below it are not the day's
-  // work — what you're aiming at, what's behind you, what quietly stopped mattering.
-  todoElsewhereTitle: 'Elsewhere',
   listOptionsButtonLabel: 'List options',
   addFromMonthlyOption: 'From monthly',
   addFromDishOption: 'From a dish',
@@ -1267,18 +1252,11 @@ const en = {
     // W-F: monthly title + body now explain the effect (the list will reset)
     monthlyTitle: 'Heads up: monthly list resets soon',
     monthlyBody: 'Your monthly shopping list will clear tomorrow, so check what you still need at home first.',
-    taskStartTitle: (title: string) => `Reminder: ${title}`,
-    taskStartBody: 'Time to get started!',
-    taskBoxTitle: (title: string) => `Start: ${title}`,
-    taskBoxBody: (min: number) => `You have ${min} minutes for this. Good luck!`,
-    taskEndTitle: (title: string) => `Done: ${title}`,
-    taskEndBody: (min: number) => `${min} minutes are up. Well done — you can stop now.`,
     habitReminderTitle: (title: string) => `Habit: ${title}`,
     habitReminderBody: 'A gentle nudge for today.',
     overviewTitle: "Today's overview",
     overviewBodyNoTasks: 'No tasks left today',
     overviewNothingElse: 'Nothing else queued today',
-    overviewUpcomingCount: (count: number) => `+${count} more today`,
     // AP-05 — interactive notification action buttons + snooze follow-up
     actionDone: 'Done',
     actionRemindLater: 'Remind me later',
@@ -1332,25 +1310,11 @@ const en = {
     newTask: 'New task', plans: 'To-do', shop: 'Shop', habits: 'Habits',
     meals: 'Food', health: 'Health', scan: 'Scan', settings: 'Settings',
     capture: 'Quick note', home: 'Home', budget: 'Budget', automations: 'Automations',
-    shared: 'Shared', settingsLabel: 'Settings',
+    shared: 'Shared',
   },
   home: {
-    // Titles the merged "I dag" card, which since the 2026-08-20 5→3 tab merge holds the day's
-    // TASKS and the day's HABITS (the habits section is inside it). "Today's to-do" named only
-    // half of it — the same name-vs-content mismatch that forced Habits back out of the Health
-    // tab in 2026-07-23. "List" covers both without enumerating them or wrapping at 327px, and
-    // is deliberately not the tab's own name ("Today"), which it sits inside.
-    todaysPlans: "Today's list",
-    seeAllPlans: 'See all to-dos',
     more: 'More',
-    // The Health card (2026-08-20) — Health left the bottom nav and became a Home card:
-    // today's medicine trays plus issues active this week.
-    healthCardTitle: 'Health',
     quantityLabel: 'Quantity',
-    weeklyListChip: 'This week',
-    // Names the quick-add's destination-list row, and titles its picker (2026-08-05). The
-    // control was an unlabelled chip that cycled forward through the lists on tap.
-    addToListLabel: 'Add to',
     extraInfoPlaceholder: 'Details…',
     // The row label the Details field sits on since it moved into the notes quick-add's
     // labelled panel (2026-08-05) — the placeholder alone was the only thing naming it.
@@ -1365,7 +1329,6 @@ const en = {
   },
   health: {
     habits: 'Habits',
-    seeAllHabits: 'See all habits',
     noHabits: 'No habits yet',
     addHabit: 'Add habit',
   },
@@ -1373,10 +1336,6 @@ const en = {
     scan: 'Scan',
     budget: 'Budget',
   },
-  // Home shopping card's week arrows (2026-07-30) — accessibility labels only; the visible
-  // label is the week number plus its date range.
-  shoppingWeekPrev: 'Previous week',
-  shoppingWeekNext: 'Next week',
   inStockLabel: 'In stock',
   // Shopping item detail sheet (components/ShoppingItemSheet.tsx). Quantity moved out of the
   // row and into here (row rule, 2026-07-28): a row shows a quantity, a sheet edits one.
@@ -1412,7 +1371,6 @@ const en = {
   // --- end W-C additions ---
   // Health screen
   healthTitle: 'Health',
-  quickLogLabel: 'Quick log',
   healthLogTitle: 'Health log',
   logSymptomTrigger: "What's bothering you?",
   ailmentLabel: 'Issue',
@@ -1470,8 +1428,6 @@ const en = {
   healthIssues: {
     /** The drawer's label and the popup's title. A bare noun, like `goals.editLink`. */
     title: 'Health issues',
-    /** a11y for the drawer's naming cluster — the half of the header that opens the popup. */
-    openLabel: 'Open health issues',
     /** One line inside the popup, shown only once there is a list for it to describe. */
     subtitle: 'The things you keep an eye on.',
     emptyList: 'Nothing here yet — what you log turns up here',
@@ -1510,7 +1466,6 @@ const en = {
   // --- end W-D additions ---
   // Habits — shame-free labels (Proposal 5)
   habits: {
-    notYetToday: 'Not yet today',
     // --- W-D additions ---
     moreOptions: 'More options',
     fewerOptions: 'Fewer options',
@@ -1533,33 +1488,11 @@ const en = {
     deleteLabel: 'Delete goal',
     deleteConfirmTitle: (name: string) => `Delete "${name}"?`,
     deleteConfirmBody: 'Linked to-dos and habits are unlinked. This cannot be undone.',
-    strengthLabel: 'Momentum — grows as you work on it, fades gently',
     // ── The Goals screen (app/goals.tsx) + its Home card, 2026-07-28 ──
     // Wording rule for this whole group: a goal is NEVER failing, weak or neglected. One
     // that hasn't been worked in a while has simply cooled back to neutral — lib/
     // goalStrength.ts floors at 0 and is never driven below it — so the copy has to say
     // that too, or the mechanic and the words disagree.
-    /**
-     * Labels for the "Goals" drawer, which is mounted TWICE — once on Habits and once on To-do
-     * (components/CollapsedSection.tsx, both bodies components/GoalsEditor.tsx).
-     *
-     * **They were ONE key (`editLink`) until 2026-08-13**, so one destination wore one word on
-     * two screens. Maintainer: "Habit Goals should be renamed to Personal Goals, and to-do
-     * Goals renamed to practical Goals." The split is the point — a goal reached through habits
-     * is something you want to BE, one reached through to-dos is something you want DONE — so
-     * the two drawers are no longer interchangeable and must not be re-merged into one key.
-     *
-     * Still bare noun phrases, like Shopping's "Food" and "Catalogue" links, which they share a
-     * component with. `editLink` read "Edit Goals" until 2026-08-03 — a verb that overstates
-     * what the tap does and reads as a list row rather than a way out of the screen. Keep both
-     * of these on the noun side of that line.
-     *
-     * (The `title` key that sat here is deleted: it named the Goals SHEET, and both the sheet
-     * — components/GoalsSheet.tsx — and app/goals.tsx were deleted on 2026-08-12, leaving it
-     * with no consumer at all.)
-     */
-    editLinkPersonal: 'Personal goals',
-    editLinkPractical: 'Practical goals',
     // The row at the foot of the goal picker, and the title of the pop-up it opens (2026-09-01).
     editTitle: 'Goals',
     editGoals: 'Edit goals',
@@ -1576,8 +1509,6 @@ const en = {
   // IFTTT-style automations
   automations: {
     title: 'Automations',
-    navLabel: 'Automations',
-    navHint: 'Simple if-this-then-that rules',
     emptyState: 'No automations yet — tap + to create one.',
     addNew: '+ New automation',
     whenLabel: 'When…',
@@ -1672,8 +1603,6 @@ const en = {
   },
   // --- W-E Config additions (grouped settings + onboarding) ---
   config: {
-    // Top-level skip affordance for non-essential onboarding steps
-    skipForNow: "I'll set this later",
     // Section headers for the grouped settings screen
     sections: {
       appearance: 'Appearance',
@@ -1695,11 +1624,6 @@ const en = {
     // A user should be able to pick correctly without reading the hint underneath.
     layouts: {
       title: 'How lists look',
-      /** Per-surface picker: falls back to the global choice above. */
-      followsDefault: 'Same as my usual',
-      useDefault: 'Use my usual layout',
-      /** Shown on a card whose layout differs from the global default. */
-      customBadge: 'Custom layout',
       markAllSeen: 'Mark all as seen',
       /** Dismisses the picker. Not the top-level `done`, which is onboarding's "Let's go!". */
       close: 'Done',
@@ -1837,7 +1761,6 @@ const en = {
       foodLink: 'Dishes and the ingredients they need',
       weeklyReminders: 'A nudge on your shopping day',
       holidays: 'Public holidays on your calendar',
-      shoppingDefault: 'Which list opens first',
       weeklyResetDay: 'When the weekly list clears itself',
       monthlyResetDate: 'A short month resets on its last day',
       hints: 'Short explanations on each screen',
@@ -1849,8 +1772,6 @@ const en = {
   backup: {
     title: 'Backup & restore',
     desc: 'All your data in one file you keep — nothing is uploaded',
-    exportButton: 'Export backup',
-    importButton: 'Restore from backup',
     exportError: "Couldn't create the backup file.",
     sharingUnavailable: 'Sharing is not available on this device.',
     invalidFile: "That doesn't look like an UnFocus backup file.",
@@ -1949,9 +1870,6 @@ const en = {
     /* V2 budget bar (2026-10-11): the Energy card's shape — one bar, a mark for today. */
     leftWithDays: (left: string, days: number) => `${left} kr left · ${days} ${days === 1 ? 'day' : 'days'} to payday`,
     aboveBy: (amount: string) => `${amount} kr above the budget`,
-    todayMark: 'Today',
-    perDayFrom: (amount: string, days: number) => `${amount} ÷ ${days} days`,
-    perDaySince: (amount: string, days: number) => `${amount} ÷ ${days} days since payday`,
     paydayLabel: 'Payday',
     amountPerMonth: 'Amount per month',
     resetNote: 'Resets on payday. Shopping lists count against this when items are bought.',
@@ -1980,14 +1898,10 @@ const en = {
   // Notater — free-form notes with shopping/plans quick-action buttons (app/notes.tsx)
   notes: {
     title: 'Notes',
-    navLabel: 'Notes',
     addNote: 'Add a note',
     headerPlaceholder: 'Note title',
     bodyPlaceholder: 'Add more detail…',
-    addToShoppingLabel: 'Add to shopping list',
-    addToPlansLabel: 'Create task',
     deleteNote: 'Delete note',
-    shoppingQuickAddTitle: 'Add to shopping list',
     activeLabel: 'Active',
     checkedLabel: 'Checked off',
     recordVoiceNote: 'Record voice note',
@@ -2108,11 +2022,6 @@ const en = {
       // the shared explainer line's header. The weekly/monthly split is taught by the two
       // tabs' own labels; this only has to say what the list is for.
       text: 'Add things as you run out.',
-      // The /shopping screen keeps the weekly-vs-monthly distinction: that screen IS the
-      // place the two lists live side by side, so it's the one surface where the split is
-      // the point rather than a detail.
-      textWeekly: 'Weekly list for groceries.',
-      textMonthly: 'Monthly list for what the house needs.',
     },
     health: {
       exampleTitle: 'Headache',
@@ -2175,7 +2084,6 @@ const en = {
     asNeededLimit: 'Daily max reached',
     asNeededTakenToday: (n: number) => (n === 1 ? '1 today' : `${n} today`),
     logDose: (name: string) => `Log a dose of ${name}`,
-    remindersTitle: 'Reminder times',
     remindersToggle: 'Remind me for each tray',
     remindersOffHint: 'The card still works — you just won’t be nudged.',
     remindersQuietHint: 'A tray inside quiet hours is skipped, not moved.',
@@ -2192,7 +2100,6 @@ const en = {
     asNeededSwitch: 'Take as needed instead',
     asNeededHint: 'No tray and no reminder, only a minimum gap',
     minIntervalLabel: 'Minimum gap between doses',
-    minIntervalPlaceholder: 'minutes',
     minIntervalNone: 'No minimum gap',
     gapHours: (n: number) => `${n} h`,
     traysRequired: 'Pick at least one tray, or set it as needed.',
@@ -2223,7 +2130,6 @@ const en = {
     addNote: 'Add debug note',
     generalNote: 'Add general note',
     composerPlaceholder: "What's on your mind?",
-    exportNotes: 'Export',
     emailNotes: 'Email notes',
     deleteAllNotes: 'Delete all notes',
     mailSubject: 'UnFocus debug notes',
@@ -2318,7 +2224,6 @@ const en = {
     // The card editor (2026-08-07). Everything below names a card, a part, or a place a part
     // can sit — the vocabulary the exported report describes a composition in.
     tabs: { card: 'Card', color: 'Colour', shape: 'Shape', controls: 'Controls' },
-    whichCard: 'Which card',
     preview: {
       collapse: 'Show less of the card',
       light: 'Show it light',
@@ -2335,12 +2240,7 @@ const en = {
     cardNoteLabel: 'What do you want from this card?',
     cardNotePlaceholder: 'In your own words.',
     addPart: 'Add something',
-    partsTitle: 'What it is made of',
-    partsHint: 'Hold and drag to reorder, tap to change',
     removePart: 'Take it out',
-    restoreCard: 'Put this card back',
-    /** Marks a part that is not in the card as the app ships it. */
-    addedTag: 'Added',
     cards: {
       generic: 'A plain list card',
       todo: 'A to-do',
@@ -2458,7 +2358,6 @@ const en = {
     },
     // The token knobs, now their own pushed screen (app/design-lab/tokens.tsx, 2026-08-07).
     tokensTitle: 'Colours and shapes',
-    tokensHint: 'Change one here and it changes everywhere',
     // The playground (app/design-lab/index.tsx, 2026-08-07) — empty screens you build on.
     playground: {
       build: 'Build',
@@ -2620,13 +2519,11 @@ const no: typeof en = {
     doneToday: (n: number) => `${n} gjort — småting teller`,
     andMore: (n: number) => `og ${n} til i dag`,
     allClear: 'Ingenting igjen i dag. Det teller.',
-    markDone: 'Ferdig',
   },
   // Home Energy-måler (components/EnergyMeter.tsx)
   energyMeter: {
     title: 'Energi',
     notSetPeek: 'Ikke satt for i dag',
-    notSetValue: 'Ikke satt',
     /* Se den engelske tvillingen: disse navngir måleren, ikke bare perioden (2026-08-03). */
     today: 'Energi i dag',
     thisWeek: 'Energi denne uken',
@@ -2634,9 +2531,6 @@ const no: typeof en = {
     /* v2s Energibudsjett-stolpe (2026-09-06) — se den engelske tvillingen for hvorfor alle tre
        forklaringsordene må stå. Fylt = brukt, som er motsatt av måleren over. */
     budgetTitle: 'Energibudsjett',
-    legendSpent: 'brukt',
-    legendLeft: 'igjen',
-    legendGivenBack: 'gitt tilbake',
     scopeDay: 'I dag',
     scopeWeek: 'Uke',
     budgetPeek: (used: number, cap: number, back: number) =>
@@ -2645,7 +2539,6 @@ const no: typeof en = {
     budgetAdjust: 'Juster budsjett',
     fixedDaily: 'Fast hver dag',
     budgetUnits: (n: number) => `${n} enheter`,
-    usedOf: (used: number, cap: number) => `${used} / ${cap} brukt`,
     editTitle: 'Juster energi',
     todayCapacity: 'Energi i dag',
     weekCapacity: 'Energi denne uken',
@@ -2935,7 +2828,6 @@ const no: typeof en = {
     },
     startScreen: {
       title: 'Hvor skal appen åpne?',
-      settingsLabel: 'Startskjerm',
       sub: 'De andre fanene er ett trykk unna.',
       home: 'Vaner, notater og hvordan du har det.',
       shopping: 'Handlelistene dine.',
@@ -3027,7 +2919,6 @@ const no: typeof en = {
   cancelBtn: 'Avbryt',
   deleteFromCatalogBtn: 'Slett fra katalog',
   deleteConfirmText: 'Er du sikker?',
-  inKurvenSection: (n: number) => `I kurven (${n})`,
   doneShoppingBtn: 'Handlingen fullført 🛍️',
   doneShoppingReceiptTitle: 'Har du en kvittering?',
   doneShoppingReceiptBody: 'Skann eller last opp for å loggføre kjøpet, eller hopp over.',
@@ -3085,7 +2976,6 @@ const no: typeof en = {
   weekEmptyBody: 'Start en her når du trenger det.',
   catalogueSearchPlaceholder: 'Søk i katalogen…',
   monthlyListTotal: (kr: string) => `Totalt: ${kr}`,
-  monthlyListEmpty: 'Ingenting lagt til ennå — velg fra katalogen under.',
   monthlyListEmptyLocked: 'Ingenting lagt til ennå — trykk for å låse opp og legge til varer.',
   monthlyPreviewSearchPlaceholder: 'Søk i månedslisten…',
   monthlyPreviewEmpty: 'Månedslisten din er tom.',
@@ -3158,7 +3048,6 @@ const no: typeof en = {
   unsavedListChangesBody: 'Lagre endringene på denne listen før du låser den?',
   saveAndLockBtn: 'Lagre og lås',
   discardAndLockBtn: 'Forkast og lås',
-  weekSectionEmpty: 'Ingen lister ennå.',
   listMovedToWeek: (n: number) => `Flyttet til uke ${n}`,
   expandListLabel: 'Vis liste',
   collapseListLabel: 'Skjul liste',
@@ -3173,7 +3062,6 @@ const no: typeof en = {
   todoPlanModeLabel: 'Planmodus',
   todoPlanModeOn: 'Fortsett å skrive',
   todoPlanModeOff: 'Én om gangen',
-  todoElsewhereTitle: 'Ellers',
   listOptionsButtonLabel: 'Listevalg',
   addFromMonthlyOption: 'Fra månedsliste',
   addFromDishOption: 'Fra en rett',
@@ -3225,7 +3113,6 @@ const no: typeof en = {
   invalidMonthlyDateMsg: 'Trenger en dag mellom 1 og 31 — tilbakestilt.',
   // Habits
   habits: {
-    notYetToday: 'Ikke ennå i dag',
     // --- W-D additions ---
     moreOptions: 'Flere valg',
     fewerOptions: 'Færre valg',
@@ -3247,9 +3134,6 @@ const no: typeof en = {
     deleteLabel: 'Slett mål',
     deleteConfirmTitle: (name: string) => `Slette «${name}»?`,
     deleteConfirmBody: 'Koblede gjøremål og vaner blir frakoblet. Dette kan ikke angres.',
-    strengthLabel: 'Driv — vokser når du jobber med det, avtar rolig ellers',
-    editLinkPersonal: 'Personlige mål',
-    editLinkPractical: 'Praktiske mål',
     editTitle: 'Mål',
     editGoals: 'Rediger mål',
     strengthStrong: 'Går sterkt',
@@ -3264,8 +3148,6 @@ const no: typeof en = {
   },
   automations: {
     title: 'Automatiseringer',
-    navLabel: 'Automatiseringer',
-    navHint: 'Enkle hvis-dette-så-det-regler',
     emptyState: 'Ingen automatiseringer ennå — trykk + for å opprette.',
     addNew: '+ Ny automatisering',
     whenLabel: 'Når…',
@@ -3349,7 +3231,6 @@ const no: typeof en = {
   },
   // --- W-E Config additions (grouped settings + onboarding) ---
   config: {
-    skipForNow: 'Jeg ordner dette senere',
     sections: {
       appearance: 'Utseende',
       /* Se den engelske tvillingen (2026-08-03). */
@@ -3363,9 +3244,6 @@ const no: typeof en = {
     },
     layouts: {
       title: 'Hvordan lister ser ut',
-      followsDefault: 'Som jeg pleier',
-      useDefault: 'Bruk oppsettet jeg pleier å ha',
-      customBadge: 'Eget oppsett',
       markAllSeen: 'Marker alt som sett',
       close: 'Ferdig',
       moreLabel: 'Resten',
@@ -3474,7 +3352,6 @@ const no: typeof en = {
       foodLink: 'Retter og ingrediensene de trenger',
       weeklyReminders: 'En påminnelse på handledagen din',
       holidays: 'Helligdager i kalenderen',
-      shoppingDefault: 'Hvilken liste som åpnes først',
       weeklyResetDay: 'Når ukeslisten nullstiller seg',
       monthlyResetDate: 'En kort måned nullstilles på siste dag',
       hints: 'Korte forklaringer på hvert skjermbilde',
@@ -3486,8 +3363,6 @@ const no: typeof en = {
   backup: {
     title: 'Sikkerhetskopi',
     desc: 'Alle dataene dine i én fil du beholder — ingenting lastes opp',
-    exportButton: 'Eksporter sikkerhetskopi',
-    importButton: 'Gjenopprett fra sikkerhetskopi',
     exportError: 'Klarte ikke å lage sikkerhetskopifilen.',
     sharingUnavailable: 'Deling er ikke tilgjengelig på denne enheten.',
     invalidFile: 'Dette ser ikke ut som en UnFocus-sikkerhetskopi.',
@@ -3712,18 +3587,11 @@ const no: typeof en = {
     // W-F: månedlig tittel + tekst forklarer nå effekten (listen nullstilles)
     monthlyTitle: 'Obs: månedslisten nullstilles snart',
     monthlyBody: 'Den månedlige handlelisten din tømmes i morgen, så sjekk hva du fortsatt mangler hjemme først.',
-    taskStartTitle: (title: string) => `Påminnelse: ${title}`,
-    taskStartBody: 'Tid for å komme i gang!',
-    taskBoxTitle: (title: string) => `Start: ${title}`,
-    taskBoxBody: (min: number) => `Du har ${min} minutter til dette. Lykke til!`,
-    taskEndTitle: (title: string) => `Ferdig: ${title}`,
-    taskEndBody: (min: number) => `${min} minutter er over. Bra jobbet — du kan stoppe nå.`,
     habitReminderTitle: (title: string) => `Vane: ${title}`,
     habitReminderBody: 'En liten påminnelse for i dag.',
     overviewTitle: 'Dagens oversikt',
     overviewBodyNoTasks: 'Ingen oppgaver igjen i dag',
     overviewNothingElse: 'Ingenting mer i kø i dag',
-    overviewUpcomingCount: (count: number) => `+${count} flere i dag`,
     // AP-05 — interaktive varselknapper + utsettelse-påminnelse
     actionDone: 'Ferdig',
     actionRemindLater: 'Påminn meg senere',
@@ -3760,16 +3628,11 @@ const no: typeof en = {
     newTask: 'Ny oppgave', plans: 'Gjøremål', shop: 'Handle', habits: 'Vaner',
     meals: 'Mat', health: 'Helse', scan: 'Skann', settings: 'Innst.',
     capture: 'Notér', home: 'Hjem', budget: 'Budsjett', automations: 'Automatisering',
-    shared: 'Delt', settingsLabel: 'Innstillinger',
+    shared: 'Delt',
   },
   home: {
-    todaysPlans: 'Dagens liste',
-    seeAllPlans: 'Se alle gjøremål',
     more: 'Mer',
-    healthCardTitle: 'Helse',
     quantityLabel: 'Antall',
-    weeklyListChip: 'Denne uken',
-    addToListLabel: 'Legg i',
     extraInfoPlaceholder: 'Detaljer…',
     extraInfoLabel: 'Detaljer',
     // See `t.manageCards.*` — the per-card ⋮, the Retired shelf and Home's own card names
@@ -3777,7 +3640,6 @@ const no: typeof en = {
   },
   health: {
     habits: 'Vaner',
-    seeAllHabits: 'Se alle vaner',
     noHabits: 'Ingen vaner ennå',
     addHabit: 'Legg til vane',
   },
@@ -3785,8 +3647,6 @@ const no: typeof en = {
     scan: 'Skann',
     budget: 'Budsjett',
   },
-  shoppingWeekPrev: 'Forrige uke',
-  shoppingWeekNext: 'Neste uke',
   inStockLabel: 'På lager',
   shoppingItemSheet: {
     quantity: 'Hvor mange',
@@ -3817,7 +3677,6 @@ const no: typeof en = {
   // --- W-C Grocery additions (meals) ---
   // --- end W-C additions ---
   healthTitle: 'Helse',
-  quickLogLabel: 'Hurtiglogg',
   healthLogTitle: 'Helse-logg',
   logSymptomTrigger: 'Hva plager deg?',
   ailmentLabel: 'Plage',
@@ -3858,7 +3717,6 @@ const no: typeof en = {
   unnamedIssue: 'Uten navn',
   healthIssues: {
     title: 'Helseplager',
-    openLabel: 'Åpne helseplager',
     subtitle: 'Tingene du holder et øye med.',
     emptyList: 'Ingenting her ennå — det du logger dukker opp her',
     newPlaceholder: 'Noe å holde et øye med',
@@ -3906,9 +3764,6 @@ const no: typeof en = {
     perDaySpent: 'Brukt per dag',
     leftWithDays: (left: string, days: number) => `${left} kr igjen · ${days} ${days === 1 ? 'dag' : 'dager'} til lønning`,
     aboveBy: (amount: string) => `${amount} kr over budsjettet`,
-    todayMark: 'I dag',
-    perDayFrom: (amount: string, days: number) => `${amount} ÷ ${days} dager`,
-    perDaySince: (amount: string, days: number) => `${amount} ÷ ${days} dager siden lønning`,
     paydayLabel: 'Lønningsdag',
     amountPerMonth: 'Beløp per måned',
     resetNote: 'Nullstilles på lønningsdag. Handlelistene trekker fra dette når varer kjøpes.',
@@ -3935,14 +3790,10 @@ const no: typeof en = {
   // Notater — frittstående notater med hurtigknapper for handleliste/planer (app/notes.tsx)
   notes: {
     title: 'Notater',
-    navLabel: 'Notater',
     addNote: 'Legg til et notat',
     headerPlaceholder: 'Notattittel',
     bodyPlaceholder: 'Legg til mer detaljer…',
-    addToShoppingLabel: 'Legg til i handleliste',
-    addToPlansLabel: 'Lag oppgave',
     deleteNote: 'Slett notat',
-    shoppingQuickAddTitle: 'Legg til i handleliste',
     activeLabel: 'Aktive',
     checkedLabel: 'Avkrysset',
     recordVoiceNote: 'Ta opp talenotat',
@@ -3986,8 +3837,6 @@ const no: typeof en = {
     },
     shopping: {
       text: 'Legg til varer når du går tom.',
-      textWeekly: 'Ukentlig liste for dagligvarer.',
-      textMonthly: 'Månedlig liste for det huset trenger.',
     },
     health: {
       exampleTitle: 'Hodepine',
@@ -4030,7 +3879,6 @@ const no: typeof en = {
     asNeededLimit: 'Maks for dagen nådd',
     asNeededTakenToday: (n: number) => (n === 1 ? '1 i dag' : `${n} i dag`),
     logDose: (name: string) => `Logg en dose ${name}`,
-    remindersTitle: 'Påminnelsestider',
     remindersToggle: 'Påminn meg for hver runde',
     remindersOffHint: 'Kortet virker fortsatt — du blir bare ikke minnet på det.',
     remindersQuietHint: 'En runde inne i stilletiden hoppes over, den flyttes ikke.',
@@ -4046,7 +3894,6 @@ const no: typeof en = {
     asNeededSwitch: 'Ta ved behov i stedet',
     asNeededHint: 'Ingen runde og ingen påminnelse, bare en minste avstand',
     minIntervalLabel: 'Minste pause mellom doser',
-    minIntervalPlaceholder: 'minutter',
     minIntervalNone: 'Ingen minste pause',
     gapHours: (n: number) => `${n} t`,
     traysRequired: 'Velg minst én runde, eller sett den til ved behov.',
@@ -4075,7 +3922,6 @@ const no: typeof en = {
     addNote: 'Legg til feilsøkingsnotat',
     generalNote: 'Legg til generelt notat',
     composerPlaceholder: 'Hva tenker du på?',
-    exportNotes: 'Eksporter',
     emailNotes: 'Send notater',
     deleteAllNotes: 'Slett alle notater',
     mailSubject: 'UnFocus feilsøkingsnotater',
@@ -4160,7 +4006,6 @@ const no: typeof en = {
     idNote: 'De korte ordene under er navnene som brukes i filen du sender',
     changedTag: 'Endret',
     tabs: { card: 'Kort', color: 'Farge', shape: 'Form', controls: 'Kontroller' },
-    whichCard: 'Hvilket kort',
     preview: {
       collapse: 'Vis mindre av kortet',
       light: 'Vis det lyst',
@@ -4174,11 +4019,7 @@ const no: typeof en = {
     cardNoteLabel: 'Hva vil du ha ut av dette kortet?',
     cardNotePlaceholder: 'Med dine egne ord.',
     addPart: 'Legg til noe',
-    partsTitle: 'Hva det består av',
-    partsHint: 'Hold og dra for å endre rekkefølge, trykk for å endre',
     removePart: 'Ta den bort',
-    restoreCard: 'Sett dette kortet tilbake',
-    addedTag: 'Lagt til',
     cards: {
       generic: 'Et vanlig listekort',
       todo: 'En oppgave',
@@ -4287,7 +4128,6 @@ const no: typeof en = {
       numberLabel: 'Et tall',
     },
     tokensTitle: 'Farger og former',
-    tokensHint: 'Endrer du én her, endres den overalt',
     playground: {
       build: 'Bygg',
       use: 'Pr\u00f8v den',
@@ -4461,13 +4301,11 @@ const is: typeof en = {
     doneToday: (n: number) => `Búið í dag: ${n} — smáatriðin telja`,
     andMore: (n: number) => `og ${n} í viðbót í dag`,
     allClear: 'Ekkert eftir í dag. Það telur.',
-    markDone: 'Búið',
   },
   // Orkumælir á heimaskjá (components/EnergyMeter.tsx)
   energyMeter: {
     title: 'Orka',
     notSetPeek: 'Ekki stillt fyrir daginn',
-    notSetValue: 'Ekki stillt',
     /* Sjá enska tvíburann: þetta nefnir mælinn, ekki bara tímabilið (2026-08-03). */
     today: 'Orka í dag',
     thisWeek: 'Orka þessa viku',
@@ -4475,9 +4313,6 @@ const is: typeof en = {
     /* v2 orkufjárhagsstikan (2026-09-06) — sjá enska tvíburann: fyllt = notað, öfugt við
        mælinn fyrir ofan, og öll þrjú skýringarorðin þurfa að sjást. */
     budgetTitle: 'Orkufjárhagur',
-    legendSpent: 'notað',
-    legendLeft: 'eftir',
-    legendGivenBack: 'skilað',
     scopeDay: 'Í dag',
     scopeWeek: 'Vika',
     budgetPeek: (used: number, cap: number, back: number) =>
@@ -4486,7 +4321,6 @@ const is: typeof en = {
     budgetAdjust: 'Stilla fjárhag',
     fixedDaily: 'Sama alla daga',
     budgetUnits: (n: number) => `${n} einingar`,
-    usedOf: (used: number, cap: number) => `${used} / ${cap} notuð`,
     editTitle: 'Stilla orku',
     todayCapacity: 'Orka í dag',
     weekCapacity: 'Orka þessa viku',
@@ -4781,7 +4615,6 @@ const is: typeof en = {
     },
     startScreen: {
       title: 'Hvar á appið að opnast?',
-      settingsLabel: 'Upphafsskjár',
       sub: 'Hinir fliparnir eru einn smellur í burtu.',
       home: 'Venjur, minnispunktar og líðan.',
       shopping: 'Innkaupalistarnir þínir.',
@@ -4872,7 +4705,6 @@ const is: typeof en = {
   cancelBtn: 'Hætta við',
   deleteFromCatalogBtn: 'Eyða úr vöruskrá',
   deleteConfirmText: 'Ertu viss?',
-  inKurvenSection: (n: number) => `Í körfu (${n})`,
   /* Impersonal, so the button does not have to guess the reader's gender the way
      "búinn/búin að versla" would. */
   doneShoppingBtn: 'Innkaupum lokið 🛍️',
@@ -4929,7 +4761,6 @@ const is: typeof en = {
   weekEmptyBody: 'Byrjaðu einn hér þegar þú þarft.',
   catalogueSearchPlaceholder: 'Leita í vöruskrá…',
   monthlyListTotal: (kr: string) => `Samtals: ${kr}`,
-  monthlyListEmpty: 'Ekkert komið enn — veldu úr vöruskránni hér að neðan.',
   monthlyListEmptyLocked: 'Ekkert komið enn — ýttu til að opna og bæta við vörum.',
   monthlyPreviewSearchPlaceholder: 'Leita í mánaðarlistanum…',
   monthlyPreviewEmpty: 'Mánaðarlistinn þinn er tómur.',
@@ -5002,7 +4833,6 @@ const is: typeof en = {
   unsavedListChangesBody: 'Viltu vista breytingarnar á þessum lista áður en þú læsir honum?',
   saveAndLockBtn: 'Vista og læsa',
   discardAndLockBtn: 'Henda og læsa',
-  weekSectionEmpty: 'Engir listar enn.',
   listMovedToWeek: (n: number) => `Fært í viku ${n}`,
   expandListLabel: 'Sýna lista',
   collapseListLabel: 'Fela lista',
@@ -5017,7 +4847,6 @@ const is: typeof en = {
   todoPlanModeLabel: 'Skipulagsstilling',
   todoPlanModeOn: 'Halda áfram að skrifa',
   todoPlanModeOff: 'Eitt í einu',
-  todoElsewhereTitle: 'Annað',
   listOptionsButtonLabel: 'Valkostir lista',
   addFromMonthlyOption: 'Úr mánaðarlista',
   addFromDishOption: 'Úr rétti',
@@ -5065,7 +4894,6 @@ const is: typeof en = {
   monthlyDateInputHint: 'Valfrjáls dagsetning 1–31. Í stuttum mánuðum núllstillist listinn síðasta dag.',
   invalidMonthlyDateMsg: 'Þarf dag á milli 1 og 31 — fyrra gildi sett aftur.',
   habits: {
-    notYetToday: 'Ekki enn í dag',
     moreOptions: 'Fleiri valkostir',
     fewerOptions: 'Færri valkostir',
     editButtonLabel: 'Breyta venju',
@@ -5085,9 +4913,6 @@ const is: typeof en = {
     deleteLabel: 'Eyða markmiði',
     deleteConfirmTitle: (name: string) => `Eyða „${name}“?`,
     deleteConfirmBody: 'Tengd verkefni og venjur verða aftengd. Þetta er ekki hægt að afturkalla.',
-    strengthLabel: 'Kraftur — vex þegar þú vinnur í því, dvínar rólega annars',
-    editLinkPersonal: 'Persónuleg markmið',
-    editLinkPractical: 'Hagnýt markmið',
     editTitle: 'Markmið',
     editGoals: 'Breyta markmiðum',
     strengthStrong: 'Gengur vel',
@@ -5102,8 +4927,6 @@ const is: typeof en = {
   },
   automations: {
     title: 'Sjálfvirkni',
-    navLabel: 'Sjálfvirkni',
-    navHint: 'Einfaldar ef-þetta-þá-hitt reglur',
     emptyState: 'Engin sjálfvirkni enn — ýttu á + til að búa til reglu.',
     addNew: '+ Ný regla',
     whenLabel: 'Þegar…',
@@ -5187,7 +5010,6 @@ const is: typeof en = {
     },
   },
   config: {
-    skipForNow: 'Ég geri þetta seinna',
     sections: {
       appearance: 'Útlit',
       /* Sjá enska tvíburann (2026-08-03). */
@@ -5201,10 +5023,6 @@ const is: typeof en = {
     },
     layouts: {
       title: 'Hvernig listar líta út',
-      followsDefault: 'Eins og venjulega',
-      /* "sem ég er vanur/vön að hafa" would have to agree with the reader's gender. */
-      useDefault: 'Nota venjulegu uppsetninguna mína',
-      customBadge: 'Eigin uppsetning',
       markAllSeen: 'Merkja allt sem séð',
       close: 'Búið',
       moreLabel: 'Restin',
@@ -5316,7 +5134,6 @@ const is: typeof en = {
       foodLink: 'Réttir og hráefnin sem þeir þurfa',
       weeklyReminders: 'Áminning á innkaupadeginum þínum',
       holidays: 'Frídagar í dagatalinu',
-      shoppingDefault: 'Hvaða listi opnast fyrst',
       weeklyResetDay: 'Hvenær vikulistinn núllstillir sig',
       monthlyResetDate: 'Stuttur mánuður núllstillist á síðasta degi',
       hints: 'Stuttar skýringar á hverjum skjá',
@@ -5326,8 +5143,6 @@ const is: typeof en = {
   backup: {
     title: 'Öryggisafrit',
     desc: 'Öll gögnin þín í einni skrá sem þú heldur — ekkert er sent upp',
-    exportButton: 'Flytja út öryggisafrit',
-    importButton: 'Endurheimta úr öryggisafriti',
     exportError: 'Tókst ekki að búa til afritsskrána.',
     sharingUnavailable: 'Deiling er ekki í boði í þessu tæki.',
     invalidFile: 'Þetta lítur ekki út eins og UnFocus-öryggisafrit.',
@@ -5555,18 +5370,11 @@ const is: typeof en = {
     weeklyBody: 'Þegar þér hentar, kíktu á hvað er framundan. Enginn asi — þú hefur þetta.',
     monthlyTitle: 'Athugið: mánaðarlistinn núllstillist brátt',
     monthlyBody: 'Mánaðarlistinn þinn tæmist á morgun, svo athugaðu fyrst hvað vantar enn heima.',
-    taskStartTitle: (title: string) => `Áminning: ${title}`,
-    taskStartBody: 'Kominn tími til að byrja!',
-    taskBoxTitle: (title: string) => `Byrjun: ${title}`,
-    taskBoxBody: (min: number) => `Þú hefur ${min} ${isCount(min, 'mínútu', 'mínútur')} í þetta. Gangi þér vel!`,
-    taskEndTitle: (title: string) => `Búið: ${title}`,
-    taskEndBody: (min: number) => `${min} ${isCount(min, 'mínúta liðin', 'mínútur liðnar')}. Vel gert — þú mátt hætta núna.`,
     habitReminderTitle: (title: string) => `Venja: ${title}`,
     habitReminderBody: 'Lítil áminning fyrir daginn í dag.',
     overviewTitle: 'Yfirlit dagsins',
     overviewBodyNoTasks: 'Engin verkefni eftir í dag',
     overviewNothingElse: 'Ekkert fleira á dagskrá í dag',
-    overviewUpcomingCount: (count: number) => `+${count} í viðbót í dag`,
     actionDone: 'Búið',
     actionRemindLater: 'Minna mig á seinna',
     renudgeTitle: (title: string) => `Enn þarna: ${title}`,
@@ -5604,16 +5412,11 @@ const is: typeof en = {
     newTask: 'Nýtt', plans: 'Verkefni', shop: 'Innkaup', habits: 'Venjur',
     meals: 'Matur', health: 'Heilsa', scan: 'Skanna', settings: 'Still.',
     capture: 'Skrá', home: 'Heim', budget: 'Fjárhagur', automations: 'Sjálfvirkni',
-    shared: 'Deilt', settingsLabel: 'Stillingar',
+    shared: 'Deilt',
   },
   home: {
-    todaysPlans: 'Listi dagsins',
-    seeAllPlans: 'Sjá öll verkefni',
     more: 'Meira',
-    healthCardTitle: 'Heilsa',
     quantityLabel: 'Fjöldi',
-    weeklyListChip: 'Þessa viku',
-    addToListLabel: 'Setja í',
     extraInfoPlaceholder: 'Nánar…',
     extraInfoLabel: 'Nánar',
     // See `t.manageCards.*` — the per-card ⋮, the Retired shelf and Home's own card names
@@ -5621,7 +5424,6 @@ const is: typeof en = {
   },
   health: {
     habits: 'Venjur',
-    seeAllHabits: 'Sjá allar venjur',
     noHabits: 'Engar venjur enn',
     addHabit: 'Bæta við venju',
   },
@@ -5629,8 +5431,6 @@ const is: typeof en = {
     scan: 'Skanna',
     budget: 'Fjárhagur',
   },
-  shoppingWeekPrev: 'Fyrri vika',
-  shoppingWeekNext: 'Næsta vika',
   inStockLabel: 'Til á lager',
   shoppingItemSheet: {
     quantity: 'Hversu mikið',
@@ -5659,7 +5459,6 @@ const is: typeof en = {
   duplicateDishBtn: 'Afrita rétt',
   dishCopySuffix: ' (afrit)',
   healthTitle: 'Heilsa',
-  quickLogLabel: 'Fljótskráning',
   healthLogTitle: 'Heilsuskrá',
   logSymptomTrigger: 'Hvað er að angra þig?',
   ailmentLabel: 'Einkenni',
@@ -5697,7 +5496,6 @@ const is: typeof en = {
   unnamedIssue: 'Án heitis',
   healthIssues: {
     title: 'Heilsuvandi',
-    openLabel: 'Opna heilsuvanda',
     subtitle: 'Það sem þú fylgist með.',
     emptyList: 'Ekkert hér enn — það sem þú skráir birtist hér',
     newPlaceholder: 'Eitthvað til að fylgjast með',
@@ -5743,9 +5541,6 @@ const is: typeof en = {
     perDaySpent: 'Eytt á dag',
     leftWithDays: (left: string, days: number) => `${left} kr eftir · ${days} ${isCount(days, 'dagur', 'dagar')} í útborgun`,
     aboveBy: (amount: string) => `${amount} kr yfir fjárhagsáætlun`,
-    todayMark: 'Í dag',
-    perDayFrom: (amount: string, days: number) => `${amount} ÷ ${days} dagar`,
-    perDaySince: (amount: string, days: number) => `${amount} ÷ ${days} dagar frá útborgun`,
     paydayLabel: 'Útborgunardagur',
     amountPerMonth: 'Upphæð á mánuði',
     resetNote: 'Núllstillist á útborgunardegi. Innkaupalistar dragast frá þessu þegar vörur eru keyptar.',
@@ -5772,14 +5567,10 @@ const is: typeof en = {
   // Minnispunktar — sjálfstæðir punktar með flýtihnöppum á innkaupalista/verkefni (app/notes.tsx)
   notes: {
     title: 'Minnispunktar',
-    navLabel: 'Minnispunktar',
     addNote: 'Bæta við minnispunkti',
     headerPlaceholder: 'Heiti minnispunkts',
     bodyPlaceholder: 'Bættu við nánari lýsingu…',
-    addToShoppingLabel: 'Setja á innkaupalista',
-    addToPlansLabel: 'Búa til verkefni',
     deleteNote: 'Eyða minnispunkti',
-    shoppingQuickAddTitle: 'Setja á innkaupalista',
     activeLabel: 'Virkir',
     checkedLabel: 'Afgreiddir',
     recordVoiceNote: 'Taka upp talpunkt',
@@ -5823,8 +5614,6 @@ const is: typeof en = {
     },
     shopping: {
       text: 'Bættu við vörum þegar þær klárast.',
-      textWeekly: 'Vikulegur listi fyrir matvöru.',
-      textMonthly: 'Mánaðarlisti fyrir það sem heimilið þarf.',
     },
     health: {
       exampleTitle: 'Höfuðverkur',
@@ -5866,7 +5655,6 @@ const is: typeof en = {
     asNeededLimit: 'Hámarki dagsins náð',
     asNeededTakenToday: (n: number) => `${n} í dag`,
     logDose: (name: string) => `Skrá skammt: ${name}`,
-    remindersTitle: 'Tímar áminninga',
     remindersToggle: 'Minna mig á fyrir hvert hólf',
     remindersOffHint: 'Kortið virkar áfram — þú færð bara ekki áminningu.',
     remindersQuietHint: 'Hólfi sem lendir á hljóðláta tímanum er sleppt, því er ekki flýtt eða frestað.',
@@ -5882,7 +5670,6 @@ const is: typeof en = {
     asNeededSwitch: 'Taka eftir þörfum í staðinn',
     asNeededHint: 'Ekkert hólf og engin áminning, bara lágmarksbil',
     minIntervalLabel: 'Minnsta hlé milli skammta',
-    minIntervalPlaceholder: 'mínútur',
     minIntervalNone: 'Ekkert lágmarkshlé',
     gapHours: (n: number) => `${n} klst`,
     traysRequired: 'Veldu að minnsta kosti eitt hólf, eða settu lyfið á „eftir þörfum“.',
@@ -5911,7 +5698,6 @@ const is: typeof en = {
     addNote: 'Bæta við villuleitarpunkti',
     generalNote: 'Bæta við almennum punkti',
     composerPlaceholder: 'Hvað ertu að hugsa?',
-    exportNotes: 'Flytja út',
     emailNotes: 'Senda punkta',
     deleteAllNotes: 'Eyða öllum punktum',
     mailSubject: 'UnFocus villuleitarpunktar',
@@ -5996,7 +5782,6 @@ const is: typeof en = {
     idNote: 'Stuttu orðin hér að neðan eru heitin sem notuð eru í skránni sem þú sendir',
     changedTag: 'Breytt',
     tabs: { card: 'Kort', color: 'Litur', shape: 'Form', controls: 'Stýringar' },
-    whichCard: 'Hvaða kort',
     preview: {
       collapse: 'Sýna minna af kortinu',
       light: 'Sýna það ljóst',
@@ -6010,11 +5795,7 @@ const is: typeof en = {
     cardNoteLabel: 'Hvað viltu fá út úr þessu korti?',
     cardNotePlaceholder: 'Með þínum eigin orðum.',
     addPart: 'Bæta einhverju við',
-    partsTitle: 'Úr hverju það er',
-    partsHint: 'Haltu og dragðu til að raða, ýttu til að breyta',
     removePart: 'Taka hann burt',
-    restoreCard: 'Setja þetta kort til baka',
-    addedTag: 'Bætt við',
     cards: {
       generic: 'Venjulegt listakort',
       todo: 'Verkefni',
@@ -6123,7 +5904,6 @@ const is: typeof en = {
       numberLabel: 'Tala',
     },
     tokensTitle: 'Litir og form',
-    tokensHint: 'Ef þú breytir einu hér breytist það alls staðar',
     playground: {
       build: 'Byggja',
       use: 'Prófa það',

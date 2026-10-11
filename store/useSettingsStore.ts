@@ -12,7 +12,7 @@
  * (refreshed by app/_layout.tsx, see lib/notifications.ts's refreshPersistentNotification).
  * habitNotificationsEnabled gates all habit reminders.
  * childMode/childModePasswordSet are Decision 038c FLAGS only — the parent password
- * itself lives in expo-secure-store (lib/childLock), never in this row. deviceId is
+ * itself lives in expo-secure-store (lib/childLock, deleted 2026-10-11 unused), never in this row. deviceId is
  * this install's stable identity for LAN live-sync (self-healed on load() if empty);
  * lanSyncEnabled gates whether lib/syncService's transport runs (Decision 038 wiring).
  * freyrModeEnabled/freyrSeedIds back the Additional-modes-tab "Freyr-mode" toggle —
@@ -433,7 +433,7 @@ export type Settings = {
   accountCreated: string;
   // Child-mode variant (Decision 038c) — locked-down mode gated by a parent
   // password. Only flags persist here; the password lives in expo-secure-store
-  // (lib/childLock.ts), never in this row.
+  // (lib/childLock.ts, deleted 2026-10-11 unused), never in this row.
   childMode: boolean;
   childModePasswordSet: boolean;
   // LAN live-sync (Decision 038 app integration). deviceId is this install's stable

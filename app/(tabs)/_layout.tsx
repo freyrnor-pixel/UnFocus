@@ -505,8 +505,7 @@ export default function TabsLayout() {
           <TabBarWithBackgroundSync {...props} onActiveRouteChange={setActiveRouteName} navigationRef={navigationRef} />
         )}
       >
-        {/* Order MUST match SITE_ITEMS (lib/siteNav.ts) AND constants/motifs.ts's
-            STRIP_PANEL_ORDER: shopping, plans, index, habits, health.
+        {/* Order MUST match SITE_ITEMS (lib/siteNav.ts): shopping, plans, index, habits, health.
             **Five tabs again as of 2026-08-22**, with `index` ("Hjem") in the CENTRE — see
             lib/siteNav.ts's nav-bar note for the full reversal and why the preview-card
             argument that took Habits and Health off the bar is overruled for Home's three

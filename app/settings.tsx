@@ -163,7 +163,7 @@
  *             (exportBackup/exportBackupToDevice/pickAndParseBackup/restoreBackup/reloadApp/
  *             saveAutoBackup/chooseAutoBackupLocation), lib/aiSetupGuide
  *             (exportAiSetupGuide/exportAiSetupGuideToDevice/pickAndParseAiSetupFile),
- *             lib/aiSetupApply (previewAiSetupConfig/applyAiSetupConfig), lib/feedbackMail, lib/freyrModeSeed,
+ *             lib/aiSetupApply (previewAiSetupConfig/applyAiSetupConfig), lib/feedbackMail,
  *             lib/haptics, lib/i18n, lib/notifications, lib/reminders, lib/syncService, lib/widgets/sync
  *             (syncWidgetsAndOverview — the persistent-overview toggle refreshes/cancels it, and
  *             the Freyr-mode toggle re-syncs after seeding/unseeding today's tasks + shopping),
@@ -2124,7 +2124,7 @@ export default function SettingsScreen() {
                 **Sample data (the `freyrMode*` keys) is gone (2026-08-17).** It seeded and
                 unseeded a starter set of tasks and shopping rows — demo scaffolding from before
                 real users were on the app, and the most side-effect-heavy switch on the screen.
-                Columns and lib/freyrModeSeed.ts survive; nothing calls the seeder now. */}
+                The columns survive; lib/freyrModeSeed.ts was deleted 2026-10-11 (nothing called it). */}
             <View style={styles.section}>
               <Surface style={[styles.card, { borderColor: theme.border }]}>
                 <ToggleRow

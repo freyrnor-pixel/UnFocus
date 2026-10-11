@@ -520,7 +520,7 @@ export function initDb() {
     // Child-mode variant (Decision 038c) — same binary, a locked mode gated by a
     // parent password. Only FLAGS live here: `child_mode` (currently locked) and
     // `child_mode_password_set` (a password exists). The password itself is NEVER
-    // stored in SQLite — it lives in expo-secure-store (lib/childLock.ts).
+    // stored in SQLite — it lives in expo-secure-store (lib/childLock.ts, deleted 2026-10-11 — nothing ever read it).
     "ALTER TABLE settings ADD COLUMN child_mode INTEGER DEFAULT 0",
     "ALTER TABLE settings ADD COLUMN child_mode_password_set INTEGER DEFAULT 0",
     // LAN live-sync app integration (Decision 038, wiring the 038a/038d/038b

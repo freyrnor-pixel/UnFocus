@@ -10,7 +10,7 @@
  * Connections:
  *   Imports → —
  *   Used by → lib/peerAuth.ts (sign/verify LAN envelopes against a paired peer key; also
- *             toHex, for its random secret), lib/childLock.ts (sha256 + toHex, for its salt)
+ *             toHex, for its random secret)
  *   Data    → none (pure computation)
  *
  * Edit notes:
