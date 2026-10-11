@@ -38,6 +38,12 @@ see AGENTS.md.)
 
 **A task is not finished until its PR is merged to `main`.**
 
+## Platform & audience (maintainer, 2026-10-11)
+
+- **Android only.** Don't spend effort on iOS: no iOS-specific fixes, TestFlight, or iOS-only APIs/fallbacks.
+- **Single user — the maintainer.** No multi-user, onboarding-for-strangers, or store-polish concerns; prefer the simplest thing that works for one person.
+- Where older docs say "iOS + Android", Android wins.
+
 ## Before Starting
 
 - **For ANY copy change:** `DESIGN_RULES.md` §7 (rules 22–25) is the rulebook, CI-enforced by `lib/__tests__/copyTone.test.ts`. `VOICE.md` records the app's one deliberate exception (the day log's first-person empty state) — read it before "correcting" that string or adding first-person copy anywhere.
