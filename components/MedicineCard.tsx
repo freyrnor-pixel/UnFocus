@@ -19,14 +19,13 @@
  *
  * Connections:
  *   Imports → components/Card,
- *             components/MedicineReminderBell, components/MedicineSurface
+ *             components/MedicineSurface
  *   Used by → components/HealthSurface.tsx
  *   Data    → none directly — MedicineSurface drives store/useMedicineStore
  *
  * Edit notes:
- *   - **The reminder bell IS the reminders switch** (components/MedicineReminderBell.tsx), not a
- *     link to a panel that contains one — the documented exception to DESIGN_RULES rule 19a.
- *     It is the card's own control, so it goes in `controls`, ahead of the fold.
+ *   - **No header controls (2026-10-11, V2 card rule).** The reminders switch is the first row of
+ *     the body now — components/MedicineReminderRow.tsx, drawn by MedicineSurface.
  *   - **`settings.featureMedicine` gates the MOUNT SITE, not this file.** HealthSurface decides
  *     whether to render it; a flag that hides a surface has to hide it wherever it is mounted,
  *     and a card that checks its own flag is one every future host has to remember not to.
@@ -34,7 +33,6 @@
  */
 import React from 'react';
 import Card from '@/components/Card';
-import MedicineReminderBell from '@/components/MedicineReminderBell';
 import MedicineSurface from '@/components/MedicineSurface';
 import { useT } from '@/lib/i18n';
 import { useMedicineStore } from '@/store/useMedicineStore';
@@ -55,7 +53,6 @@ function MedicineCard() {
     <Card
       id="healthMedicine"
       peek={t.peek.healthMedicine(dailyCount)}
-      controls={<MedicineReminderBell />}
     >
       <MedicineSurface />
     </Card>

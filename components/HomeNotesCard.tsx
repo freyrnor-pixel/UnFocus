@@ -93,7 +93,6 @@ import PressableScale from '@/components/PressableScale';
 import PadSheet from '@/components/PadSheet';
 import PadRow from '@/components/PadRow';
 import DraftComposer from '@/components/DraftComposer';
-import { useCardAddButton } from '@/components/CardAddButton';
 import QuickAddOptionsPanel from '@/components/QuickAddOptionsPanel';
 import QuickAddOptionRow from '@/components/QuickAddOptionRow';
 import { Input } from '@/components/FormControls';
@@ -135,10 +134,8 @@ import { useKeyboardLift } from '@/lib/useKeyboardLift';
  * composer's draft inside the composer; a surface that renders a list must not hold the text
  * of the field at the bottom of it.
  */
-function NotesComposer({ accent, onCommit, voice, focusRequest }: {
+function NotesComposer({ accent, onCommit, voice }: {
   accent: string;
-  /** From the header "+" — see components/CardAddButton.tsx. */
-  focusRequest?: number;
   onCommit: (header: string, body: string) => void;
   /**
    * The voice-capture control, built by the card (it owns the recogniser state) and drawn here.
@@ -179,7 +176,6 @@ function NotesComposer({ accent, onCommit, voice, focusRequest }: {
       prompt={t.pad.type.note}
       onSubmit={commit}
       accent={accent}
-      focusRequest={focusRequest}
       // The labelled panel, not the inline `extras` row (2026-08-05). Details used to
       // be a bare 76px-wide box sharing one 44px line with the title input, the ghost
       // check and two buttons — which is most of why the title input had no room to
@@ -233,7 +229,6 @@ function NotesComposer({ accent, onCommit, voice, focusRequest }: {
 }
 
 function HomeNotesCard() {
-  const quickAdd = useCardAddButton('homeNotes');
   const t = useT();
   const router = useRouter();
   const theme = useAppTheme();
@@ -361,12 +356,10 @@ function HomeNotesCard() {
       // while empty. No existing cardHint fit Notes, so this is a new key (cardHint.homeNotes,
       // all three locales).
       hint={notes.length === 0 ? t.cardHint.homeNotes : undefined}
-      // The header "+" (2026-10-07): unfold + focus the composer below. See CardAddButton.
-      controls={quickAdd.button}
     >
         <PadSheet
           state={state}
-          typeRow={<NotesComposer accent={screenColor.base} onCommit={commitNote} voice={voiceButton} focusRequest={quickAdd.focusRequest} />}
+          typeRow={<NotesComposer accent={screenColor.base} onCommit={commitNote} voice={voiceButton} />}
           footer={
             sunkNotes.length > 0 ? (
               <View>

@@ -2673,20 +2673,6 @@ export default function ShoppingScreen() {
         //   It states BOTH halves now that one card holds both: a peek naming only the items
         // would under-report the card the moment Dishes moved in.
         peek={t.peek.shopCatalogueTabs(catalogueSize, dishCount)}
-        // The camera and the lock sit in the card's HEADER (2026-08-20, maintainer: *"the two
-        // buttons for camera and lock should be in the top part instead"*) — they were inside
-        // the list's own first box, which is deleted. `CardExpandButton` stays LAST, which is
-        // the app-wide rule this pass settled: whatever a card's own controls are, ⤢ is the
-        // right-most thing in the header.
-        //   ⚠️ Only on the **Items** tab (2026-09-07): both act on the catalogue's item list —
-        // the lock guards editing it, the camera scans INTO it — and neither has any meaning
-        // while Dishes is showing. Leaving them mounted would put two dead controls in the most
-        // crowded header in the app.
-        controls={
-          catalogueTab === 'items' ? (
-            <CatalogueHeaderControls locked={catalogueLocked} onToggleLock={() => setCatalogueLocked((v) => !v)} />
-          ) : undefined
-        }
       >
         <TabSlider
           options={[
@@ -2698,7 +2684,20 @@ export default function ShoppingScreen() {
           style={styles.catalogueTabs}
         />
         {catalogueTab === 'items' ? (
-          <CatalogueTab embedded onNotify={setConfirm} locked={catalogueLocked} />
+          <CatalogueTab
+            embedded
+            onNotify={setConfirm}
+            locked={catalogueLocked}
+            // Lock + camera sit at the top of the Items body since 2026-10-11 (V2 card rule: a card
+            // header carries only ⌄ and ⤢). Same `header` slot the full-screen pane already used,
+            // so the card and its pane draw them identically. Items tab only: both act on the
+            // item list, neither means anything under Dishes.
+            header={
+              <View style={styles.catalogueControls}>
+                <CatalogueHeaderControls locked={catalogueLocked} onToggleLock={() => setCatalogueLocked((v) => !v)} />
+              </View>
+            }
+          />
         ) : (
           <FoodTab embedded onNotify={setConfirm} />
         )}
@@ -3144,6 +3143,7 @@ const styles = StyleSheet.create({
   budgetCellValue: { fontSize: FontSize.lg, fontFamily: Fonts.bold },
   budgetNote: { fontSize: FontSize.xs, fontFamily: Fonts.medium, lineHeight: 18 },
   /** Breathing room under Catalogue's Items/Dishes switch, matching the card's own body gap. */
+  catalogueControls: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' },
   catalogueTabs: { marginBottom: Spacing.sm },
   newListTriggerLabel: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
 });

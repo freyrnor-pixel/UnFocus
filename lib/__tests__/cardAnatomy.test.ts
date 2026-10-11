@@ -312,14 +312,14 @@ describe('the fold is FIRST in the header, and the ⤢ is built in exactly one p
     expect(code('components/Card.tsx')).toMatch(/<CardExpandButton\b/);
   });
 
-  it('an expandable card gives its pressable title an accessible name that says what it does', () => {
-    // With the button gone, the title is the only control — and a bare card name does not read
-    // as one. `labelPressHint` is what SectionRail puts on the PressableScale's
-    // accessibilityLabel; without it a screen reader announces the card's name as a button with
-    // no hint that it opens anything.
+  it('a folding card gives its pressable title an accessible name that says what it does', () => {
+    // Since 2026-10-11 (V2 card rule) the title FOLDS the card, like ⌄ — ⤢ alone opens full
+    // screen. A bare card name does not read as a control, so `labelPressHint` (SectionRail's
+    // accessibilityLabel for the pressable title) has to name the fold action.
     const src = code('components/Card.tsx');
-    expect(src).toMatch(/labelPressHint=\{expands \?/);
-    expect(src).toContain('t.expandCardLabel');
+    expect(src).toMatch(/onLabelPress=\{folds \? toggleCollapsed : undefined\}/);
+    expect(src).toMatch(/labelPressHint=\{folds \?/);
+    expect(src).toContain('t.expandListLabel');
   });
 
   it('SectionRail lays its right slot out as a ROW, not a column', () => {

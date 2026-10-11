@@ -79,7 +79,6 @@ import type { Ionicons } from '@expo/vector-icons';
 import type { Domain } from '@/lib/domainColor';
 import type { Translations } from '@/lib/i18n';
 import type { ScreenKey } from '@/lib/screenColor';
-import type { SiteRoute } from '@/lib/siteNav';
 
 type IoniconsName = keyof typeof Ionicons.glyphMap;
 
@@ -178,13 +177,6 @@ export type CardSpec = {
   foldDeclined?: string;
   expand: 'surface' | 'none';
   expandDeclined?: string;
-  /**
-   * For an `expand: 'none'` card whose full-screen version already EXISTS as a tab: the ⤢ opens
-   * that tab instead of a pane (2026-10-07). Maintainer: corner arrows mean *"åpner en dedikert
-   * visning"*, chevrons mean fold in place — so a card with a dedicated view should carry the ⤢
-   * even when that view is a tab rather than a pane. Only meaningful beside `expand: 'none'`.
-   */
-  expandRoute?: SiteRoute;
   /** Drawn open when the user has chosen nothing. Replaces lib/cardDefaults.ts. */
   openAtRest?: true;
   /** This card's quick-add options table (phase 7) — see `ComposeSpec`. Absent for a card whose

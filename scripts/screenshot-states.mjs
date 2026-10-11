@@ -943,7 +943,7 @@ async function main() {
 
       await excursion(page, 'notes-empty', async () => {
         await tab(page, 'Home');
-        await clickText(page, 'Notes');
+        await page.getByRole('button', { name: 'Notes: Expand card', exact: true }).first().click({ timeout: 10000 }).catch(() => {}); // ⤢, not the title — the title folds since 2026-10-11
         await page.waitForTimeout(1000);
         await shot(page, 'notes-empty', {
           title: 'Notes (reached from Home\'s Notes card)',
@@ -964,7 +964,7 @@ async function main() {
         // ⚠️ **Through Hjem's I dag ⤢ since 2026-10-11 (V2 re-order).** I dag left the To-do tab;
         // its full-screen pane is To-do's `todoToday` body, which still carries Earlier days.
         await tab(page, 'Home');
-        await page.getByRole('button', { name: 'Expand card', exact: true }).first().click({ timeout: 10000 }).catch(() => {});
+        await page.getByRole('button', { name: 'Today: Expand card', exact: true }).first().click({ timeout: 10000 }).catch(() => {});
         await page.waitForTimeout(1200);
         if (!(await openCard(page, 'Earlier days'))) {
           throw new Error('day-log: no "Earlier days: Expand list" toggle — refusing to shoot a shut section');
@@ -1462,7 +1462,7 @@ async function main() {
     if (FULL) {
       console.log('> notes, populated (last)');
       try {
-        await clickText(page, 'Notes');
+        await page.getByRole('button', { name: 'Notes: Expand card', exact: true }).first().click({ timeout: 10000 }).catch(() => {}); // ⤢, not the title — the title folds since 2026-10-11
         await page.waitForTimeout(1200);
         await shot(page, 'notes-populated', {
           title: 'Notes — with a note, edited in place',

@@ -8,9 +8,8 @@
  *
  * Connections:
  *   Imports → components/IconButton
- *   Used by → app/habit-form.tsx (a habit's daily reminder),
- *             components/MedicineReminderBell.tsx (the medicine tray reminders — a wrapper,
- *             because that card's header is drawn in two places since 2026-08-21)
+ *   Used by → app/habit-form.tsx (a habit's daily reminder). The medicine card's bell became a
+ *             body switch on 2026-10-11 (components/MedicineReminderRow.tsx).
  *   Data    → none — the caller owns the boolean and the write.
  *
  * Edit notes:
