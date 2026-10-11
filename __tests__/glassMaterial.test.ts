@@ -29,7 +29,7 @@ import { join } from 'node:path';
 import { filledEdge, getGlassEdge, getGlassPane, getLayeredShadow, getGlow, getRecessedField, rgba, lighten } from '@/constants/theme';
 import { THEMES, contrastRatio, IDENTITY_HUES } from '@/constants/colors';
 import { badgeGlyphFor } from '@/lib/domainColor';
-import { useSettingsStore } from '@/store/useSettingsStore';
+import { useSettingsStore, RETIRED_SETTINGS } from '@/store/useSettingsStore';
 import { getTranslations } from '@/lib/i18n';
 
 // Keep the settings-store import DB-free: the module reaches @/lib/db via dataAccess at
@@ -776,44 +776,30 @@ describe('glass settings', () => {
     expect(useSettingsStore.getState().opaqueCards).toBe(false);
   });
 
-  it('the reduce-transparency switch reaches something visible, and has its row back', () => {
-    // ⚠️ **This test has been repointed four times, and the property it protects has never
-    // changed: a settings toggle must be able to change something a user can see, and this
-    // guard must be able to notice when it cannot.** It has been 'opaqueCards is scoped to
-    // CARDS', then 'the reduce-transparency switch still does something visible', then — when
-    // #703 left `glassSurfaces` with nothing to reduce and the row was retired — 'offers no
-    // Settings row for a switch that reaches nothing'.
-    //
-    // That last version set an explicit condition for undoing itself: *"Don't re-add this row
-    // without giving it something visible to do first."* The frosted-glass pass met it. A card
-    // is painted as a lit ramp with a specular rim now (constants/theme.ts's `getGlassPane`),
-    // and this switch paints it flat instead — the same "reduce transparency" job it always
-    // had, stated in terms of the material the app actually draws. So the assertion inverts
-    // again, and BOTH halves are checked: the row exists, and the thing it drives is real.
+  it('the visual-effect switches are retired: no row, and pinned to the shipped look', () => {
+    // 2026-10-11, maintainer: "Settings has far too many rows … reduce-visual and the like just
+    // go; if the app doesn't work on a low-end device it is badly optimised." This test used to
+    // pin the `glassSurfaces` ROW (repointed four times — see git history). It now pins the
+    // retirement, by BEHAVIOUR rather than source text: the rows are gone, an install that had
+    // one switched comes back at the default, and a later write cannot flip it again.
     const settingsSrc = read('app/settings.tsx');
-    // The row is bound in both directions. A `checked` with no `onChange` is a switch that
-    // cannot be moved; an `onChange` with no `checked` is one that never shows its own state.
-    expect(settingsSrc).toMatch(/checked=\{settings\.glassSurfaces\}/);
-    expect(settingsSrc).toMatch(/glassSurfaces: v/);
-    // ...and it is subscribed, or the row renders a stale value forever. This is the specific
-    // way app/settings.tsx can break: its selector is one typed pick, and a field missing from
-    // it is not a type error at a `settings.x` read.
-    expect(settingsSrc).toMatch(/glassSurfaces: s\.glassSurfaces/);
-    // Copy in all three languages, or `tsc` would have caught it — but a row whose label is an
-    // empty string would not be caught by anything else.
-    (['en', 'no', 'is'] as const).forEach((lang) => {
-      const a = getTranslations(lang).settings.accessibility;
-      expect(a.glassSurfaces.length).toBeGreaterThan(0);
-      expect(a.glassSurfacesHint.length).toBeGreaterThan(0);
+    expect(settingsSrc).not.toMatch(/checked=\{settings\.(glassSurfaces|reduceEffects|particlesEnabled|reducedMotion|leftHanded|planTimelineHorizontal)\}/);
+    const before = { ...useSettingsStore.getState() };
+    useSettingsStore.getState().update({
+      glassSurfaces: false,
+      reduceEffects: true,
+      particlesEnabled: false,
+      reducedMotion: true,
+      leftHanded: true,
+      planTimelineHorizontal: true,
     });
-    // ⚠️ **The FIELD and its DB column stay whatever the row does** (never-drop rule — see
-    // store/useSettingsStore.ts, lib/db.ts), and it defaults ON, so a new install gets the lit
-    // pane rather than the flat fallback.
-    expect(useSettingsStore.getState().glassSurfaces).toBe(true);
+    (Object.keys(RETIRED_SETTINGS) as (keyof typeof RETIRED_SETTINGS)[]).forEach((k) => {
+      expect(useSettingsStore.getState()[k]).toBe(RETIRED_SETTINGS[k]);
+      expect(useSettingsStore.getState()[k]).toBe(before[k]);
+    });
+    expect(RETIRED_SETTINGS.glassSurfaces).toBe(true);
+    expect(RETIRED_SETTINGS.reduceEffects).toBe(false);
 
-    // The other switch has to still be real, or this one just took over its job. `reduceEffects`
-    // takes the card shadows and the backdrop's orb field — the per-frame GPU costs — and is a
-    // strictly wider hammer than the material choice above.
     const surface = read('components/Surface.tsx');
     expect(surface).toMatch(/reduceEffects/);
     // The tier pairing survives all of it: ambient paints the base rung, overlay/nav the raised

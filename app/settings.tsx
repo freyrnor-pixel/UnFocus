@@ -7,9 +7,8 @@
  * router routes).
  *
  * - General — who you are and how the app looks: Profile (name + language) → Appearance
- *   (dark mode, text size) → Accessibility (reduced motion, particles, glass surfaces,
- *   reduce effects, left-handed) → Layout (detail level, horizontal plans timeline, re-run
- *   setup) → Send Feedback.
+ *   (dark mode, text size) → Send Feedback. Accessibility and Layout were removed 2026-10-11
+ *   (see the note where they used to render, and RETIRED_SETTINGS in store/useSettingsStore.ts).
  * - Lists — Shopping (weekly reset weekday, monthly reset date — the `?section=shopping`
  *   deep-link target, and the one DisclosureRow left on this screen) → Content (doors to the
  *   Catalogue and Food editors).
@@ -366,7 +365,6 @@ import {
 } from '@/store/useSettingsStore';
 import { useShallow } from 'zustand/react/shallow';
 import { DeviceCalendarInfo, listDeviceCalendars } from '@/lib/deviceCalendar';
-import { DETAIL_LEVELS, type DetailLevel } from '@/lib/cardLayout';
 import { useShoppingStore } from '@/store/useShoppingStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useHabitStore } from '@/store/useHabitStore';
@@ -521,15 +519,9 @@ export default function SettingsScreen() {
       language: s.language,
       darkMode: s.darkMode,
       fontSize: s.fontSize,
-      leftHanded: s.leftHanded,
-      layoutDetail: s.layoutDetail,
       childProfiles: s.childProfiles,
       dismissedHints: s.dismissedHints,
       debugModeEnabled: s.debugModeEnabled,
-      reducedMotion: s.reducedMotion,
-      particlesEnabled: s.particlesEnabled,
-      reduceEffects: s.reduceEffects,
-      glassSurfaces: s.glassSurfaces,
       // ⚠️ Every `FeatureFlagKey` must be here, including ones no row reads by name: the
       // FEATURE_ROWS loop indexes `settings[key]` DYNAMICALLY, so a flag missing from this pick
       // is a type error at that index rather than a silently stale switch. That is the whole
@@ -559,7 +551,6 @@ export default function SettingsScreen() {
       quietHoursEnd: s.quietHoursEnd,
       weeklyResetDay: s.weeklyResetDay,
       monthlyResetDate: s.monthlyResetDate,
-      planTimelineHorizontal: s.planTimelineHorizontal,
       locationEnabled: s.locationEnabled,
       contactsEnabled: s.contactsEnabled,
       calendarSyncEnabled: s.calendarSyncEnabled,
@@ -1204,142 +1195,16 @@ export default function SettingsScreen() {
               </Surface>
             </View>
 
-            {/* ===== ACCESSIBILITY ===== */}
-            <Text style={[styles.groupHeader, { color: theme.text }]}>{t.settings.accessibility.title}</Text>
-            <View style={styles.section}>
-              <Surface style={[styles.card, { borderColor: theme.border }]}>
-                <ToggleRow
-                  label={t.settings.accessibility.reducedMotion}
-                  checked={settings.reducedMotion}
-                  onChange={(v) => settings.update({ reducedMotion: v })}
-                />
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                {/* **Back as of 2026-09-01**, with the ambient field it switches. It was removed
-                    on 2026-08-27 for the right reason — round 20 deleted
-                    `components/ParticleBackground.tsx`, so this row toggled a column nothing
-                    read — and the maintainer's follow-up was "backdrop is too empty, don't know
-                    why we removed particles and movement".
-                      It is not a second `reducedMotion`: that one stills every transition in the
-                    app, this one is only the ambient field. Onboarding's motion row expresses the
-                    pair as three rungs (lib/firstRunOptions.ts); this is the same middle rung
-                    reachable without re-running setup. */}
-                <ToggleRow
-                  label={t.settings.accessibility.particles}
-                  hint={t.settings.accessibility.particlesHint}
-                  checked={settings.particlesEnabled}
-                  onChange={(v) => settings.update({ particlesEnabled: v })}
-                />
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                {/* ⚠️ **"Lit card surfaces" (`glassSurfaces`) is BACK, later the same day it was
-                    retired — and the condition the retirement set is the reason it may be.**
-                      That comment (see git history for 2026-09-15) said the row was going
-                    because the switch had nothing visible left to change: #703 had made every
-                    pane opaque, and its last effect — the card edge's lit/shaded diagonal — was
-                    what forced Android off its antialiased border path and chewed every card
-                    corner. It ended with the standing condition: *"Don't re-add this row without
-                    giving it something visible to do first."*
-                      It has something visible to do. The frosted-glass pass gave a card a RAMP
-                    across its face and a specular rim (constants/theme.ts's `getGlassPane`), and
-                    this switch is what paints that flat instead — which is the same job it
-                    always had, "reduce transparency", stated in terms of the material the app
-                    actually draws now. It is not a redefinition and it is not a new switch; the
-                    copy is new only because the old strings described a frost that no longer
-                    exists.
-                      ⚠️ `opaqueCards` stays retired and stays unread. It was the card-only half
-                    of this one, and two overlapping switches over the same property is what made
-                    the 2026-08-15 pair confusing enough to need retiring in the first place. */}
-                <ToggleRow
-                  label={t.settings.accessibility.glassSurfaces}
-                  hint={t.settings.accessibility.glassSurfacesHint}
-                  checked={settings.glassSurfaces}
-                  onChange={(v) => settings.update({ glassSurfaces: v })}
-                />
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                {/* 2026-08-29, the performance pass. This one takes the card shadows and
-                    the backdrop's orb field — the per-frame GPU costs. Off by
-                    default. See store/useSettingsStore.ts for the measurement. */}
-                <ToggleRow
-                  label={t.settings.accessibility.reduceEffects}
-                  hint={t.settings.accessibility.reduceEffectsHint}
-                  checked={settings.reduceEffects}
-                  onChange={(v) => settings.update({ reduceEffects: v })}
-                />
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <ToggleRow
-                  label={t.settings.accessibility.leftHanded}
-                  hint={t.settings.accessibility.leftHandedHint}
-                  checked={settings.leftHanded}
-                  onChange={(v) => settings.update({ leftHanded: v })}
-                />
-                {/* Text size moved to General → Appearance (2026-08-17): it is the control
-                    people come looking for, and it is a look preference before it is an aid.
-                    The horizontal-plans-timeline switch left in the 2026-07-25 reorganization
-                    and now sits in General → Layout with the other drawing preferences. */}
-                {/* ⚠️ **"Show tips again" is gone (2026-08-20).** It was the only way back once a
-                    screen's ⓘ intro card had been closed — and there are no ⓘ cards any more
-                    (components/HintCard.tsx is deleted app-wide; a screen's explanation lives in
-                    its empty-state card now, which comes back whenever the surface is empty and
-                    needs no restoring). `settings.dismissedHints` and `restoreHints()` survive
-                    as inert, so an existing row's stored keys are simply never read again. */}
-              </Surface>
-            </View>
-            {/* ===== LAYOUT ===== */}
-
-            {/* Moved up from Personal with Notifications (2026-08-17) — how lists are drawn and
-                which tab the app opens on are decisions a user makes early and looks for again,
-                not power-user territory. */}
-            <Text style={[styles.groupHeader, { color: theme.text }]}>{t.config.sections.layout}</Text>
-            <View style={styles.section}>
-              <Surface style={[styles.card, { borderColor: theme.border }]}>
-                {/* Global default for every list-bearing surface (2026-07-27). A surface can
-                    still override this from its own header — components/LayoutPickerSheet.tsx.
-                    Presentation only: it changes how rows are DRAWN, never what the app does
-                    with them, so nothing here goes through applyAndSync the way
-                    calendarSyncEnabled/featureMedicine do. A row the chosen layout doesn't
-                    draw keeps its own reminders. */}
-                <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.config.layouts.title}</Text>
-                <SegmentedControl
-                  value={settings.layoutDetail}
-                  onChange={(v) => settings.update({ layoutDetail: v as DetailLevel })}
-                  options={DETAIL_LEVELS.map((level) => ({
-                    value: level,
-                    label: t.config.layouts[level].label,
-                  }))}
-                />
-                <Text style={[styles.switchHint, { color: theme.textMuted }]}>
-                  {t.config.layouts[settings.layoutDetail].hint}
-                </Text>
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <ToggleRow
-                  label={t.settings.accessibility.timelineHorizontal}
-                  hint={t.settings.accessibility.timelineHorizontalHint}
-                  checked={settings.planTimelineHorizontal}
-                  onChange={(v) => settings.update({ planTimelineHorizontal: v })}
-                />
-                {/* ⚠️ **The starting-screen picker is GONE (consistency audit, 2026-08-21).**
-                    Maintainer: *"Middle screen is to be the Main one where app always starts
-                    when opening it fresh."* The app opens on the centre (To-do) tab now,
-                    unconditionally — `START_TAB_ROUTE` in lib/siteNav.ts. `settings.startScreen`
-                    and its column survive as inert; see store/useSettingsStore.ts's "Inert
-                    columns" note. Don't wire a new control to it. */}
-                {/* Re-run the first-run flow. Non-destructive, so it lives here rather than
-                    in the red Reset card: it re-enters app/onboarding/basics.tsx seeded from the
-                    settings the user has right now, which means walking through it and
-                    pressing Done without touching anything changes nothing at all.
-                    `?rows=all` is what makes this the SIX-row screen (2026-08-03). Onboarding
-                    itself now draws only the language row — the other five moved to Settings,
-                    where every one of them already had a home — so this link is the remaining
-                    place the full set is shown in one go. Without the param it would open the
-                    new-user welcome screen instead, which would be a strange thing to reach
-                    from a settings row. */}
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <SettingLinkRow
-                  label={t.firstRun.reRun}
-                  hint={t.firstRun.reRunHint}
-                  onPress={() => router.push('/onboarding/basics?rows=all')}
-                />
-              </Surface>
-            </View>
+            {/* ===== ACCESSIBILITY + LAYOUT — removed 2026-10-11 =====
+                Maintainer: "Settings has far too many rows … reduce-visual and the like just go;
+                if the app doesn't work on a low-end device it is badly optimised." Gone: reduced
+                motion (the OS setting is still honoured — lib/useAppTheme.ts ORs it in), particles,
+                lit card surfaces, reduce visual effects, left-handed, the global detail level (each
+                surface keeps its own picker in its header), the horizontal plans timeline and
+                "re-run setup". The retired values are PINNED to their defaults in
+                store/useSettingsStore.ts (RETIRED_SETTINGS), so an install that had one switched
+                does not stay stuck with no way back. A performance problem is fixed in the
+                renderer, not with a switch. */}
             {/* Send Feedback (2026-07-13) — always visible, not gated on debug mode.
                 Free-text composer → mailto: via Linking, falling back to the OS share
                 sheet if no mail client is configured. It stays on this tab while backup,
