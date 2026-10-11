@@ -98,7 +98,7 @@
  * Requires the built bundle + a running server — `npm run wraps` handles both.
  */
 import { chromium } from '@playwright/test';
-import { resolveChromium } from './chromium-path.mjs';
+import { resolveChromium, CHROMIUM_ARGS } from './chromium-path.mjs';
 import { forceAppearance, themeFromArgs } from './force-appearance.mjs';
 
 const BASE_URL = process.env.PREVIEW_URL || 'http://127.0.0.1:8787';
@@ -676,7 +676,7 @@ async function walkToTabs(page, { scanning }) {
 async function main() {
   const browser = await chromium.launch({
     executablePath: CHROMIUM_PATH, headless: true,
-    args: ['--no-sandbox', '--disable-dev-shm-usage'],
+    args: CHROMIUM_ARGS,
   });
   const page = await browser.newPage({ viewport: { width: WIDTH, height: 852 } });
   await forceAppearance(page, DARK_MODE_VALUE);

@@ -17,7 +17,7 @@
 import { chromium } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
-import { resolveChromium } from './chromium-path.mjs';
+import { resolveChromium, CHROMIUM_ARGS } from './chromium-path.mjs';
 
 const BASE_URL = process.env.PREVIEW_URL || 'http://127.0.0.1:8787';
 const outDir = 'preview-shots';
@@ -47,7 +47,7 @@ async function clickText(page, text, opts = {}) {
 async function main() {
   const browser = await chromium.launch({
     executablePath: CHROMIUM_PATH, headless: true,
-    args: ['--no-sandbox', '--disable-dev-shm-usage'],
+    args: CHROMIUM_ARGS,
   });
   const page = await browser.newPage({ viewport: { width: 430, height: 932 } });
   const pageErrors = [];

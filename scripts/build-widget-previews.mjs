@@ -32,7 +32,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { chromium } from '@playwright/test';
-import { resolveChromium } from './chromium-path.mjs';
+import { resolveChromium, CHROMIUM_ARGS } from './chromium-path.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT_DIR = path.join(ROOT, 'assets', 'widget-previews');
@@ -325,7 +325,7 @@ async function main() {
   const browser = await chromium.launch({
     executablePath: CHROMIUM_PATH,
     headless: true,
-    args: ['--no-sandbox', '--disable-dev-shm-usage'],
+    args: CHROMIUM_ARGS,
   });
   const page = await browser.newPage({ viewport: { width: WIDTH, height: HEIGHT }, deviceScaleFactor: 1 });
 

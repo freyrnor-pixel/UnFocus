@@ -30,9 +30,32 @@
  * `PLAYWRIGHT_CHROMIUM_PATH` remains as a manual override for anyone driving a browser that
  * Playwright did not install.
  */
+import { fileURLToPath } from 'node:url';
 
 export function resolveChromium() {
   // `undefined` is the point: `chromium.launch({ executablePath: undefined })` means "use the
   // browser you installed", which is the only answer that is correct in every environment.
   return process.env.PLAYWRIGHT_CHROMIUM_PATH || undefined;
 }
+
+/**
+ * Launch flags every harness passes (2026-10-11). Text is rasterised from the MACHINE's
+ * fontconfig unless told otherwise: a stock Ubuntu runner hints text "slight", and this repo's
+ * cloud dev image unhints it (an /etc/fonts/conf.d/12-unhinted-grayscale.conf that appeared on
+ * 2026-10-03). Baselines blessed on one and diffed on the other differed on every glyph edge —
+ * 25/25 screens "changed" by 0.4-10% with nothing in the app changed. Pinning hinting and LCD
+ * text here makes the rendering a property of the harness, not of whichever machine runs it.
+ */
+// The flags alone left ~13 screens with small text patches under a stock config: fontconfig
+// still applies per-FONT rules (`target="font"`) that a command-line flag does not reach. So
+// every harness also gets the repo's own fontconfig, which includes the machine's and then
+// assigns one rasterisation on top. Set at import, before any harness launches Chromium —
+// Playwright passes this process's environment to the browser.
+process.env.FONTCONFIG_FILE = fileURLToPath(new URL('./harness-fonts.conf', import.meta.url));
+
+export const CHROMIUM_ARGS = [
+  '--no-sandbox',
+  '--disable-dev-shm-usage',
+  '--font-render-hinting=none',
+  '--disable-lcd-text',
+];

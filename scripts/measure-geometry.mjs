@@ -43,7 +43,7 @@
  * that does not match its token, and a corner nothing can fill.
  */
 import { chromium } from '@playwright/test';
-import { resolveChromium } from './chromium-path.mjs';
+import { resolveChromium, CHROMIUM_ARGS } from './chromium-path.mjs';
 import { forceAppearance, themeFromArgs } from './force-appearance.mjs';
 
 const BASE_URL = process.env.PREVIEW_URL || 'http://127.0.0.1:8787';
@@ -555,7 +555,7 @@ let screensScanned = 0;
 const browser = await chromium.launch({
   executablePath: CHROMIUM_PATH,
   headless: true,
-  args: ['--no-sandbox', '--disable-dev-shm-usage'],
+  args: CHROMIUM_ARGS,
 });
 try {
   const page = await browser.newPage({ viewport: { width: WIDTH, height: 932 } });
