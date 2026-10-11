@@ -1321,6 +1321,9 @@ async function main() {
 
     console.log('> shopping');
     await tab(page, 'Shop');
+    // V2 (2026-10-11): Budget is Shop's first card and the one open at rest, so the shopping
+    // list card rests folded — open it before looking for its empty-state button.
+    await openCard(page, 'Shopping list');
     // TWO doors into a new week list, and which one is on screen depends on whether ANY week
     // list already exists — `isWeeklyEmpty` in app/(tabs)/shopping.tsx, the 2026-08-13 "the
     // empty state and the trigger are ONE card" ruling:
@@ -1429,19 +1432,19 @@ async function main() {
       await closeOverlays(page);
     }
 
-    if (await tryText(page, 'Monthly list', 3000)) {
+    if (await tryText(page, 'Inventory', 3000)) {
       await page.waitForTimeout(900);
       // Tapping the LABEL does not open the section — the chevron does, and its accessible name
       // is composed as "<title>: Expand list". `openCard` already knows that shape and is a
       // no-op on an already-open card.
-      await openCard(page, 'Monthly list');
+      await openCard(page, 'Inventory');
       // The Monthly section sits BELOW the week lists, and `shot()` scrolls every non-overlay
       // screen back to the top — so expanding Monthly and then shooting produced a frame
       // byte-identical to `shopping-populated` (md5sum-confirmed). Same family of defect as the
       // seeding no-op: a distinct name over an indistinct capture. Hold the scroll position
       // (`top: false`) and bring the section into frame instead.
       await page
-        .getByText('Monthly list', { exact: true })
+        .getByText('Inventory', { exact: true })
         .first()
         .scrollIntoViewIfNeeded({ timeout: 5000 })
         .catch(() => {});
