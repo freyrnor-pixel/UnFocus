@@ -2423,7 +2423,7 @@ const en = {
   // debug mode's anchor-note export above.
   feedback: {
     cardTitle: 'Send feedback',
-    cardDesc: 'Type it below — it opens your mail app, addressed to the developer',
+    cardDesc: 'Opens your mail app, addressed to the developer',
     placeholder: "What's on your mind?",
     sendButton: 'Send feedback',
     subject: 'UnFocus feedback',
@@ -4200,7 +4200,7 @@ const no: typeof en = {
   },
   feedback: {
     cardTitle: 'Send tilbakemelding',
-    cardDesc: 'Skriv det under — det åpner e-postappen din, adressert til utvikleren',
+    cardDesc: 'Åpner e-postappen din, adressert til utvikleren',
     placeholder: 'Hva tenker du på?',
     sendButton: 'Send tilbakemelding',
     subject: 'UnFocus tilbakemelding',
@@ -5990,7 +5990,7 @@ const is: typeof en = {
   },
   feedback: {
     cardTitle: 'Senda ábendingu',
-    cardDesc: 'Skrifaðu það hér að neðan — það opnar tölvupóstforritið þitt, stílað á forritarann',
+    cardDesc: 'Opnar tölvupóstforritið þitt, stílað á forritarann',
     placeholder: 'Hvað ertu að hugsa?',
     sendButton: 'Senda ábendingu',
     subject: 'UnFocus ábending',

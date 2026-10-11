@@ -735,8 +735,51 @@ type SettingsStore = Settings & {
   restoreHints: () => void;
 };
 
+/**
+ * Settings whose Settings rows were removed on 2026-10-11 ("Settings has far too many rows";
+ * reduce-visual switches "just go" — a low-end device is an optimisation problem, not a toggle).
+ * They are PINNED here rather than left at whatever was stored: with no row to switch one back,
+ * an install that had e.g. `reduceEffects` on would otherwise be stuck with it for good. Applied
+ * on load and stripped from every `update()`, so onboarding/AI-setup writes are no-ops too.
+ * Reduced motion still follows the OS (lib/useAppTheme.ts ORs the system setting in).
+ * Columns survive — this repo never drops columns.
+ */
+export const RETIRED_SETTINGS = {
+  reducedMotion: false,
+  particlesEnabled: true,
+  glassSurfaces: true,
+  reduceEffects: false,
+  leftHanded: false,
+  planTimelineHorizontal: false,
+  // Second pass, same day ("Alle"): feature flags no one needs to switch are always on, the
+  // growth backdrop is a visual effect and goes with the others, the overview notification
+  // goes (pinned OFF — lib/widgets/sync.ts cancels a live one on the next refresh), and the
+  // voice/contacts/location switches go because each feature already asks the OS for
+  // permission on first use (lib/useVoiceCapture.ts, TaskCard's contact picker,
+  // lib/location.ts). Calendar sync is NOT here: it writes events into the user's own
+  // calendar, which is a real choice, not a permission.
+  featureAutomations: true,
+  featureDayLog: true,
+  featureTaskDecay: true,
+  showGrowth: false,
+  persistentNotifEnabled: false,
+  voiceNotesEnabled: true,
+  contactsEnabled: true,
+  locationEnabled: true,
+} as const satisfies Partial<Settings>;
+
+function withoutRetired<T extends object>(patch: T): T {
+  const out = { ...patch } as Record<string, unknown>;
+  for (const k of Object.keys(RETIRED_SETTINGS)) delete out[k];
+  return out as T;
+}
+
 /** Map the single settings row to the persisted Settings (defaults mirror the old load()). */
 function rowToSettings(row: Row): Settings {
+  return { ...rowToStoredSettings(row), ...RETIRED_SETTINGS };
+}
+
+function rowToStoredSettings(row: Row): Settings {
   return {
     userName: readStr(row, 'user_name'),
     weeklyResetDay: readInt(row, 'weekly_reset_day', 0),
@@ -995,11 +1038,11 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   debugModeEnabled: false,
   lastMonthlyReset: '',
   habitNotificationsEnabled: true,
-  locationEnabled: false,
+  locationEnabled: true, // pinned — RETIRED_SETTINGS
   backgroundLocationEnabled: false,
   calendarSyncEnabled: false,
   voiceNotesEnabled: true,
-  contactsEnabled: false,
+  contactsEnabled: true, // pinned — RETIRED_SETTINGS
   deviceCalendarId: '',
   accountName: '',
   accountCreated: '',
@@ -1038,7 +1081,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   featureSharing: false,
   featureScan: true,
   featureFood: true,
-  featureAutomations: false,
+  featureAutomations: true, // pinned — RETIRED_SETTINGS
   featureMedicine: true,
   featureDayLog: true,
   featureTaskDecay: true,
@@ -1087,7 +1130,9 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
     }
   },
 
-  update(patch) {
+  update(rawPatch) {
+    const patch = withoutRetired(rawPatch);
+    if (Object.keys(patch).length === 0) return;
     set((s) => {
       const next = { ...s, ...patch };
       try {

@@ -81,7 +81,7 @@ describe('feature opt-ins', () => {
     ['featureSharing', 'feature_sharing'],
     ['featureScan', 'feature_scan'],
     ['featureFood', 'feature_food'],
-    ['featureAutomations', 'feature_automations'],
+    // featureAutomations left this list 2026-10-11 — pinned ON by RETIRED_SETTINGS.
   ] as const;
 
   it.each(KEYS)('%s defaults to false when the settings row has no value', (field) => {

@@ -726,7 +726,9 @@ async function main() {
       // The lab is reached through DEBUG MODE since 2026-08-17 — its own `featureDesignLab`
       // switch was removed in the settings-declutter pass, and the link now sits inside the
       // Debug mode card, revealed once debug is on.
-      await page.getByRole('switch', { name: L.debugMode, exact: true }).first().click({ timeout: 10000 });
+      // Since 2026-10-11 the Debug card only renders while debug is on; seven taps on the
+      // Version row (testID settings-version) are the door in (app/settings.tsx).
+      for (let i = 0; i < 7; i++) await page.getByTestId('settings-version').click({ timeout: 10000 });
       await page.waitForTimeout(700);
       await page.getByText(L.designLab, { exact: true }).last().click({ timeout: 10000 });
       await page.waitForTimeout(1500);

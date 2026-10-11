@@ -1114,9 +1114,11 @@ async function main() {
         await page.waitForTimeout(900);
         // Debug mode is the door since 2026-08-17 — the lab's own switch went in the
         // settings-declutter pass and its link lives inside the Debug mode card now.
-        const labSwitch = page.getByRole('switch', { name: 'Debug mode', exact: true }).first();
-        if (!(await labSwitch.isVisible({ timeout: 4000 }).catch(() => false))) return;
-        await labSwitch.click({ timeout: 8000 });
+        // Since 2026-10-11 the Debug card only renders while debug is on; seven taps on the
+        // Version row (testID settings-version) are the door in (app/settings.tsx).
+        const versionRow = page.getByTestId('settings-version');
+        if (!(await versionRow.isVisible({ timeout: 4000 }).catch(() => false))) return;
+        for (let i = 0; i < 7; i++) await versionRow.click({ timeout: 8000 });
         await page.waitForTimeout(900);
         await page.getByText('Design lab', { exact: true }).last().click({ timeout: 8000 });
         await page.waitForTimeout(1800);
