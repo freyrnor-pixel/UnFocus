@@ -3054,7 +3054,7 @@ const styles = StyleSheet.create({
   dialogOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', padding: Spacing.lg },
   dialogBox: { borderRadius: Radius.lg, padding: Spacing.lg, width: '100%', maxWidth: 340, gap: Spacing.lg },
   dialogMessage: { fontFamily: Type.bodyStrong.fontFamily, fontSize: Type.bodyStrong.size, textAlign: 'center' },
-  dialogBody: { fontSize: FontSize.sm, textAlign: 'center', marginTop: -Spacing.sm },
+  dialogBody: { fontSize: FontSize.sm, textAlign: 'center', marginTop: -Spacing.sm, fontFamily: Fonts.regular },
   dialogBtns: { flexDirection: 'row', gap: Spacing.sm },
   // 2026-08-10: both reset confirms are `components/Button` now — ghost for No, danger for
   // Yes. They were hand-rolled PressableScales filled `#1E3A5F` and `#4A90D9` with `#FFFFFF`
@@ -3072,7 +3072,7 @@ const styles = StyleSheet.create({
   // like text fields") — this is the other half of it, and it matches what the Habits and
   // Health tabs already draw for an empty section. The locked variant KEEPS its dashed edge:
   // it is a real tap target (it unlocks the list), and a border is what says so.
-  sectionEmpty: { fontSize: FontSize.sm, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.sm, textAlign: 'center' },
+  sectionEmpty: { fontSize: FontSize.sm, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.sm, textAlign: 'center', fontFamily: Fonts.regular },
   // The locked+empty monthly-list variant of sectionEmpty — a real tap target (it unlocks the
   // list), so it's floored to MIN_TAP_TARGET (DESIGN_RULES rule 17). Dashed + unfilled rather
   // than sectionEmpty's solid fill — that filled look is also this app's real-Input look, and
@@ -3089,7 +3089,7 @@ const styles = StyleSheet.create({
     minHeight: MIN_TAP_TARGET,
     justifyContent: 'center',
   },
-  monthlyEmptyLockedText: { flex: 1, minWidth: 0, fontSize: FontSize.sm },
+  monthlyEmptyLockedText: { flex: 1, minWidth: 0, fontSize: FontSize.sm, fontFamily: Fonts.regular },
   totalLine: { fontSize: FontSize.md, fontFamily: Fonts.bold, textAlign: 'right', marginTop: 4 },
 
   // Compact icon+count indicator (2026-07-22) — replaces an earlier full-sentence banner
@@ -3112,13 +3112,13 @@ const styles = StyleSheet.create({
   unallocatedContent: { flex: 1, padding: Spacing.md, gap: Spacing.sm },
   unallocatedHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   unallocatedTitle: { fontFamily: Type.subheading.fontFamily, fontSize: Type.subheading.size },
-  unallocatedHint: { fontSize: FontSize.xs },
+  unallocatedHint: { fontSize: FontSize.xs, fontFamily: Fonts.regular },
   unallocatedGroupHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm, paddingTop: Spacing.sm, paddingBottom: 4 },
   unallocatedGroupName: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.bold },
   unallocatedRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm },
   unallocatedRowBorder: { borderTopWidth: StyleSheet.hairlineWidth },
   unallocatedItemName: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.medium },
-  unallocatedItemMeta: { fontSize: FontSize.xs },
+  unallocatedItemMeta: { fontSize: FontSize.xs, fontFamily: Fonts.regular },
   allocateBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 4, minHeight: 28 },
   allocateBtnText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
 
@@ -3162,7 +3162,7 @@ const styles = StyleSheet.create({
   // wrapper around an EmptyState that brought its own.
   weekEmptyCard: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.sm, marginBottom: Spacing.md },
   weekEmptyTitle: { fontSize: FontSize.md, fontFamily: Fonts.bold, textAlign: 'center', ...OpticalCenter },
-  weekEmptyBody: { fontSize: FontSize.sm, textAlign: 'center', ...OpticalCenter },
+  weekEmptyBody: { fontSize: FontSize.sm, textAlign: 'center', ...OpticalCenter, fontFamily: Fonts.regular },
   // "Saved lists" — the second, quieter way in. A worded row rather than a second filled
   // trigger: two accent-tinted buttons of equal weight in one card is two primaries.
   weekEmptySecondary: { minHeight: MIN_TAP_TARGET, alignItems: 'center', justifyContent: 'center' },
@@ -3181,8 +3181,8 @@ const styles = StyleSheet.create({
   },
   // `weekSectionHeaderRow` and `weekSectionLabel` moved into components/SectionRail.tsx's `sub`
   // tier on 2026-08-21 — see the call site. The date range survives as that rail's `right` slot.
-  weekSectionRange: { fontSize: FontSize.xs },
-  weekSectionEmptyText: { fontSize: FontSize.sm, paddingHorizontal: Spacing.xs, paddingVertical: Spacing.xs },
+  weekSectionRange: { fontSize: FontSize.xs, fontFamily: Fonts.regular },
+  weekSectionEmptyText: { fontSize: FontSize.sm, paddingHorizontal: Spacing.xs, paddingVertical: Spacing.xs, fontFamily: Fonts.regular },
   // Big-ish plain white/surface "+ Create a new list" button — primary action on the Weekly
   // tab. Icon-only from 2026-07-23 until 2026-08-03; see the comment at the trigger.
   newListTrigger: {

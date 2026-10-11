@@ -93,7 +93,7 @@ export default function ErrorBoundary({ children }: Props) {
 const styles = StyleSheet.create({
   root: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.lg, gap: Spacing.md },
   title: { fontSize: FontSize.lg, fontFamily: Fonts.bold, textAlign: 'center' },
-  message: { fontSize: FontSize.xs, textAlign: 'left', maxHeight: 260 },
+  message: { fontSize: FontSize.xs, textAlign: 'left', maxHeight: 260, fontFamily: Fonts.regular },
   retryBtn: { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.lg, borderRadius: Radius.md },
   retryText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
 });

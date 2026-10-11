@@ -400,7 +400,7 @@ const baseStyles = StyleSheet.create({
   appIconClip: { flex: 1, borderRadius: Radius.lg, overflow: 'hidden' },
   appIcon: { width: '100%', height: '100%' },
   heading: { fontSize: FontSize.xxl, fontFamily: Fonts.semibold, textAlign: 'center' },
-  sub: { fontSize: FontSize.md, lineHeight: 22, textAlign: 'center' },
+  sub: { fontSize: FontSize.md, lineHeight: 22, textAlign: 'center', fontFamily: Fonts.regular },
   // The rows' container, matching privacy.tsx's `bulletCard` — same radius, same shadow, same
   // vertical rhythm — but **`Spacing.sm` horizontally, not that card's `Spacing.md`.**
   //
@@ -444,7 +444,7 @@ const baseStyles = StyleSheet.create({
   },
   pillCheck: { marginRight: -2 },
   pillText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, flexShrink: 1 },
-  rowDesc: { fontSize: FontSize.sm, lineHeight: 18, textAlign: 'center' },
+  rowDesc: { fontSize: FontSize.sm, lineHeight: 18, textAlign: 'center', fontFamily: Fonts.regular },
   // Was a left accent bar (`borderLeftWidth: 2` + `paddingLeft`), which fought the centred
   // column — a rule down the left of centred text reads as a misalignment rather than an
   // accent. Italic carries "this is an aside" on its own, the way the app's explainer line
@@ -453,9 +453,9 @@ const baseStyles = StyleSheet.create({
     fontSize: FontSize.sm,
     lineHeight: 20,
     textAlign: 'center',
-    marginTop: 2,
+    marginTop: 2, fontFamily: Fonts.regular
   },
-  settingsNote: { fontSize: FontSize.sm, lineHeight: 18, textAlign: 'center' },
+  settingsNote: { fontSize: FontSize.sm, lineHeight: 18, textAlign: 'center', fontFamily: Fonts.regular },
   footer: {
     flexDirection: 'row',
     gap: Spacing.md,

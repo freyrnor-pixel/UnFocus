@@ -270,7 +270,7 @@ const baseStyles = StyleSheet.create({
   // active treatment, but hard-swapped instead of slid, with no track border, no haptic and
   // no accessibilityRole="radio". See TabSlider's header for the two-tier rule.
   emptyCard: { borderRadius: Radius.md, padding: Spacing.lg, alignItems: 'center' },
-  emptyText: { fontSize: FontSize.sm, textAlign: 'center', lineHeight: 20 },
+  emptyText: { fontSize: FontSize.sm, textAlign: 'center', lineHeight: 20, fontFamily: Fonts.regular },
   section: { gap: Spacing.xs },
   sectionLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   card: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.sm },
@@ -284,9 +284,9 @@ const baseStyles = StyleSheet.create({
   // lib/__tests__/designTokens.test.ts.
   doneMark: { fontSize: FontSize.xs, fontFamily: Fonts.bold, ...OpticalCenter },
   rowContent: { flex: 1 },
-  rowLabel: { fontSize: FontSize.md },
-  rowMeta: { fontSize: FontSize.xs, marginTop: 1 },
+  rowLabel: { fontSize: FontSize.md, fontFamily: Fonts.regular },
+  rowMeta: { fontSize: FontSize.xs, marginTop: 1, fontFamily: Fonts.regular },
   strikethrough: { textDecorationLine: 'line-through', opacity: 0.5 },
   removeBtn: { paddingHorizontal: Spacing.xs },
-  removeText: { fontSize: FontSize.md },
+  removeText: { fontSize: FontSize.md, fontFamily: Fonts.regular },
 });

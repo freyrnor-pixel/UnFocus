@@ -242,7 +242,7 @@ const baseStyles = StyleSheet.create({
   field: { gap: Spacing.xs, paddingVertical: Spacing.sm },
   label: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   labelRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  hint: { fontSize: FontSize.sm, marginTop: Spacing.xs },
+  hint: { fontSize: FontSize.sm, marginTop: Spacing.xs, fontFamily: Fonts.regular },
   // The dropdown box (2026-08-06) — one shape whether or not a goal is selected. `boxMain`
   // is the tappable label area (opens the column below); the "X" unlink button and the
   // chevron are its siblings, not nested inside it — see the render-side note.

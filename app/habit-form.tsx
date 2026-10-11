@@ -890,7 +890,7 @@ const baseStyles = StyleSheet.create({
   notifLabel: { flex: 1, minWidth: 0, fontSize: FontSize.md, fontFamily: Fonts.semibold },
   energyStepperRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   timeFieldWrap: { gap: Spacing.sm, marginTop: Spacing.sm },
-  reminderPreview: { fontSize: FontSize.xs, marginTop: Spacing.xs },
+  reminderPreview: { fontSize: FontSize.xs, marginTop: Spacing.xs, fontFamily: Fonts.regular },
   disclosure: {
     borderWidth: 1.5,
     borderStyle: 'dashed',

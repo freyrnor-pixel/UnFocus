@@ -261,7 +261,7 @@ const styles = StyleSheet.create({
     fontSize: FontSize.md,
     textAlign: 'center',
     marginTop: Spacing.sm,
-    lineHeight: 20,
+    lineHeight: 20, fontFamily: Fonts.regular
   },
   buttonRow: {
     flexDirection: 'row',

@@ -209,7 +209,7 @@ const baseStyles = StyleSheet.create({
   },
   subtitle: {
     fontSize: FontSize.sm,
-    marginTop: 2,
+    marginTop: 2, fontFamily: Fonts.regular
   },
   badge: {
     borderRadius: Radius.full,

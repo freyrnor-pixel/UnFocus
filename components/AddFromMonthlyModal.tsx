@@ -237,7 +237,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   scroll: { flexGrow: 0 },
-  empty: { fontSize: FontSize.sm, textAlign: 'center', paddingVertical: Spacing.md },
+  empty: { fontSize: FontSize.sm, textAlign: 'center', paddingVertical: Spacing.md, fontFamily: Fonts.regular },
   sectionHeader: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: Spacing.xs },
   sectionSpacing: { marginTop: Spacing.md },
   row: {
@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
     minHeight: MIN_TAP_TARGET,
     gap: Spacing.sm,
   },
-  rowPrice: { fontSize: FontSize.xs },
+  rowPrice: { fontSize: FontSize.xs, fontFamily: Fonts.regular },
   rowDivider: { height: 1 },
   footer: { flexDirection: 'row', gap: Spacing.sm },
   footerBtn: {

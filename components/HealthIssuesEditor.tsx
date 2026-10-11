@@ -210,11 +210,11 @@ export default function HealthIssuesEditor({ accent }: Props) {
 
 const styles = StyleSheet.create({
   root: { gap: Spacing.sm },
-  subtitle: { fontSize: FontSize.sm },
+  subtitle: { fontSize: FontSize.sm, fontFamily: Fonts.regular },
   starterChips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   list: { gap: Spacing.sm },
   issueCard: { padding: Spacing.sm, gap: Spacing.xs },
   issueHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   issueTitle: { flex: 1, minWidth: 0, fontSize: FontSize.md, fontFamily: Fonts.semibold },
-  issueMeta: { fontSize: FontSize.xs },
+  issueMeta: { fontSize: FontSize.xs, fontFamily: Fonts.regular },
 });

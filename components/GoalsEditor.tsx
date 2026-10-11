@@ -69,7 +69,7 @@ import StarterCard from '@/components/StarterCard';
 import StarterExampleRow from '@/components/StarterExampleRow';
 import { GoalGlowDot } from '@/components/GoalGlowDot';
 import { confirmDestructive } from '@/components/AppModal';
-import { FontSize, Spacing, TabularNums } from '@/constants/theme';
+import { FontSize, Spacing, TabularNums, Fonts } from '@/constants/theme';
 import { GOAL_STARTERS } from '@/lib/goalStarters';
 import { decayedStrength } from '@/lib/goalStrength';
 import { success } from '@/lib/haptics';
@@ -237,7 +237,7 @@ const styles = StyleSheet.create({
   wrap: { gap: Spacing.sm },
   // The bulb row's own styles are gone with the hand-copy — components/StarterCard.tsx's
   // `embedded` mode draws it now. Don't reintroduce a local copy.
-  meta: { fontSize: FontSize.xs },
+  meta: { fontSize: FontSize.xs, fontFamily: Fonts.regular },
   // `starterChips` (the wrapping pill cloud) is gone with the chips themselves — the
   // suggestions are StarterExampleRows in StarterCard's own `example` slot now, which owns
   // their stacking gap. Don't reintroduce a local cloud style here.

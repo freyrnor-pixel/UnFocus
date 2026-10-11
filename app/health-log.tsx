@@ -186,7 +186,7 @@ const baseStyles = StyleSheet.create({
   },
   sectionInfo: { flex: 1, gap: 2 },
   sectionName: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
-  sectionMeta: { fontSize: FontSize.xs },
+  sectionMeta: { fontSize: FontSize.xs, fontFamily: Fonts.regular },
   severityBadge: {
     borderRadius: Radius.full,
     paddingHorizontal: Spacing.sm,

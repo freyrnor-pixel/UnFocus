@@ -917,7 +917,7 @@ const baseStyles = StyleSheet.create({
     ...OpticalCenter,
   },
   sectionBody: { gap: Spacing.sm },
-  sectionEmpty: { fontSize: FontSize.sm, opacity: 0.85, paddingVertical: Spacing.xs, ...OpticalCenter },
+  sectionEmpty: { fontSize: FontSize.sm, opacity: 0.85, paddingVertical: Spacing.xs, ...OpticalCenter, fontFamily: Fonts.regular },
   dishList: { gap: Spacing.xs },
   // "Add dish" trigger, bottom of the expanded section body (2026-08-06) — labelled bordered
   // row, same idiom as NewMonthlyListRow's "+ New list" pill. Was a small circular "+" in the
@@ -942,8 +942,8 @@ const baseStyles = StyleSheet.create({
   ingRow: { paddingVertical: Spacing.xs, borderTopWidth: StyleSheet.hairlineWidth },
   ingViewRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: MIN_TAP_TARGET },
   ingName: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.medium, ...OpticalCenter },
-  ingAmount: { fontSize: FontSize.xs, minWidth: 40, textAlign: 'right', ...OpticalCenter },
-  ingPrice: { fontSize: FontSize.xs, minWidth: 48, textAlign: 'right', ...OpticalCenter },
+  ingAmount: { fontSize: FontSize.xs, minWidth: 40, textAlign: 'right', ...OpticalCenter, fontFamily: Fonts.regular },
+  ingPrice: { fontSize: FontSize.xs, minWidth: 48, textAlign: 'right', ...OpticalCenter, fontFamily: Fonts.regular },
   // Edit line (2026-08-06): quantity stepper + numbers-only price field + "X" to remove —
   // revealed by tapping the view row above; this is where the per-ingredient delete now lives.
   ingEditRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingTop: Spacing.xs, paddingLeft: Spacing.md },
@@ -980,14 +980,14 @@ const baseStyles = StyleSheet.create({
   sheetHandle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 4 },
   sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: Spacing.sm, borderBottomWidth: 1 },
   sheetTitle: { fontSize: FontSize.md, fontFamily: Fonts.bold, flex: 1, textAlign: 'center', ...OpticalCenter },
-  sheetCancel: { fontSize: FontSize.md, ...OpticalCenter },
+  sheetCancel: { fontSize: FontSize.md, ...OpticalCenter, fontFamily: Fonts.regular },
   sheetSave: { fontSize: FontSize.md, fontFamily: Fonts.bold, ...OpticalCenter },
   sheetScroll: { flexGrow: 0 },
   sheetScrollContent: { gap: Spacing.md },
   difficultyPicker: { gap: Spacing.xs },
   difficultyLabel: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
   draftRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.xs, borderBottomWidth: StyleSheet.hairlineWidth },
-  draftText: { flex: 1, fontSize: FontSize.sm, ...OpticalCenter },
+  draftText: { flex: 1, fontSize: FontSize.sm, ...OpticalCenter, fontFamily: Fonts.regular },
   // Sizing only (2026-08-20) — these three sit inside the New-dish overlay sheet, not an
   // ambient card, so they go through the plain (non-recessed) `Input`, matching every other
   // editor field in the app (medicine-form, health-form, …) rather than `recessed`, which is
@@ -1001,6 +1001,6 @@ const baseStyles = StyleSheet.create({
   // so the FontSize.sm name and the FontSize.xs price top-aligned instead of sharing a centre
   // line. Unlike the OpticalCenter fixes around it, this one was visible on every platform.
   suggestRow: { padding: Spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm },
-  suggestText: { flex: 1, fontSize: FontSize.sm, ...OpticalCenter },
-  suggestMeta: { fontSize: FontSize.xs, ...OpticalCenter },
+  suggestText: { flex: 1, fontSize: FontSize.sm, ...OpticalCenter, fontFamily: Fonts.regular },
+  suggestMeta: { fontSize: FontSize.xs, ...OpticalCenter, fontFamily: Fonts.regular },
 });

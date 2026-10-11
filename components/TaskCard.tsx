@@ -1982,11 +1982,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  stepText: { fontSize: FontSize.sm, flexShrink: 1 },
+  stepText: { fontSize: FontSize.sm, flexShrink: 1, fontFamily: Fonts.regular },
   // Stepped card's inline current-step block. Same paddingTop as stepsWrap so a stepped
   // card and an expanded steps checklist sit at the same distance below the row.
   steppedWrap: { gap: Spacing.xs, paddingTop: Spacing.sm },
-  steppedNote: { fontSize: FontSize.sm },
+  steppedNote: { fontSize: FontSize.sm, fontFamily: Fonts.regular },
   steppedBack: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, alignSelf: 'flex-start' },
   steppedBackText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
   addStepRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
@@ -1998,7 +1998,7 @@ const styles = StyleSheet.create({
     // half lives on `titleFieldGrow` (the wrapper) since 2026-08-09; see the note there.
     minWidth: 0,
     paddingHorizontal: Spacing.sm,
-    fontSize: FontSize.sm,
+    fontSize: FontSize.sm, fontFamily: Fonts.regular
   },
   toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   toggleLabel: { fontFamily: Type.label.fontFamily, fontSize: Type.label.size },
@@ -2035,7 +2035,7 @@ const styles = StyleSheet.create({
   hintInput: {
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
-    fontSize: FontSize.sm,
+    fontSize: FontSize.sm, fontFamily: Fonts.regular
   },
   energyCostRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: Spacing.xs },
   // Applied ON TOP of the shared `labelRow` (10 call sites — don't add flex there), so only
@@ -2045,7 +2045,7 @@ const styles = StyleSheet.create({
   // And the Text itself has to be allowed to shrink inside that wrapper, or it just pushes
   // the wrapper back out to its natural width and nothing has been gained.
   energyLabelText: { flexShrink: 1 },
-  wheneverHint: { fontSize: FontSize.sm },
+  wheneverHint: { fontSize: FontSize.sm, fontFamily: Fonts.regular },
   locationRowContent: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   thenRow: {
     flexDirection: 'row',

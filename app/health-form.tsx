@@ -474,8 +474,8 @@ const baseStyles = StyleSheet.create({
     paddingHorizontal: Spacing.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
-  suggestName: { fontSize: FontSize.md },
-  suggestCat: { fontSize: FontSize.xs },
+  suggestName: { fontSize: FontSize.md, fontFamily: Fonts.regular },
+  suggestCat: { fontSize: FontSize.xs, fontFamily: Fonts.regular },
   addSymptomRow: {
     flexDirection: 'row',
     alignItems: 'center',

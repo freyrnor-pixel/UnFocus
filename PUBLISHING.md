@@ -161,3 +161,43 @@ approve pull requests"** is enabled.
 - If asked to publish/merge to `main`: that is a production OTA to all preview
   users. Confirm intent, then open the PR and merge it, and verify the OTA run
   goes green.
+
+## First Play Store release (1.8.0) — checklist
+
+What 1.8.0 already settled in code, so the Play Console questions have true answers:
+
+- **Permissions Play reviews by policy are gone.** `USE_EXACT_ALARM` is removed and listed
+  in `app.json` → `android.blockedPermissions`, together with `WRITE_CONTACTS` (contacts
+  are only read), `ACCESS_BACKGROUND_LOCATION`, `READ_MEDIA_IMAGES`/`READ_MEDIA_VIDEO`
+  (receipt photos go through the system picker) and `SYSTEM_ALERT_WINDOW`. A library that
+  re-adds one of these is stripped at build time (`tools:node="remove"`).
+- **Exact reminders without `USE_EXACT_ALARM`.** Android 14+ starts `SCHEDULE_EXACT_ALARM`
+  denied; expo-notifications then schedules inexactly (a few minutes' drift). Settings →
+  Notifications offers the "Alarms & reminders" switch on Android 12+
+  (`lib/exactAlarmSettings.ts`).
+- **Unused native modules removed:** `expo-secure-store`, `expo-blur`.
+- **Adaptive icon** foreground sits inside the 66% safe zone, so launchers no longer crop
+  the trunk and ground.
+
+Maintainer steps, in order:
+
+1. `eas channel:create production --branch production` (once — see above).
+2. `eas build --platform android --profile production`
+3. `eas submit -p android --profile production --latest` → internal track.
+4. Read `PRIVACY.md`, delete its DRAFT banner once you agree with it, publish it at a public
+   URL (GitHub Pages or the raw file) and paste that into Play Console → App content →
+   Privacy policy.
+5. **Data safety** — truthful answers for this build:
+   - Data collected: **none**. Data shared: **none**. Everything is stored on the device.
+   - Encryption in transit: only the Expo update check leaves the device; it carries no
+     user data.
+   - Account deletion: not applicable — there are no accounts.
+6. **App access**: no login. **Ads**: none. **Content rating**: questionnaire (no user
+   content shared, no purchases).
+   **Health apps declaration** (App content → Health): required because the app tracks
+   medicines, doses and symptoms. Declare it as a personal health/medication tracker; it
+   is not a medical device, gives no diagnosis or advice, and stores all of it on-device.
+   **Target audience**: adults (18+) — there is no child-directed content, and the Data
+   safety answers above assume no children's data.
+7. Store listing: 512×512 icon (export `assets/icon.png`), 1024×500 feature graphic,
+   at least two phone screenshots (`npm run preview` produces candidates).

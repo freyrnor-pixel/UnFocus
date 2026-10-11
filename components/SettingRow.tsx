@@ -121,5 +121,5 @@ const baseStyles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   textCol: { flex: 1, minWidth: 0, marginRight: Spacing.md },
   label: { fontSize: FontSize.md, fontFamily: Fonts.medium },
-  hint: { fontSize: FontSize.xs, marginTop: Spacing.xs },
+  hint: { fontSize: FontSize.xs, marginTop: Spacing.xs, fontFamily: Fonts.regular },
 });

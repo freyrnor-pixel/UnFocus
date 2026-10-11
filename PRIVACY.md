@@ -7,7 +7,7 @@
 > assumed — but it is not legal advice, and you should read it as the person who is
 > accountable for it. Update the "Last updated" line and the contact address.
 
-**Last updated:** 2026-08-15
+**Last updated:** 2026-10-11
 
 ## The short version
 
@@ -44,11 +44,11 @@ of your data.
 ## Device permissions, and why each one exists
 
 Every permission is used only for the feature it names, only while you are using it,
-and the data stays on the device:
+and what UnFocus keeps stays on the device:
 
 | Permission | Used for |
 |---|---|
-| Microphone | Voice notes — transcribed on your device |
+| Microphone | Voice notes — turned into text by your phone's own speech service (Google's on most Android phones, Apple's on iPhone), which may process the audio on its servers. UnFocus keeps only the text, on your device |
 | Camera / Photos | Scanning receipts — text recognition runs on your device |
 | Location | Location-based reminders — a one-time position, no tracking, no history |
 | Calendar | Reading events so they show on your day timeline; writing a task you choose to add |

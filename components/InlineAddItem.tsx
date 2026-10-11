@@ -440,8 +440,8 @@ const baseStyles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.sm,
   },
-  suggestionName: { flex: 1, fontSize: FontSize.sm },
-  suggestionPrice: { fontSize: FontSize.xs },
+  suggestionName: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.regular },
+  suggestionPrice: { fontSize: FontSize.xs, fontFamily: Fonts.regular },
   categoryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
   categoryChip: {
     borderWidth: 1,

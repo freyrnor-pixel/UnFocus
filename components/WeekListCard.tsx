@@ -961,13 +961,13 @@ const baseStyles = StyleSheet.create({
   },
   iconRow: { flexDirection: 'row', alignItems: 'center', gap: 0 },
   compactProgressRow: { paddingVertical: Spacing.xs },
-  compactProgressText: { fontSize: FontSize.sm },
+  compactProgressText: { fontSize: FontSize.sm, fontFamily: Fonts.regular },
   bodyGap: { gap: Spacing.md },
   // `minHeight` floors it to MIN_TAP_TARGET now that it's a real tap target (DESIGN_RULES rule
   // 17) — the title+subtitle+padding already clear it in practice, this just makes it explicit.
   emptyState: { alignItems: 'center', gap: Spacing.xs, paddingVertical: Spacing.md, minHeight: MIN_TAP_TARGET, justifyContent: 'center' },
   emptyTitle: { fontFamily: Type.bodyStrong.fontFamily, fontSize: Type.bodyStrong.size, textAlign: 'center' },
-  emptySubtitle: { fontSize: FontSize.sm, textAlign: 'center' },
+  emptySubtitle: { fontSize: FontSize.sm, textAlign: 'center', fontFamily: Fonts.regular },
   section: { gap: Spacing.xs },
   // Visual-audit 2026-07-11: a surfaceMuted card behind the label + rule so "sub-headers"
   // (In list / In cart / From monthly list) read with real weight instead of floating

@@ -1204,7 +1204,7 @@ const baseStyles = StyleSheet.create({
   // `OpticalCenter` (2026-08-21): a Text whose box height is pinned by the circle around it,
   // which is the condition Android's asymmetric font padding breaks. Guarded by
   // lib/__tests__/designTokens.test.ts.
-  adjBtnText: { fontSize: FontSize.lg, lineHeight: 30, ...OpticalCenter },
+  adjBtnText: { fontSize: FontSize.lg, lineHeight: 30, ...OpticalCenter, fontFamily: Fonts.regular },
   // Both halves are the same recessed shape (2026-08-05). The "+" carried a solid accent
   // fill until now — the exact thing components/Stepper.tsx's edit note says not to
   // reinstate, and for the reason given there: a −/+ pair is ONE control, so filling half
@@ -1236,7 +1236,7 @@ const baseStyles = StyleSheet.create({
     borderWidth: 1,
   },
   restDayText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
-  restDayHint: { fontSize: FontSize.xs, textAlign: 'center', marginTop: 4 },
+  restDayHint: { fontSize: FontSize.xs, textAlign: 'center', marginTop: 4, fontFamily: Fonts.regular },
   dayCol: { alignItems: 'center', gap: 3 },
   dayAbbr: { fontSize: 9, fontFamily: Fonts.semibold },
   weekDot: {

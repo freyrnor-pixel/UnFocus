@@ -540,10 +540,10 @@ const baseStyles = StyleSheet.create({
   cardScrollBody: { gap: Spacing.xs },
   cardStep: { fontSize: FontSize.xs, fontFamily: Fonts.medium },
   cardTitle: { fontSize: FontSize.lg, fontFamily: Fonts.semibold },
-  cardBody: { fontSize: FontSize.sm, lineHeight: 20 },
+  cardBody: { fontSize: FontSize.sm, lineHeight: 20, fontFamily: Fonts.regular },
   cardNote: {
     fontSize: FontSize.sm,
-    lineHeight: 19,
+    lineHeight: 19, fontFamily: Fonts.regular
   },
   // The escape and the primary share one row since 2026-08-03 (the third button went). That
   // put the app's longest ghost label — Norwegian "Hopp over omvisningen" — beside "Got it"

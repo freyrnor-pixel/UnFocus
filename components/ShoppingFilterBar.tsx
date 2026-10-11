@@ -35,7 +35,7 @@
 import React from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { BORDER_WIDTH, computeBorderTone, FontSize, Radius, Spacing, MIN_TAP_TARGET } from '@/constants/theme';
+import { BORDER_WIDTH, computeBorderTone, FontSize, Radius, Spacing, MIN_TAP_TARGET, Fonts } from '@/constants/theme';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { categoryLabel, categoryPresets } from '@/lib/shoppingCategories';
@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
   // from `Input`. The one deliberate override is the smaller type: this is a compact filter
   // bar sitting beside a FontSize.sm button, and the shared field's FontSize.md would
   // truncate the placeholder at 360px in Norwegian.
-  search: { fontSize: FontSize.sm },
+  search: { fontSize: FontSize.sm, fontFamily: Fonts.regular },
   categoryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -128,5 +128,5 @@ const styles = StyleSheet.create({
     minHeight: MIN_TAP_TARGET,
     maxWidth: 140,
   },
-  categoryBtnText: { fontSize: FontSize.sm },
+  categoryBtnText: { fontSize: FontSize.sm, fontFamily: Fonts.regular },
 });

@@ -169,7 +169,7 @@ const baseStyles = StyleSheet.create({
   bodyText: {
     fontSize: FontSize.md,
     lineHeight: 22,
-    textAlign: 'center',
+    textAlign: 'center', fontFamily: Fonts.regular
   },
   footer: { paddingVertical: Spacing.xl,
     paddingHorizontal: Spacing.lg, paddingTop: Spacing.md },
