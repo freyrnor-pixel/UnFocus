@@ -7,11 +7,13 @@
  *   Used by → jest
  *   Data    → none
  */
+import { budgetBarFractions } from '@/components/BudgetBar';
+import { computeSpendPace } from '@/lib/budget';
+
+// Hoisted above the imports by babel-jest.
 jest.mock('@/lib/useAppTheme', () => ({ useAppTheme: () => ({}) }));
 jest.mock('@/lib/i18n', () => ({ useT: () => ({}) }));
 
-import { budgetBarFractions } from '@/components/BudgetBar';
-import { computeSpendPace } from '@/lib/budget';
 
 describe('budgetBarFractions', () => {
   it('fills by spent ÷ budget and marks today by elapsed ÷ period', () => {
