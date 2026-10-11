@@ -98,6 +98,9 @@ async function openCards(page) {
       for (const el of document.querySelectorAll('[role="button"]')) {
         const label = el.getAttribute('aria-label') || '';
         if (!/: (Expand|Open)/i.test(label)) continue;
+        // Not the ⤢: since 2026-10-11 it is named "<card>: Expand card" too, and it opens a
+        // full-screen pane over every field this walk is looking for.
+        if (/: Expand card$/i.test(label)) continue;
         const r = el.getBoundingClientRect();
         if (r.width <= 0 || r.height <= 0) continue;
         if (r.bottom <= 0 || r.top >= window.innerHeight || r.right <= 0 || r.left >= window.innerWidth) continue;

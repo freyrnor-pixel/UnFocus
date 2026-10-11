@@ -996,7 +996,12 @@ async function main() {
         // 2500, not 1000 (2026-10-11): inside the full-screen pane the section's reveal and the
         // pane's own settle overlap, and two runs of one build differed by ~100-900 px of text
         // sub-pixel position at 1000 ms.
-        await page.waitForTimeout(2500);
+        // Still ~100-350 px of glyph-edge residue at 2500 ms, varying run to run: something in
+        // the pane is still settling by a fraction of a pixel. 5000 ms, and the pointer and focus
+        // parked so neither can be the variable.
+        await page.mouse.move(0, 0);
+        await page.evaluate(() => document.activeElement && document.activeElement.blur && document.activeElement.blur());
+        await page.waitForTimeout(5000);
         await shot(page, 'day-log-screen', {
           title: 'Earlier days (the day log, one day at a time)',
           screen: 'app/day-log.tsx',

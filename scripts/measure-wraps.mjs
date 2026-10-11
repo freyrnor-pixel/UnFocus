@@ -147,11 +147,9 @@ const L = {
     // The Whenever card's fold chevron. Every card rests CLOSED since 2026-08-21
     // (lib/cardDefaults.ts), so this walk has to open the card before its composer exists.
     expandWhenever: 'Whenever: Expand list',
-    // The Energy config sheet (2026-08-03). On a fresh profile the strip is in its tutorial
-    // state, so its StarterCard button is the way in; the ✏️ ("Adjust energy") opens the same
-    // sheet once anything has an energy value. Three label+stepper rows plus a hint line each,
+    // The Energy config rows (2026-08-03; in the card's ⤢ pane since V2, 2026-10-11). Three label+stepper rows plus a hint line each,
     // i.e. exactly the "label competing with a fixed-size control" case this audit exists for.
-    energyTutorialAction: "Set the day's energy", energyDone: 'Done',
+    energyExpand: 'Energy budget: Expand card', energyCollapse: 'Collapse card',
     // The quick-add's FOCUSED state (2026-08-05). Idle it is one field on one line and there
     // is nothing to measure; focused it unfolds the labelled options panel — a label
     // competing with a fixed-width Stepper, exactly the shape that broke the task editor at
@@ -210,7 +208,7 @@ const L = {
     dismiss: ['Hopp over', 'Skjønner', 'Skjønner →', 'OK'],
     newTask: 'Ny oppgave', probeTask: 'Bredde-test',
     expandWhenever: 'Når som helst: Vis liste',
-    energyTutorialAction: 'Sett dagens energi', energyDone: 'Ferdig',
+    energyExpand: 'Energibudsjett: Vis kort i fullskjerm', energyCollapse: 'Skjul fullskjerm',
     typeHabit: 'Skriv vane',
     taskAdvanced: 'Avanserte valg', goalField: 'Mål', editGoals: 'Rediger mål',
     logSymptom: 'Logg noe', logSymptomMore: 'Flere valg',
@@ -234,7 +232,7 @@ const L = {
     dismiss: ['Sleppa', 'Ég skil', 'Ég skil →', 'Í lagi'],
     newTask: 'Nýtt verkefni', probeTask: 'Breiddarpróf',
     expandWhenever: 'Hvenær sem er: Sýna lista',
-    energyTutorialAction: 'Stilla orku dagsins', energyDone: 'Búið',
+    energyExpand: 'Orkufjárhagur: Sýna kort í fullum skjá', energyCollapse: 'Fela fullan skjá',
     typeHabit: 'Skrifa venju',
     taskAdvanced: 'Ítarlegir valkostir', goalField: 'Markmið', editGoals: 'Breyta markmiðum',
     logSymptom: 'Skrá eitthvað', logSymptomMore: 'Fleiri valkostir',
@@ -637,11 +635,13 @@ async function walkToTabs(page, { scanning }) {
   // Opening it writes nothing, so the strip is still in its tutorial state afterwards.
   // Best-effort like the task editor: a failure must not lose the findings already collected.
   try {
-    await clickText(page, L.energyTutorialAction);
-    await page.waitForTimeout(700);
+    // V2 (2026-10-11): the numbers live in the Energy card's ⤢ pane now (EnergyConfigPanel),
+    // not behind a tutorial button. Same rows, same step name, so coverage is unchanged.
+    await page.getByRole('button', { name: L.energyExpand, exact: true }).first().click({ timeout: 10000 });
+    await page.waitForTimeout(1200);
     if (scanning) await scan(page, 'energy-config-sheet');
-    await clickText(page, L.energyDone);
-    await page.waitForTimeout(600);
+    await page.getByRole('button', { name: L.energyCollapse, exact: true }).first().click({ timeout: 10000 });
+    await page.waitForTimeout(900);
   } catch (e) {
     console.error(`  (energy-config-sheet step skipped: ${e.message.split('\n')[0]})`);
   }

@@ -271,6 +271,14 @@ const MACHINE_DEPENDENT = [
   // top corners. A finding whose size changes between identical runs is the rasteriser, not the
   // app — and leaving it guarded would make this gate intermittently red, which is how a gate
   // stops being read. Re-narrow it to 'light' if the dark base ever goes flat again.
+  // ⚠️ **2026-10-11, and NOT a cross-machine entry — a same-machine one.** Since the day log
+  // became the Today card's ⤢ pane, two runs of ONE build on ONE machine differ by 46-350 px,
+  // confined to glyph edges in the two section labels ("Suggestions", "Earlier days"). Waits of
+  // 1000 → 2500 → 5000 ms and parking the pointer/focus did not change it, so it is not a settle
+  // race. Open item: find what in the pane rasterises text non-deterministically, then delete
+  // this entry and bless. The screen is still CAPTURED every run (and measured by wraps and
+  // geometry); only the pixel comparison is off.
+  ['day-log-screen', 'glyph-edge noise in the pane’s two section labels, 46-350 px between identical runs on one machine — see this constant’s note; do not fix by raising the pixel budget'],
   ['task-editor', 'the base gradient is an SVG scaled to COVER, so its stops land differently on two rasterisers and the translucent card transmits the difference (~90-125 px, varying run to run) — see this constant’s note; do not fix by raising the pixel budget'],
 ];
 /** The members that apply to the theme being diffed right now. */
