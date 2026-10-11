@@ -221,10 +221,10 @@ describe('cardOrder', () => {
   it('reads a persisted order back from the JSON column', () => {
     (db.getFirstSync as jest.Mock).mockReturnValue({
       id: 1,
-      card_order: '{"todo":["todoPlanner","todoToday"]}',
+      card_order: '{"todo":["todoWhenever","todoPlanner"]}',
     });
     useSettingsStore.getState().load();
-    expect(useSettingsStore.getState().cardOrder).toEqual({ todo: ['todoPlanner', 'todoToday'] });
+    expect(useSettingsStore.getState().cardOrder).toEqual({ todo: ['todoWhenever', 'todoPlanner'] });
   });
 
   it('sanitizes on READ, so a stale id cannot survive a registry change', () => {
@@ -232,10 +232,10 @@ describe('cardOrder', () => {
     // `todoCalendar`. An install that had reordered To-do has that string in its column now.
     (db.getFirstSync as jest.Mock).mockReturnValue({
       id: 1,
-      card_order: '{"todo":["todoMonth","todoToday"],"notAScreen":["todoToday"]}',
+      card_order: '{"todo":["todoMonth","todoWhenever"],"notAScreen":["todoWhenever"]}',
     });
     useSettingsStore.getState().load();
-    expect(useSettingsStore.getState().cardOrder).toEqual({ todo: ['todoToday'] });
+    expect(useSettingsStore.getState().cardOrder).toEqual({ todo: ['todoWhenever'] });
   });
 
   it('reads a malformed column as no preference rather than rearranging a screen', () => {

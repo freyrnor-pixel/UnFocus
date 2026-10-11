@@ -204,9 +204,13 @@ export type CardSpec = {
 export const CARDS = {
   // ── To-do ──────────────────────────────────────────────────────────────────────────────
   // Time horizon: today, then the week around it, then the undated backlog, then what repeats.
+  // ⚠️ **Nested under `homeToday` since 2026-10-11 (V2 re-order).** I dag lives on Hjem only;
+  // Gjøremål is planning (Planlegger, Når som helst). This card still exists because it is the
+  // BODY of Hjem's I dag full-screen pane (components/CardExpandHost.tsx's `homeToday` entry),
+  // but `nested` keeps it off every screen's card list and out of the Manage cards sheet.
   todoToday: {
-    screen: 'todo',
-    order: 1,
+    screen: 'home',
+    nested: 'homeToday',
     hue: 'plans',
     domain: 'task',
     icon: 'today',
@@ -334,7 +338,8 @@ export const CARDS = {
     // Already shipped, not new: components/InlineAddItem.tsx's flat panel already carries a
     // quantity Stepper and category chips for every weekly/monthly list — see that file's
     // header. This states what was already true rather than adding anything.
-    compose: { depth: 'panel', opts: ['qty', 'category'] },
+    // `compose` removed 2026-10-11: its qty/category cells were HomeShoppingCard's, deleted with
+    // that card. The V2 list composer brings them back (P5 of the V2 build).
   },
   // ⚠️ **Back as a top-level card (2026-09-07), reversing 2026-08-26 phase 5's demotion to a
   // SECTION inside `shopLists`.** That demotion's reasoning ("the per-list cards are
@@ -356,7 +361,8 @@ export const CARDS = {
     expand: 'none',
     expandDeclined:
       "Monthly's per-list Surfaces are already fully expanded in place on the card itself — there is nothing a full-screen pane would show that isn't already on screen.",
-    compose: { depth: 'panel', opts: ['qty', 'category'] },
+    // `compose` removed 2026-10-11: its qty/category cells were HomeShoppingCard's, deleted with
+    // that card. The V2 list composer brings them back (P5 of the V2 build).
   },
 
   // ⚠️ **`shopDishes` is GONE from this registry as of 2026-09-07** — it is the **Retter** tab
@@ -450,30 +456,10 @@ export const CARDS = {
     expand: 'surface',
     openAtRest: true,
   },
-  homeShopping: {
-    screen: 'home',
-    order: 3,
-    hue: 'shopping',
-    domain: 'shop',
-    badgeHue: true,
-    title: (t) => t.shoppingTitle,
-    fold: 'persisted',
-    expand: 'none',
-    // ⚠️ The ONE card on this tab that does not grow to fill the screen, and it is the same
-    // refusal `shopLists` makes one tab over, for the same measured reason: the Shop tab's
-    // weekly/monthly list content is ~2000 lines of window-coordinate drag/merge state and
-    // flight-animation refs inside app/(tabs)/shopping.tsx, with no standalone surface
-    // component the way To-do, Health, Habits and Notes have. There is nothing to mount in a
-    // pane that would not be a second implementation of that screen. The full-screen version
-    // of this card is the Shop tab, two swipes away; a `ShoppingListsSurface.tsx` extraction
-    // is what would change this answer.
-    expandDeclined:
-      "Shopping's list content has no standalone surface component — it is ~2000 lines of drag/merge and flight-animation state inside app/(tabs)/shopping.tsx — so a pane for it would be a second implementation of the Shop tab rather than the same code at a different size. Extracting ShoppingListsSurface.tsx is what would change this.",
-    // No pane — but the Shop tab IS this card's dedicated view, so the ⤢ goes there (2026-10-07).
-    // Before this, Home showed ⤢ on two cards and not the third, which read as inconsistency.
-    expandRoute: '/shopping',
-    openAtRest: true,
-  },
+  // ⚠️ **`homeShopping` is GONE (2026-10-11, V2 re-order).** Maintainer agreed: *each card lives in
+  // exactly one place* — Handle is where you shop, and its Handleliste card's ⤢ is shopping mode.
+  // A shopping preview on Hjem was a second copy of that list. `collapsed_cards`/`card_order`
+  // drop the id on read (sanitize*), so no migration is needed for it.
 
   // ⚠️ **`homeRetired` is GONE as of 2026-09-01.** It was the shelf a hidden Home card fell to,
   // which only existed because Home hid cards from a per-card ⋮ and so needed something else to

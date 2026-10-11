@@ -1454,6 +1454,14 @@ export function initDb() {
     "ALTER TABLE task_steps ADD COLUMN updated_at TEXT DEFAULT ''",
     "ALTER TABLE task_steps ADD COLUMN origin_device_id TEXT DEFAULT ''",
     'ALTER TABLE task_steps ADD COLUMN deleted_at TEXT DEFAULT NULL',
+    // ── 2026-10-11: V2 re-order — every card in exactly one place ──────────────────────────
+    // Handle is Budsjett → Handleliste → Lager → Katalog now, Hjem lost its shopping card and
+    // Gjøremål lost I dag (lib/cardRegistry.ts). A stored order is a PREFERENCE layered over the
+    // registry's, so an install that ever reordered would keep the old Handle order forever.
+    // Emptying it puts everyone on the new registry order — the same "force it once" call the
+    // 2026-08-22 lines above made when the card set moved. Not a literal array: writing the
+    // answer into a migration freezes it for every install it ever runs on.
+    "UPDATE settings SET card_order = '{}'",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

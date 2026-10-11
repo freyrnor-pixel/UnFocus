@@ -961,8 +961,11 @@ async function main() {
         // matched, returned false without throwing, and this shot was the To-do tab with the
         // section still SHUT — the same silent locator drift the `catalogue` entry below records,
         // and the reason this shot was not blessed until 2026-09-12 even once the walk reached it.
-        await tab(page, 'To-do');
-        await openCard(page, 'Today');
+        // ⚠️ **Through Hjem's I dag ⤢ since 2026-10-11 (V2 re-order).** I dag left the To-do tab;
+        // its full-screen pane is To-do's `todoToday` body, which still carries Earlier days.
+        await tab(page, 'Home');
+        await page.getByRole('button', { name: 'Expand card', exact: true }).first().click({ timeout: 10000 }).catch(() => {});
+        await page.waitForTimeout(1200);
         if (!(await openCard(page, 'Earlier days'))) {
           throw new Error('day-log: no "Earlier days: Expand list" toggle — refusing to shoot a shut section');
         }
@@ -1124,7 +1127,8 @@ async function main() {
 
     // ---- 5. seed for real, shoot the populated states --------------------
     console.log('> seeding + populated states');
-    await tab(page, 'To-do');
+    // Tasks are seeded on Hjem's I dag since 2026-10-11 — the To-do tab is planning only.
+    await tab(page, 'Home');
 
     const typeLine = (await onScreenField(page, 'Type task')) || page.getByLabel('Type task', { exact: true }).first();
     await typeLine.scrollIntoViewIfNeeded().catch(() => {});
@@ -1150,6 +1154,7 @@ async function main() {
     // Recurring and this week is part of planning card"*), and every To-do baseline draws that
     // card COLLAPSED — so the merge itself would have been invisible to this gate, which is the
     // same rule-2 gap `home-energy-budget` and `catalogue` were both added to close.
+    await tab(page, 'To-do');
     if (await openCard(page, 'Planner')) {
       await page.waitForTimeout(900);
       // The range segment belongs to the Calendar section and cannot be on screen while the
@@ -1165,6 +1170,7 @@ async function main() {
       });
     }
 
+    await tab(page, 'Home');
     const check = page.getByRole('checkbox', { name: 'Ring the dentist', exact: true }).first();
     if (await check.count()) {
       await check.click({ timeout: 10000 });
@@ -1174,7 +1180,7 @@ async function main() {
       // does not draw the newly-logged row until it REMOUNTS — Home's copy of the same card
       // updates live, which is why the gap is easy to miss. Round-trip the tab, then expand.
       await tab(page, 'To-do');
-      await tab(page, 'To-do');
+      await tab(page, 'Home');
       await clickOnScreenText(page, 'Show all');
       await shot(page, 'day-log-after-tick', {
         title: 'To-do — a ticked task crosses the now-line into the day log',

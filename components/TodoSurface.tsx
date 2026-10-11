@@ -1235,9 +1235,14 @@ export default function TodoSurface({ section, onDayReset }: Props) {
 
 
 
-  const cardOrder = useOrderedCards('todo');
+  const todoOrder = useOrderedCards('todo');
+  // ⚠️ **I dag is not on this tab since 2026-10-11 (V2 re-order).** It lives on Hjem; this
+  // component still draws it, but only as the BODY of Hjem's I dag full-screen pane
+  // (`section="today"`). `todoToday` is `nested` in the registry, so it is in no screen's order
+  // and the pane has to name it explicitly.
+  const cardOrder: CardKey[] = section === 'today' ? ['todoToday'] : todoOrder;
   const showWhenever = full || section === 'whenever';
-  const showToday = full || section === 'today';
+  const showToday = section === 'today';
   // ⚠️ **`'planner'` shows BOTH (2026-09-07).** Calendar and Recurring are sections of the one
   // `todoPlanner` card now (maintainer: *"Calendar, Recurring and this week is part of planning
   // card"*), so the pane that expands it has to draw both or full-screen would be a downgrade.

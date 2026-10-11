@@ -14,7 +14,7 @@
  * Connections:
  *   Imports → components/IconButton, constants/theme (IconSize), lib/i18n,
  *             lib/useCollapsedCard, lib/collapsedCards (CardId type)
- *   Used by → components/HomeNotesCard.tsx, components/HomeShoppingCard.tsx
+ *   Used by → components/HomeNotesCard.tsx
  *   Data    → settings.collapsedCards (via useCollapsedCard — unfolds the card)
  */
 import React, { useCallback, useState } from 'react';

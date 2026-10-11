@@ -8,8 +8,7 @@
  *
  * Connections:
  *   Imports → lib/date (monthlyResetDayIn, parseDateStr, todayStr)
- *   Used by → app/budget.tsx, app/(tabs)/shopping.tsx, app/(tabs)/index.tsx (feeds
- *             components/HomeShoppingCard)
+ *   Used by → app/budget.tsx, app/(tabs)/shopping.tsx
  *   Data    → pure function; callers pass in receipts/settings, no store access here
  *
  * Edit notes:

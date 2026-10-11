@@ -4,7 +4,7 @@
  * **Why this exists is a performance property, not a tidiness one (2026-08-28).** Every surface
  * that mounts a `PadTypeRow` has to hold a `value`/`onChangeText` pair somewhere, and five of
  * them held it in the component that draws the whole surface — `PlanTaskCard` (~2 000 lines of
- * timeline, rows, day log and followers), `HabitsSurface`, `HealthSurface`, `HomeShoppingCard`,
+ * timeline, rows, day log and followers), `HabitsSurface`, `HealthSurface`,
  * `HomeNotesCard`. React re-renders from where state lives downward, and nothing in those trees
  * is memoised, so **one character typed re-rendered the entire card stack**, each pass re-running
  * `components/Surface.tsx`'s work for every card in it. Measured (CDP profiler, JS busy time per
@@ -31,7 +31,7 @@
  * Connections:
  *   Imports → components/PadTypeRow
  *   Used by → components/PlanTaskCard (the day card's type line), components/HabitsSurface,
- *             components/HealthSurface, components/HomeShoppingCard, components/HomeNotesCard
+ *             components/HealthSurface, components/HomeNotesCard
  *             (its title — that card keeps its own second field, the Details body, and builds
  *             the panel around it)
  *   Data    → none; it holds one string and hands it to the caller on submit

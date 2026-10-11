@@ -611,7 +611,7 @@ describe('the pane carries no screen colour (2026-08-20)', () => {
       // Habits and Health became bottom-nav tabs again, so their content is HabitsSurface and
       // HealthSurface, mounted by a screen instead of wrapped in a Home preview card.
       'components/PlanTaskCard.tsx', 'components/HomeNotesCard.tsx',
-      'components/HomeShoppingCard.tsx', 'components/StarterCard.tsx', 'components/OpenEpisodeCard.tsx',
+      'components/StarterCard.tsx', 'components/OpenEpisodeCard.tsx',
       'components/WeekListCard.tsx', 'app/scan.tsx',
     ];
     // A <Surface …> opening tag with a borderColor in it, across line breaks. Badge and View
