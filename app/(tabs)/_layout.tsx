@@ -30,7 +30,7 @@
  * don't ALSO paint their own copy.
  *
  * Connections:
- *   Imports → expo-router/js-top-tabs (TopTabs — Expo Router's own SDK-56 top-tabs
+ *   Imports → lib/frost (the nav bar's FrostContext), expo-router/js-top-tabs (TopTabs — Expo Router's own SDK-56 top-tabs
  *             wrapper, not @react-navigation/material-top-tabs directly; see Edit notes),
  *             react-native-safe-area-context, components/BottomNav, components/ScreenBackground,
  *             components/ParticleBackground, lib/siteNav
@@ -209,6 +209,7 @@
  *     sceneStyle override first.
  */
 import React, { useMemo, useRef, useState } from 'react';
+import { FrostContext } from '@/lib/frost';
 import { StyleSheet, View } from 'react-native';
 import { TopTabs, MaterialTopTabBarProps } from 'expo-router/js-top-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -273,6 +274,9 @@ type PagerFloatingNavProps = {
   navigationRef: React.MutableRefObject<MaterialTopTabBarProps['navigation'] | null>;
 };
 
+/** The nav bar frosts over the shared backdrop; Surface itself honours `reduceEffects`. */
+const NAV_FROST = { enabled: true, scrollY: null };
+
 function PagerFloatingNav({ activeRouteName, insetsBottom, navigationRef }: PagerFloatingNavProps) {
   const state = useMemo(
     () => ({ index: 0, routes: [{ key: activeRouteName, name: activeRouteName }] }),
@@ -310,7 +314,11 @@ function PagerFloatingNav({ activeRouteName, insetsBottom, navigationRef }: Page
         paddingHorizontal: CHROME_FLOAT_INSET,
       }}
     >
-      <BottomNav state={state as any} navigation={navigation as any} />
+      {/* The bar is in front of the shared painted backdrop, so it frosts (lib/frost.ts). It
+          never scrolls, hence no scroll value. */}
+      <FrostContext.Provider value={NAV_FROST}>
+        <BottomNav state={state as any} navigation={navigation as any} />
+      </FrostContext.Provider>
     </View>
   );
 }
