@@ -58,6 +58,16 @@ describe('visual gate — the toolchain is pinned', () => {
     expect(args).toMatch(/process\.env\.FONTCONFIG_FILE\s*=/);
     const conf = read('scripts/harness-fonts.conf');
     expect(conf).toMatch(/<include ignore_missing="yes">\/etc\/fonts\/fonts\.conf<\/include>/);
+    // Same FONTS too: the dev image's system-ui/sans-serif is Inter, CI has none — fallback text
+    // rendered in two different typefaces until the generic families were pinned.
+    expect(conf).toMatch(/<rejectfont>[\s\S]*Inter[\s\S]*<\/rejectfont>/);
+    for (const family of ['sans-serif', 'system-ui']) {
+      expect(conf).toMatch(new RegExp(`<family>${family}</family><prefer><family>Liberation Sans</family>`));
+    }
+    // An XML comment may not contain a double hyphen; fontconfig then drops the WHOLE file.
+    for (const comment of conf.match(/<!--[\s\S]*?-->/g) ?? []) {
+      expect(comment.slice(4, -3)).not.toMatch(/--/);
+    }
     for (const target of ['pattern', 'font']) {
       expect(conf).toMatch(new RegExp(`<match target="${target}">[\\s\\S]*?hintnone[\\s\\S]*?<\\/match>`));
     }
