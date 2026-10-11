@@ -83,6 +83,11 @@ export async function freezeNarratorQuote(page, index = 0) {
  *   Same shape as freezeNarratorQuote: set from outside, before the bundle loads, no writer in
  *   the app. What it costs: the gate no longer sees the painting itself, which is a fixed
  *   asset, not layout. Everything drawn OVER it is still compared.
+ *   ⚠️ **It drops the ORB FIELD and the PARTICLES too (same day).** With the tree gone the orbs'
+ *   SVG radial gradients showed through at full strength — the same cross-rasteriser wobble the
+ *   `task-editor` MACHINE_DEPENDENT note records — and CI was still 2-5% red on every screen.
+ *   The gate's ground is the flat base colour now; the cards, chrome and content are what it
+ *   compares, which is what it is for.
  *
  * Call BEFORE the first `page.goto()`.
  */

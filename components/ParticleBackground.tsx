@@ -68,6 +68,7 @@
  *   - `particlesEnabled` defaults to true in the settings store — users see particles from first
  *     launch and can opt out in Settings → Accessibility.
  */
+import { backdropPaintingHidden } from '@/lib/frost';
 import React, { useEffect, useRef } from 'react';
 import {
   Animated,
@@ -240,7 +241,9 @@ function ParticleBackground() {
   // component was first written. A user who asked for fewer effects must not get this back.
   const reduceEffects = useSettingsStore((s) => s.reduceEffects);
 
-  const showParticles = particlesEnabled && !reducedMotion && !reduceEffects;
+  // `backdropPaintingHidden()` — a pixel-gate capture leaves the whole decorative layer out
+  // (scripts/force-appearance.mjs's hideBackdropPainting); a real install never sets it.
+  const showParticles = particlesEnabled && !reducedMotion && !reduceEffects && !backdropPaintingHidden();
   if (!showParticles) return null;
 
   // The mote's two colours, matching the handoff's own split: the GLOW takes the field's blue,

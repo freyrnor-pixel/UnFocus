@@ -130,6 +130,7 @@ import { useIsDark, useAccessibility } from '@/lib/useAppTheme';
 import { useGrowth } from '@/lib/useGrowth';
 import { CrownArt, CrownDefs, type BoughlightVariant } from '@/components/CrownArt';
 import TreeBackdrop, { TREE_STRENGTH } from '@/components/TreeBackdrop';
+import { backdropPaintingHidden } from '@/lib/frost';
 
 
 type Props = {
@@ -624,7 +625,12 @@ function OrbLayer({ style, ...canvas }: React.ComponentProps<typeof OrbCanvas>
   );
 }
 
-function ScreenBackground({ decorative = true, crown = 'none' }: Props) {
+function ScreenBackground({ decorative: decorativeProp = true, crown = 'none' }: Props) {
+  // A pixel-gate capture drops the whole decorative field — orbs with the tree — because its
+  // SVG gradients rasterise a few levels differently on CI (2026-10-11; see
+  // scripts/force-appearance.mjs's hideBackdropPainting). Folded in here so every gate below
+  // keeps reading the one `decorative` it always did. Never set on a real install.
+  const decorative = decorativeProp && !backdropPaintingHidden();
   const isDark = useIsDark();
   const { reducedMotion } = useAccessibility();
   const { level, intensity } = useGrowth();
