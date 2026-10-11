@@ -14,8 +14,12 @@ import {
   HOLE_PAD,
   MIN_BAND_RATIO,
   RING_GAP,
+  MIN_TRIMMED_HOLE,
+  TOUR_SCRIM_ALPHA,
   coachCardBox,
+  fitHoleForCard,
   hasHole,
+  tourScrim,
   spotlightHole,
   spotlightRing,
   type CoachCardBox,
@@ -213,5 +217,61 @@ describe('coachCardBox', () => {
     expect(bottom).toBeLessThanOrEqual(screen.height - SAFE.bottom);
     // And a band worth having: a card squeezed to nothing is off-screen by another name.
     expect(box.maxHeight).toBeGreaterThanOrEqual(screen.height * MIN_BAND_RATIO);
+  });
+});
+
+
+/**
+ * 2026-10-11 — the coach card drew across the lower half of Home's I dag card (maintainer:
+ * *"tour-info-boxes must not overlap with the card it is explaining"*). Asserted as the property,
+ * over a spread of phones and target shapes: after trimming, the card's box and the hole never
+ * intersect.
+ */
+describe('fitHoleForCard — the coach card never covers the lit card', () => {
+  const SAFE = { top: 32, bottom: 24 };
+  const GAP = 12;
+  const overlaps = (hole: { y: number; h: number }, box: CoachCardBox, screenH: number) => {
+    const top = box.edge === 'top' ? box.top : screenH - box.bottom - box.maxHeight;
+    const bottom = box.edge === 'top' ? box.top + box.maxHeight : screenH - box.bottom;
+    return top < hole.y + hole.h && bottom > hole.y;
+  };
+
+  for (const [w, h] of [[360, 640], [360, 740], [384, 854], [412, 915], [430, 932]]) {
+    for (const [y, th] of [[110, 300], [110, 520], [300, 400], [90, 2000], [140, 180]]) {
+      test(`${w}×${h}, target y=${y} h=${th}`, () => {
+        const screen = { width: w, height: h };
+        const raw = { x: 16, y, w: w - 32, h: Math.min(th, h - y - 80) };
+        const hole = fitHoleForCard(raw, screen, SAFE, GAP);
+        expect(hole.y).toBe(raw.y);
+        expect(hole.h).toBeLessThanOrEqual(raw.h);
+        // Never trimmed past the header row it is there to show.
+        expect(hole.h).toBeGreaterThanOrEqual(Math.min(raw.h, MIN_TRIMMED_HOLE));
+        const box = coachCardBox(hole, screen, SAFE, GAP);
+        if (h - SAFE.bottom - (y + MIN_TRIMMED_HOLE) - GAP >= h * MIN_BAND_RATIO) {
+          expect(overlaps(hole, box, h)).toBe(false);
+        }
+      });
+    }
+  }
+
+  test('a hole with room on either side is left alone', () => {
+    const hole = { x: 16, y: 120, w: 380, h: 160 };
+    expect(fitHoleForCard(hole, { width: 412, height: 915 }, SAFE, GAP)).toEqual(hole);
+  });
+
+  test('an empty hole (no target) is left alone', () => {
+    const hole = { x: 0, y: 400, w: 0, h: 0 };
+    expect(fitHoleForCard(hole, { width: 412, height: 915 }, SAFE, GAP)).toEqual(hole);
+  });
+});
+
+describe('tourScrim', () => {
+  test('raises both themes\' overlay to the tour alpha, keeping the hue', () => {
+    expect(tourScrim('rgba(0,0,0,0.68)')).toBe(`rgba(0,0,0,${TOUR_SCRIM_ALPHA})`);
+    expect(tourScrim('rgba(20,28,44,0.42)')).toBe(`rgba(20,28,44,${TOUR_SCRIM_ALPHA})`);
+  });
+  test('never lowers a darker overlay, and passes a non-rgba colour through', () => {
+    expect(tourScrim('rgba(0,0,0,0.9)')).toBe('rgba(0,0,0,0.9)');
+    expect(tourScrim('#000000')).toBe('#000000');
   });
 });

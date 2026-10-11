@@ -9,7 +9,8 @@
  *
  * Connections:
  *   Imports → lib/frost (the pane's FrostContext), components/Surface, components/KeyboardAwareScrollView, components/IconButton (the pane's ‹ back), constants/theme, constants/motion,
- *             lib/cardPane, lib/expandableCards, lib/i18n, lib/useAppTheme, react-native-reanimated
+ *             lib/cardPane, lib/expandableCards, lib/i18n, lib/useAppTheme, react-native-reanimated,
+ *             react-native-safe-area-context (the pane pads clear of the status/gesture bars)
  *   Used by → <CardExpandHost/> mounted in app/_layout.tsx; expandCard()/collapseCard() called
  *             from lib/useCardExpand.ts (which every expandable card uses); useExpandedCardId()
  *             read by lib/useCardExpand.ts to know whether ITS card is the one showing
@@ -93,7 +94,8 @@
  *     is over before the eye can follow the edges and reads as a cut to a new screen.
  */
 import React, { useEffect, useRef, useState } from 'react';
-import { BackHandler, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { BackHandler, Platform, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   Extrapolation,
   interpolate,
@@ -203,11 +205,7 @@ function CatalogueExpandedBody() {
         <CatalogueTab
           onNotify={() => {}}
           locked={locked}
-          header={
-            <View style={styles.expandedControls}>
-              <CatalogueHeaderControls locked={locked} onToggleLock={() => setLocked((v) => !v)} />
-            </View>
-          }
+          searchAccessory={<CatalogueHeaderControls locked={locked} onToggleLock={() => setLocked((v) => !v)} />}
         />
       ) : (
         <FoodTab onNotify={() => {}} />
@@ -470,11 +468,23 @@ export function useExpandedCardId(): ExpandableCardId | null {
  */
 const PANE_FROST = { enabled: true, scrollY: null };
 
+/**
+ * The corner the full-screen pane ends at: roughly the display's own (2026-10-11). Neither
+ * platform exposes the panel's corner radius to JS, so this is a typical value per platform —
+ * current iPhones sit around 44–55pt, current Android flagships around 24–32dp. Erring small is
+ * the safe side: a corner a little tighter than the glass is invisible, one wider is a visible
+ * notch of backdrop.
+ */
+const SCREEN_CORNER_RADIUS = Platform.OS === 'ios' ? 44 : 28;
+
 export default function CardExpandHost() {
   const theme = useAppTheme();
   const t = useT();
   const { reducedMotion } = useAccessibility();
   const { width: screenW, height: screenH } = useWindowDimensions();
+  // The pane covers the whole window, status bar and gesture bar included (it is mounted outside
+  // every SafeAreaView), so its column pads itself clear of both.
+  const insets = useSafeAreaInsets();
   const [request, setRequest] = useState<ExpandRequest | null>(null);
   const progress = useSharedValue(0);
   // A SHARED value, not a `useRef` — see the "`seq` is a shared value" edit note. The exit
@@ -539,7 +549,9 @@ export default function CardExpandHost() {
     top: interpolate(progress.value, [0, 1], [startRect.y - origin.y, 0]),
     width: interpolate(progress.value, [0, 1], [startRect.width, screenW]),
     height: interpolate(progress.value, [0, 1], [startRect.height, screenH]),
-    borderRadius: interpolate(progress.value, [0, 1], [Radius.md, 0]),
+    // Ends at the PHONE's corner, not square (2026-10-11, maintainer: *"Full-screen should corner
+    // like the phone it is being used on"*) — see SCREEN_CORNER_RADIUS.
+    borderRadius: interpolate(progress.value, [0, 1], [Radius.md, SCREEN_CORNER_RADIUS]),
     // The cross-fade that makes this a card GROWING rather than a pane appearing over one.
     // The pane is opaque, so at full strength on frame 1 it replaces the card's own content
     // with a blank surface before a single pixel has moved — the card's rows blink out, an
@@ -605,7 +617,18 @@ export default function CardExpandHost() {
           >
             <ScreenColorContext.Provider value={paneHue}>
             <FrostContext.Provider value={PANE_FROST}>
-            <Surface surfaceContext="overlay" frosted style={styles.surface}>
+            {/* ⚠️ **The Surface is the pane's BACKGROUND, not its layout parent (2026-10-11).**
+                Surface puts its children in an inner content view with no height of its own, so
+                a `flex: 1` body inside it was given 0dp by Yoga on device — the pane drew its
+                title bar and then nothing at all (reported with a screenshot of an empty "I dag"
+                pane). CSS gives a `flex: 1` child of an auto-height parent its content height,
+                so the web preview and every harness showed the body perfectly. The header and
+                body now sit in their own `flex: 1` column over the Surface, whose height is the
+                pane's animated one — a definite size on every platform. */}
+            <Surface surfaceContext="overlay" frosted style={[styles.surface, { borderRadius: SCREEN_CORNER_RADIUS }]}>
+              {null}
+            </Surface>
+            <View style={[styles.column, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
               {/* ⚠️ **Back is TOP-LEFT (2026-10-11, V2 card rule)** — where Android and iOS put it,
                   and the side the system back gesture already means. It was a contract ⤢ in the
                   top-right corner, the one control in the app that closed something from the
@@ -643,7 +666,7 @@ export default function CardExpandHost() {
                   )}
                 </PaneCardContext.Provider>
               </Animated.View>
-            </Surface>
+            </View>
             </FrostContext.Provider>
             </ScreenColorContext.Provider>
           </Animated.View>
@@ -656,7 +679,8 @@ export default function CardExpandHost() {
 const styles = StyleSheet.create({
   root: { zIndex: 100 },
   pane: { position: 'absolute', overflow: 'hidden' },
-  surface: { flex: 1, borderRadius: 0, padding: 0 },
+  surface: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, flex: 1, padding: 0 },
+  column: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -666,10 +690,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   title: { flex: 1, fontFamily: Fonts.bold, fontSize: FontSize.lg, marginLeft: Spacing.sm },
-  // The catalogue's camera + lock inside the expanded pane. Right-aligned and boxless — the
-  // rule this pass established is that these two sit in the surface's top part, not in an edge
-  // of their own.
-  expandedControls: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' },
   /** Catalogue's Items/Dishes switch, sitting above whichever library is showing. */
   expandedTabs: { marginBottom: Spacing.sm },
   // The strip sits between the pane's title bar and its body — the prototype's placement, and

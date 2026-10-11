@@ -116,7 +116,7 @@ import { tabChromeBand } from '@/components/ScreenScaffold';
 import { START_TAB_ROUTE_PATH } from '@/lib/siteNav';
 // The hole/ring arithmetic, pure and unit-tested — see lib/tourSpotlight.ts's header for why
 // it does not live inline here.
-import { coachCardBox, hasHole, spotlightHole, spotlightRing } from '@/lib/tourSpotlight';
+import { coachCardBox, fitHoleForCard, hasHole, spotlightHole, spotlightRing, tourScrim } from '@/lib/tourSpotlight';
 
 /**
  * How long a step waits for its target to measure before it draws itself WITHOUT one.
@@ -348,7 +348,7 @@ export default function TourSpotlight() {
   if (showFinale) {
     return frame(
       <Animated.View style={[StyleSheet.absoluteFill, styles.finaleWrap, { opacity: fade }]}>
-        <View style={[styles.scrimFull, { backgroundColor: theme.overlay }]} />
+        <View style={[styles.scrimFull, { backgroundColor: tourScrim(theme.overlay) }]} />
         <View style={[styles.card, styles.finaleCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           {/* Same bound as a step card, for the same reason: this one carries the most copy in
               the tour (title, body, and the experimental-build note) and it is centred in a
@@ -409,7 +409,12 @@ export default function TourSpotlight() {
   // The mid-screen `y` is only about where the card lands (it is placed relative to the
   // hole): a zero-height hole at the middle puts the coach card in the lower half rather than
   // jammed under the header.
-  const hole = rect ? spotlightHole(rect, screen, band) : { x: 0, y: Math.round(height / 2), w: 0, h: 0 };
+  const cardSafe = { top: insets.top + Spacing.sm, bottom: insets.bottom + Spacing.sm };
+  // Trimmed so the coach card fits beside the hole, never over the card it explains — see
+  // fitHoleForCard (2026-10-11).
+  const hole = rect
+    ? fitHoleForCard(spotlightHole(rect, screen, band), screen, cardSafe, Spacing.md)
+    : { x: 0, y: Math.round(height / 2), w: 0, h: 0 };
   const ring = spotlightRing(hole, screen, band);
   const lit = hasHole(hole);
   // Where the card goes — an anchored edge plus the room it may take, never a predicted height.
@@ -420,20 +425,22 @@ export default function TourSpotlight() {
   // looks off". `coachCardBox` measures the band instead; see its docblock for the four
   // viewports and the clipped values. The card can no longer leave the screen at any size, in
   // any language, at any font scale, because nothing here guesses how tall it is.
-  const box = coachCardBox(hole, screen, { top: insets.top + Spacing.sm, bottom: insets.bottom + Spacing.sm }, Spacing.md);
+  const box = coachCardBox(hole, screen, cardSafe, Spacing.md);
+  // Darker than a sheet's backdrop, so only the lit card reads — see tourScrim.
+  const scrim = tourScrim(theme.overlay);
   const copy = t.tour.steps[step.id as keyof typeof t.tour.steps];
 
   return frame(
     <Animated.View style={[StyleSheet.absoluteFill, styles.overlay, { opacity: fade }]} pointerEvents="box-none">
       {/* Four rects around the target rather than a masked scrim — see the edit notes. The
           middle is left genuinely uncovered, so the card underneath stays tappable. */}
-      <View style={[styles.dim, { backgroundColor: theme.overlay, top: 0, left: 0, right: 0, height: hole.y }]} />
-      <View style={[styles.dim, { backgroundColor: theme.overlay, top: hole.y + hole.h, left: 0, right: 0, bottom: 0 }]} />
-      <View style={[styles.dim, { backgroundColor: theme.overlay, top: hole.y, left: 0, width: hole.x, height: hole.h }]} />
+      <View style={[styles.dim, { backgroundColor: scrim, top: 0, left: 0, right: 0, height: hole.y }]} />
+      <View style={[styles.dim, { backgroundColor: scrim, top: hole.y + hole.h, left: 0, right: 0, bottom: 0 }]} />
+      <View style={[styles.dim, { backgroundColor: scrim, top: hole.y, left: 0, width: hole.x, height: hole.h }]} />
       <View
         style={[
           styles.dim,
-          { backgroundColor: theme.overlay, top: hole.y, left: hole.x + hole.w, width: Math.max(0, width - hole.x - hole.w), height: hole.h },
+          { backgroundColor: scrim, top: hole.y, left: hole.x + hole.w, width: Math.max(0, width - hole.x - hole.w), height: hole.h },
         ]}
       />
 

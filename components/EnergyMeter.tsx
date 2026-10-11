@@ -775,7 +775,9 @@ export default function EnergyMeter() {
       {!pause.paused && (
         <Card
           id="homeEnergy"
-          peek={showTutorial ? t.energyMeter.notSetPeek : t.energyMeter.budgetPeek(activeSplit.spent, activeCapacity, activeSplit.gained)}
+          peek={showTutorial ? t.energyMeter.tutorialPeek(activeCapacity) : t.energyMeter.budgetPeek(activeSplit.spent, activeCapacity, activeSplit.gained)}
+          // Empty-only, like every card hint: what Energy IS, said while the bolts are all outline.
+          hint={showTutorial ? t.cardHint.homeEnergy : undefined}
         >
           {!showTutorial && showDay && showWeek && (
             <SegmentedControl<EnergyScope>
@@ -862,6 +864,14 @@ export default function EnergyMeter() {
               />
             </View>
           )}
+          {/* What the switch does, in its current position (2026-10-11, maintainer: *"Energy
+              slider, what does it do?"*). A bare label beside a number and a switch could not say
+              whether the switch moved the number, saved it, or turned Energy off. */}
+          {showDay && (inPane || scope === 'day') && (
+            <Text style={[styles.dailyHint, { color: theme.textMuted }]}>
+              {fixedDaily ? t.energyMeter.fixedDailyOn : t.energyMeter.fixedDailyOff}
+            </Text>
+          )}
           {inPane ? configPanel : (
             <Collapsible open={configOpen && !(showDay && scope === 'day')}>
               {configPanel}
@@ -916,6 +926,7 @@ const styles = StyleSheet.create({
   // The V2 card's one control row: label, the day's amount, and "Fast hver dag".
   dailyRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: MIN_TAP_TARGET },
   dailyLabel: { flex: 1, minWidth: 0, fontSize: FontSize.sm, fontFamily: Fonts.medium },
+  dailyHint: { fontSize: FontSize.xs, fontFamily: Fonts.regular, marginTop: -Spacing.xs },
   overspendRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, minHeight: MIN_TAP_TARGET },
   overspendRowText: { fontSize: FontSize.sm, fontFamily: Fonts.medium, flexShrink: 1 },
   // The ROW container a `QuickAddOptionRow` assumes it is in — see both call sites' notes. Its

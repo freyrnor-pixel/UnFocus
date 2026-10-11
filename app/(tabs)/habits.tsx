@@ -32,7 +32,7 @@
  * no full-screen ⤢ button, because its registered expansion body was a placeholder.
  *
  * Connections:
- *   Imports → components/NarratorQuote (2026-08-19 — what a day with no habits due says),
+ *   Imports → components/TourTarget (the tour's Habits stop), components/NarratorQuote (2026-08-19 — what a day with no habits due says),
  *             components/ScreenScaffold, components/StarterCard
  *             (and components/StarterSuggestionChip, 2026-08-12 — the shared empty-state
  *             suggestion chip that replaced this screen's hand-rolled `starterChip`)
@@ -225,6 +225,7 @@
 import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import ScreenScaffold from '@/components/ScreenScaffold';
+import TourTarget from '@/components/TourTarget';
 import HabitsSurface from '@/components/HabitsSurface';
 import ManageCardsSheet from '@/components/ManageCardsSheet';
 import { useT } from '@/lib/i18n';
@@ -243,9 +244,14 @@ export default function HabitsScreen() {
       ownBackground={false}
       onManageCardsPress={() => setManageCardsOpen(true)}
     >
-      <View style={styles.content}>
-        <HabitsSurface />
-      </View>
+      {/* The tour's stop on this tab (2026-10-11). Wraps the named View, never a fragment —
+          see lib/__tests__/tourSteps.test.ts. The spotlight clamps the hole to what is visible
+          and trims it to leave the coach card room, so a long surface is fine here. */}
+      <TourTarget id="tour.habits.tab">
+        <View style={styles.content}>
+          <HabitsSurface />
+        </View>
+      </TourTarget>
       <ManageCardsSheet visible={manageCardsOpen} screen="habits" onClose={() => setManageCardsOpen(false)} />
     </ScreenScaffold>
   );
