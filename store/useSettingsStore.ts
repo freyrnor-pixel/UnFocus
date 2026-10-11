@@ -751,6 +751,21 @@ export const RETIRED_SETTINGS = {
   reduceEffects: false,
   leftHanded: false,
   planTimelineHorizontal: false,
+  // Second pass, same day ("Alle"): feature flags no one needs to switch are always on, the
+  // growth backdrop is a visual effect and goes with the others, the overview notification
+  // goes (pinned OFF — lib/widgets/sync.ts cancels a live one on the next refresh), and the
+  // voice/contacts/location switches go because each feature already asks the OS for
+  // permission on first use (lib/useVoiceCapture.ts, TaskCard's contact picker,
+  // lib/location.ts). Calendar sync is NOT here: it writes events into the user's own
+  // calendar, which is a real choice, not a permission.
+  featureAutomations: true,
+  featureDayLog: true,
+  featureTaskDecay: true,
+  showGrowth: false,
+  persistentNotifEnabled: false,
+  voiceNotesEnabled: true,
+  contactsEnabled: true,
+  locationEnabled: true,
 } as const satisfies Partial<Settings>;
 
 function withoutRetired<T extends object>(patch: T): T {
@@ -1023,11 +1038,11 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   debugModeEnabled: false,
   lastMonthlyReset: '',
   habitNotificationsEnabled: true,
-  locationEnabled: false,
+  locationEnabled: true, // pinned — RETIRED_SETTINGS
   backgroundLocationEnabled: false,
   calendarSyncEnabled: false,
   voiceNotesEnabled: true,
-  contactsEnabled: false,
+  contactsEnabled: true, // pinned — RETIRED_SETTINGS
   deviceCalendarId: '',
   accountName: '',
   accountCreated: '',
@@ -1066,7 +1081,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   featureSharing: false,
   featureScan: true,
   featureFood: true,
-  featureAutomations: false,
+  featureAutomations: true, // pinned — RETIRED_SETTINGS
   featureMedicine: true,
   featureDayLog: true,
   featureTaskDecay: true,
