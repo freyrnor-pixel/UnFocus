@@ -449,6 +449,9 @@
  *     both receipt OCR and QR import, so this one button is the sole replacement for the
  *     bottom-nav tab Scan used to occupy. The existing "Shopping done!" Scan/Upload choices
  *     (line ~245) already pushed `/scan` directly and are unaffected by this move.
+ *   - **Scan back in the header (V2, 2026-10-11)**, targeted this time: it opens `/scan` with
+ *     `target: 'catalogue'` (add/update names and prices, every line reviewed first). The
+ *     per-list scans ("Ferdig" → Scan, Monthly's ⋯) keep their own list targets.
  *   - **Still dropped**: SiteSwipeView's swipe-between-screens wrapper (Phase 3e, not
  *     ported, not required by A2-1/A2-4).
  *   - `ConfirmationBanner` renders as a sibling of ScreenScaffold, not inside its
@@ -2827,7 +2830,7 @@ export default function ShoppingScreen() {
 
   return (
     <>
-    <ScreenScaffold title={t.shoppingTitle} tier="site" screenKey="shopping" bottomNav={false} pagerFloatingNav ownBackground={false} onSharePress={featureSharing ? () => router.push('/share-modal?kind=s') : undefined} onManageCardsPress={() => setManageCardsOpen(true)} onScroll={handleScreenScroll}>
+    <ScreenScaffold title={t.shoppingTitle} tier="site" screenKey="shopping" bottomNav={false} pagerFloatingNav ownBackground={false} onSharePress={featureSharing ? () => router.push('/share-modal?kind=s') : undefined} onScanPress={() => router.push({ pathname: '/scan', params: { target: 'catalogue' } })} onManageCardsPress={() => setManageCardsOpen(true)} onScroll={handleScreenScroll}>
       {/* Debug notes: one anchor for the whole list region. Don't also wrap the inner
           cards/rows — one DebugNoteAnchor per region (no nesting). */}
       <DebugNoteAnchor id="shopping.list" label="Shopping — List" style={styles.content}>

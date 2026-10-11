@@ -230,9 +230,13 @@ describe('every top-level tab header is title + gear', () => {
   // meant, so a scan could only ever add rows. It is a per-card action now (each weekly and
   // monthly list's ⋮, and the Catalogue's own header), each passing a `target` so "scan" means
   // match-against-this-list or update-the-catalogue. See lib/scanTarget.ts.
-  test('no tab passes the camera to its header any more', () => {
+  // V2 (2026-10-11) narrows that: the maintainer asked for scan "in the header, right" on Handle.
+  // It is allowed back on that ONE tab and only with an explicit catalogue target, which answers
+  // the original objection — the header no longer has to guess a list.
+  test('only Handle passes the camera to its header, and it names the catalogue', () => {
     const withScan = TAB_SCREENS.filter((rel) => passes(scaffoldTags(rel)[0], 'onScanPress'));
-    expect(withScan).toEqual([]);
+    expect(withScan).toEqual(['app/(tabs)/shopping.tsx']);
+    expect(scaffoldTags('app/(tabs)/shopping.tsx')[0]).toMatch(/onScanPress=\{[^}]*target: 'catalogue'/);
   });
 
   test('every scan entry point names the list it acts on', () => {
