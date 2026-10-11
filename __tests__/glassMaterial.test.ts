@@ -30,7 +30,6 @@ import { filledEdge, getGlassEdge, getGlassPane, getLayeredShadow, getGlow, getR
 import { THEMES, contrastRatio, IDENTITY_HUES } from '@/constants/colors';
 import { badgeGlyphFor } from '@/lib/domainColor';
 import { useSettingsStore, RETIRED_SETTINGS } from '@/store/useSettingsStore';
-import { getTranslations } from '@/lib/i18n';
 
 // Keep the settings-store import DB-free: the module reaches @/lib/db via dataAccess at
 // import time, and load() isn't called here, so a minimal stub is enough.

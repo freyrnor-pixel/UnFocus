@@ -52,7 +52,7 @@ export type TourStep = {
   /** Router path of the tab this step lives on. Tabs ONLY — the tour navigates itself there
    *  by switching the pager, and a pushed sub-screen would leave the user somewhere the
    *  spotlight cannot follow them back from. */
-  route: '/' | '/shopping' | '/plans';
+  route: '/' | '/shopping' | '/plans' | '/habits' | '/health';
   /** Must match a <TourTarget id=…> rendered on that screen. */
   targetId: string;
 };
@@ -84,6 +84,12 @@ export const TOUR_STEPS: readonly TourStep[] = [
   { id: 'home', route: '/', targetId: 'tour.home.today' },
   { id: 'shopping', route: '/shopping', targetId: 'tour.shopping.list' },
   { id: 'todo', route: '/plans', targetId: 'tour.plans.today' },
+  // **Five steps, one per tab, since 2026-10-11** (maintainer: *"Tour should be general and
+  // explain the 5 screens, and different cards"*). The two new ids are `habitsTab`/`healthTab`,
+  // NOT the retired `habits`/`health`: those are still sitting in the stored progress of anyone
+  // who finished the old five-step tour, and reusing them would mark the new steps done unseen.
+  { id: 'habitsTab', route: '/habits', targetId: 'tour.habits.tab' },
+  { id: 'healthTab', route: '/health', targetId: 'tour.health.tab' },
 ];
 
 /** Sentinel recorded when the whole tour is dismissed, so it never re-opens by itself. */

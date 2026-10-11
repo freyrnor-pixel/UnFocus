@@ -229,7 +229,11 @@ const en = {
        with a title AND one line saying what it holds; Energy's empty state had neither, so a
        row of grey glyphs and a button sat in a bare panel among titled cards. Neutral by
        construction — it states a fact about the day, and there is nothing to be behind on. */
+    /** The widget's empty line (Energy switched off). The CARD's tutorial state uses
+        `tutorialPeek` since 2026-10-11: "Not set for today" beside a stepper reading 10
+        contradicted the number under it. The budget IS set; nothing uses it yet. */
     notSetPeek: 'Not set for today',
+    tutorialPeek: (cap: number) => `${cap} free today`,
     /* The adjust row's value in the EMPTY card (2026-09-08): the row is the way IN, so it says
        there is no number yet rather than showing a zero, which would read as a budget of none. */
     /* These two name the meter, not just the period (2026-08-03). They were 'Today' /
@@ -259,18 +263,18 @@ const en = {
     /** Shown instead of a silently-full bar. Never "over budget" — it states, it does not scold. */
     budgetOver: (n: number) => `${n} past today's budget`,
     budgetAdjust: 'Adjust budget',
-    /** The V2 card's one control row (2026-10-11): ON = today's amount is the everyday default. */
-    fixedDaily: 'Same every day',
+    /** The V2 card's one control row: the everyday amount (no per-day switch since 2026-10-11). */
+    fixedDaily: 'Every day',
     budgetUnits: (n: number) => `${n} units`,
     /** The ✏️'s accessibility label (was also the title of the retired EnergyConfigSheet). */
     editTitle: 'Adjust energy',
-    todayCapacity: "Today's energy",
+    todayCapacity: 'Energy every day',
     weekCapacity: "This week's energy",
     /* One line per stepper in the config sheet, saying what that stepper CHANGES (2026-08-03).
        This is the copy half of the fix for "it is not obvious to a user what is what": a ± beside
        a `7 / 10` readout cannot say whether it moves the capacity or the spend, and on the strip
        there was no room to tell them. Neither line names a good number or suggests one. */
-    todayCapacityHint: 'How much today holds. Every other day keeps its own number.',
+    todayCapacityHint: 'How much a day holds. A one-off goes under Extra for today.',
     weekCapacityHint: 'How much the whole week holds.',
     done: 'Done',
     // The "+ today only" boost, in the ✏️ editor beside the capacity stepper (2026-08-02).
@@ -364,6 +368,7 @@ const en = {
     healthWeek: 'Log what you notice. Patterns show up over weeks, not days.',
     // Added 2026-09-06 for Home's Notes card — no existing key fit (see DECISIONS_OPEN.md).
     homeNotes: 'A stray thought written down is one less thing to carry in your head.',
+    homeEnergy: 'Energy is what a day can hold. Bolts light up as tasks and habits use it.',
   },
   peek: {
     todoToday: (left: number, done: number) =>
@@ -739,17 +744,28 @@ const en = {
        outcomes and asked the reader to tell "Skip this" from "Skip the tour". */
     skipAll: 'Skip the tour',
     steps: {
+      // One step per tab since 2026-10-11 (maintainer: *"Tour should be general and explain the 5
+      // screens, and different cards. This also in short, with some humor"*). Each step names the
+      // screen's cards and adds the one thing the cards do not say about themselves.
       home: {
-        title: 'Home gathers the day',
-        body: 'Energy, today and notes, on one screen.\n• Small beats perfect — one thing you can finish.\n• A quiet day is just a quiet day.',
+        title: 'Home: the day on one screen',
+        body: 'Energy, Today and Notes.\n• Energy is what the day can hold, not what it ought to.\n• Today is what you actually do. Tiny counts.',
       },
       shopping: {
-        title: 'Everything you need to buy',
-        body: 'Your lists sit here, next to your dishes and a catalogue of what you usually buy.',
+        title: 'Shop: the fridge will not text you',
+        body: 'Week lists, Inventory for the regulars, and a Catalogue of what you usually buy.\n• Budget watches the wallet, so you do not have to.',
       },
       todo: {
-        title: 'To-do holds the rest of the week',
-        body: 'Today, this week, whenever, and what repeats.\n• Press a card title to open it full screen.',
+        title: 'To-do: everything that is not today',
+        body: 'Whenever, plus a Planner for the calendar and what repeats.\n• ⤢ opens any card full screen.',
+      },
+      habitsTab: {
+        title: 'Habits: no scoreboard',
+        body: 'Small things you want to keep doing.\n• Skip a day and the habit does not remember. Neither do we.',
+      },
+      healthTab: {
+        title: 'Health: notes from your body',
+        body: 'Health issues and medicine.\n• Log what you notice. Your doctor will think you are very organised.',
       },
     },
     finale: {
@@ -2528,6 +2544,7 @@ const no: typeof en = {
   energyMeter: {
     title: 'Energi',
     notSetPeek: 'Ikke satt for i dag',
+    tutorialPeek: (cap: number) => `${cap} ledig i dag`,
     /* Se den engelske tvillingen: disse navngir måleren, ikke bare perioden (2026-08-03). */
     today: 'Energi i dag',
     thisWeek: 'Energi denne uken',
@@ -2541,13 +2558,13 @@ const no: typeof en = {
       `${used} av ${cap} brukt${back > 0 ? ` · +${back} gitt tilbake` : ''}`,
     budgetOver: (n: number) => `${n} over dagens budsjett`,
     budgetAdjust: 'Juster budsjett',
-    fixedDaily: 'Fast hver dag',
+    fixedDaily: 'Hver dag',
     budgetUnits: (n: number) => `${n} enheter`,
     editTitle: 'Juster energi',
-    todayCapacity: 'Energi i dag',
+    todayCapacity: 'Energi hver dag',
     weekCapacity: 'Energi denne uken',
     /* Se de engelske tvillingene: én linje per teller, som sier hva telleren endrer (2026-08-03). */
-    todayCapacityHint: 'Hvor mye dagen i dag rommer. Alle andre dager beholder sitt eget tall.',
+    todayCapacityHint: 'Hvor mye en dag rommer. Noe ekstra bare i dag går under Ekstra i dag.',
     weekCapacityHint: 'Hvor mye hele uken rommer.',
     done: 'Ferdig',
     boostToday: 'Ekstra i dag',
@@ -2579,6 +2596,7 @@ const no: typeof en = {
     habitsList: 'En vane du tar opp igjen er den samme vanen. Den husker ikke pausen.',
     healthWeek: 'Logg det du merker. Mønstre viser seg over uker, ikke dager.',
     homeNotes: 'En løs tanke skrevet ned er én ting mindre å bære på i hodet.',
+    homeEnergy: 'Energi er det en dag tåler. Lynene tennes når oppgaver og vaner bruker av den.',
   },
   peek: {
     todoToday: (left: number, done: number) =>
@@ -2847,16 +2865,24 @@ const no: typeof en = {
     skipAll: 'Hopp over omvisningen',
     steps: {
       home: {
-        title: 'Hjem samler dagen',
-        body: 'Energi, i dag og notater, på én skjerm.\n• Lite slår perfekt — én ting du blir ferdig med.\n• En rolig dag er bare en rolig dag.',
+        title: 'Hjem: dagen på én skjerm',
+        body: 'Energi, I dag og Notater.\n• Energi er hva dagen tåler, ikke hva den burde tåle.\n• I dag er det du faktisk gjør. Smått teller.',
       },
       shopping: {
-        title: 'Alt du trenger å kjøpe',
-        body: 'Listene dine ligger her, ved siden av rettene dine og en katalog over det du pleier å handle.',
+        title: 'Handle: kjøleskapet sender ikke SMS',
+        body: 'Ukelister, Lager for det faste, og en Katalog over det du pleier å kjøpe.\n• Budsjett følger med på lommeboka, så du slipper.',
       },
       todo: {
-        title: 'Gjøremål holder på resten av uken',
-        body: 'I dag, denne uken, når som helst, og det som gjentar seg.\n• Trykk på tittelen til et kort for å åpne det i full skjerm.',
+        title: 'Gjøremål: alt som ikke er i dag',
+        body: 'Når som helst, og Planlegger for kalender og det som gjentar seg.\n• ⤢ åpner et kort i full skjerm.',
+      },
+      habitsTab: {
+        title: 'Vaner: ingen poengtavle',
+        body: 'Små ting du vil fortsette med.\n• Står du over en dag, husker ikke vanen det. Ikke vi heller.',
+      },
+      healthTab: {
+        title: 'Helse: kroppens notatblokk',
+        body: 'Helseplager og medisin.\n• Logg det du merker. Legen din kommer til å tro du er superorganisert.',
       },
     },
     finale: {
@@ -4312,6 +4338,7 @@ const is: typeof en = {
   energyMeter: {
     title: 'Orka',
     notSetPeek: 'Ekki stillt fyrir daginn',
+    tutorialPeek: (cap: number) => `${cap} laus í dag`,
     /* Sjá enska tvíburann: þetta nefnir mælinn, ekki bara tímabilið (2026-08-03). */
     today: 'Orka í dag',
     thisWeek: 'Orka þessa viku',
@@ -4325,13 +4352,13 @@ const is: typeof en = {
       `${used} af ${cap} notað${back > 0 ? ` · +${back} skilað` : ''}`,
     budgetOver: (n: number) => `${n} yfir fjárhag dagsins`,
     budgetAdjust: 'Stilla fjárhag',
-    fixedDaily: 'Sama alla daga',
+    fixedDaily: 'Alla daga',
     budgetUnits: (n: number) => `${n} einingar`,
     editTitle: 'Stilla orku',
-    todayCapacity: 'Orka í dag',
+    todayCapacity: 'Orka alla daga',
     weekCapacity: 'Orka þessa viku',
     /* Sjá ensku tvíburana: ein lína á hvern teljara, sem segir hverju hann breytir. */
-    todayCapacityHint: 'Hversu mikið dagurinn í dag rúmar. Aðrir dagar halda sinni eigin tölu.',
+    todayCapacityHint: 'Hversu mikið dagur rúmar. Eitthvað aukalega bara í dag fer undir aukaorku.',
     weekCapacityHint: 'Hversu mikið öll vikan rúmar.',
     done: 'Búið',
     boostToday: 'Aukalega í dag',
@@ -4364,6 +4391,7 @@ const is: typeof en = {
     habitsList: 'Venja sem þú tekur upp aftur er sama venjan. Hún man ekki hléið.',
     healthWeek: 'Skráðu það sem þú tekur eftir. Mynstur birtast á vikum, ekki dögum.',
     homeNotes: 'Laus hugsun sem er skrifuð niður er einu minna að bera í höfðinu.',
+    homeEnergy: 'Orka er það sem dagurinn þolir. Eldingarnar kvikna þegar verkefni og venjur nota hana.',
   },
   peek: {
     todoToday: (left: number, done: number) =>
@@ -4636,16 +4664,24 @@ const is: typeof en = {
     skipAll: 'Sleppa kynningunni',
     steps: {
       home: {
-        title: 'Heim safnar deginum',
-        body: 'Orka, í dag og minnispunktar, á einum skjá.\n• Lítið slær fullkomið — eitt sem þú klárar.\n• Rólegur dagur er bara rólegur dagur.',
+        title: 'Heim: dagurinn á einum skjá',
+        body: 'Orka, Í dag og minnispunktar.\n• Orka er það sem dagurinn þolir, ekki það sem hann ætti að þola.\n• Í dag er það sem þú gerir í raun. Smátt telur.',
       },
       shopping: {
-        title: 'Allt sem þarf að kaupa',
-        body: 'Listarnir þínir eru hér, við hliðina á réttunum þínum og skrá yfir það sem þú kaupir venjulega.',
+        title: 'Innkaup: ísskápurinn sendir ekki SMS',
+        body: 'Vikulistar, Birgðir fyrir það fasta og Vöruskrá yfir það sem þú kaupir venjulega.\n• Fjárhagur fylgist með veskinu, svo þú þurfir þess ekki.',
       },
       todo: {
-        title: 'Verkefni geymir restina af vikunni',
-        body: 'Í dag, þessa viku, hvenær sem er, og það sem endurtekur sig.\n• Ýttu á titil korts til að opna það í fullum skjá.',
+        title: 'Verkefni: allt sem er ekki í dag',
+        body: 'Hvenær sem er, og Skipuleggjari fyrir dagatal og það sem endurtekur sig.\n• ⤢ opnar kort á öllum skjánum.',
+      },
+      habitsTab: {
+        title: 'Venjur: engin stigatafla',
+        body: 'Smáhlutir sem þú vilt halda áfram með.\n• Sleppirðu degi man venjan það ekki. Ekki við heldur.',
+      },
+      healthTab: {
+        title: 'Heilsa: minnisbók líkamans',
+        body: 'Heilsuvandi og lyf.\n• Skráðu það sem þú tekur eftir. Læknirinn heldur að þú sért ofurskipulögð manneskja.',
       },
     },
     finale: {

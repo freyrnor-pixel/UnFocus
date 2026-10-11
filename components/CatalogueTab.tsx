@@ -206,6 +206,13 @@ type Props = {
   /** Screen-owned chrome (hint card + shared requests) rendered above the header boxes. */
   header?: React.ReactNode;
   /**
+   * A control drawn at the END of the search row, outside the well (2026-10-11) — the lock, on
+   * Handle's Katalog card and its ⤢ pane. It had a row of its own above the field, which was a
+   * whole line of height spent on one 48dp button (maintainer: *"The lock icon … does not need
+   * its own line"*).
+   */
+  searchAccessory?: React.ReactNode;
+  /**
    * Drawn inside a card rather than as the screen — Shopping's Catalogue drawer
    * (components/CollapsedSection.tsx). The search field, the "+" pop-up, the rows and the
    * tap-to-edit-in-place row are the SAME code and the same state; what the drawer cannot
@@ -392,7 +399,7 @@ export function CatalogueHeaderControls({
   );
 }
 
-export default function CatalogueTab({ onNotify, header, embedded = false, locked }: Props) {
+export default function CatalogueTab({ onNotify, header, searchAccessory, embedded = false, locked }: Props) {
   // For the search row's camera — see its note there; it moved out of CatalogueHeaderControls.
   const router = useRouter();
   const theme = useAppTheme();
@@ -805,7 +812,7 @@ export default function CatalogueTab({ onNotify, header, embedded = false, locke
           components/FormControls.tsx's `recessed` Input gives every other in-card composer in
           the app (PadTypeRow, InlineAddItem), so this field finally matches them. `shell` is
           not used here at all any more; the well IS the box. */}
-      {(
+      <View style={styles.searchLine}>
         <View
           style={[
             styles.searchRow,
@@ -876,7 +883,8 @@ export default function CatalogueTab({ onNotify, header, embedded = false, locke
             size={IconSize.compact}
           />
         </View>
-      )}
+        {searchAccessory}
+      </View>
       {items.length === 0 && (
         <Text style={[styles.empty, { color: theme.textMuted }]}>{t.catalogueEmpty}</Text>
       )}
@@ -1118,7 +1126,11 @@ const baseStyles = StyleSheet.create({
   // — `getFieldGlow`'s `FIELD_RADIUS` when lit, a bare `{ borderRadius: FIELD_RADIUS }` when
   // not — so the well and its light cannot be cut to two different shapes whichever branch is
   // live, the same arrangement components/AddRow.tsx and FormControls' Input use.
+  // The well plus an optional `searchAccessory` (the lock) on one line — see that prop.
+  searchLine: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   searchRow: {
+    flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,

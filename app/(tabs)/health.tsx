@@ -28,7 +28,7 @@
  * same case — it is health, and it is a visible peer card, not a system buried in another one.
  *
  * Connections:
- *   Imports → components/ScreenScaffold, components/HealthSurface, lib/i18n, constants/theme
+ *   Imports → components/ScreenScaffold, components/HealthSurface, components/TourTarget (the tour's Health stop), lib/i18n, constants/theme
  *   Used by → Expo Router route "/health" — one of 5 co-mounted pager tabs under
  *             app/(tabs)/_layout.tsx
  *   Data    → none directly — HealthSurface drives store/useHealthStore and useMedicineStore
@@ -36,6 +36,7 @@
 import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import ScreenScaffold from '@/components/ScreenScaffold';
+import TourTarget from '@/components/TourTarget';
 import HealthSurface from '@/components/HealthSurface';
 import ManageCardsSheet from '@/components/ManageCardsSheet';
 import { useT } from '@/lib/i18n';
@@ -55,9 +56,14 @@ export default function HealthScreen() {
       ownBackground={false}
       onManageCardsPress={() => setManageCardsOpen(true)}
     >
-      <View style={styles.content}>
-        <HealthSurface />
-      </View>
+      {/* The tour's stop on this tab (2026-10-11). Wraps the named View, never a fragment —
+          see lib/__tests__/tourSteps.test.ts. The spotlight clamps the hole to what is visible
+          and trims it to leave the coach card room, so a long surface is fine here. */}
+      <TourTarget id="tour.health.tab">
+        <View style={styles.content}>
+          <HealthSurface />
+        </View>
+      </TourTarget>
       <ManageCardsSheet visible={manageCardsOpen} screen="health" onClose={() => setManageCardsOpen(false)} />
     </ScreenScaffold>
   );

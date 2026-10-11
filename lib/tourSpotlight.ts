@@ -172,3 +172,59 @@ export function coachCardBox(
     ? { edge: 'bottom', bottom: safe.bottom, maxHeight: full }
     : { edge: 'top', top: safe.top, maxHeight: full };
 }
+
+/**
+ * The shortest hole worth drawing once it has been trimmed for the coach card — enough to show a
+ * card's header row (badge, title, peek) so the ring still says WHICH card this step is about.
+ */
+export const MIN_TRIMMED_HOLE = 96;
+
+/**
+ * Trim the hole so the coach card fits BESIDE it rather than over it (2026-10-11, maintainer:
+ * *"tour-info-boxes must not overlap with the card it is explaining"*).
+ *
+ * `coachCardBox` falls back to overlaying the scrim when neither side of the hole has
+ * `MIN_BAND_RATIO` of the screen — and a tall target on an ordinary phone (Home's I dag card,
+ * any whole-tab target) is exactly that case, so the coach card was drawn across the lower half
+ * of the card it was describing. The fix is on the HOLE, not the card: show the top of the target
+ * (its header, which is what names it) and give the card the band underneath. A hole that already
+ * leaves room on either side is returned untouched, and so is an empty one.
+ *
+ * When even a `MIN_TRIMMED_HOLE` hole leaves no band below (the target starts low on a short
+ * screen), the hole is cut to that height anyway: `coachCardBox` then takes whichever band is
+ * larger, and a smaller hole is still the least overlap available.
+ */
+export function fitHoleForCard(
+  hole: Box,
+  screen: { width: number; height: number },
+  safe: { top: number; bottom: number },
+  gap: number,
+): Box {
+  if (!hasHole(hole)) return hole;
+  const need = screen.height * MIN_BAND_RATIO;
+  const limitTop = safe.top;
+  const limitBottom = screen.height - safe.bottom;
+  const above = hole.y - gap - limitTop;
+  const below = limitBottom - (hole.y + hole.h) - gap;
+  if (above >= need || below >= need) return hole;
+  const h = Math.floor(limitBottom - gap - need - hole.y);
+  return { ...hole, h: Math.max(Math.min(hole.h, MIN_TRIMMED_HOLE), Math.min(hole.h, h)) };
+}
+
+/** How opaque the tour's scrim is, in both themes (2026-10-11). */
+export const TOUR_SCRIM_ALPHA = 0.8;
+
+/**
+ * The tour's scrim: the theme's modal `overlay` colour at `TOUR_SCRIM_ALPHA` (2026-10-11,
+ * maintainer: *"Intro-tour should darken what is not in focus so it is not too prominent"*).
+ * `overlay` is tuned for a sheet's backdrop, where the page behind should stay legible (0.42 light,
+ * 0.68 dark); a spotlight wants the opposite — the rest of the screen should recede until only
+ * the lit card reads. Same hue as the overlay, so the tour still belongs to the theme. Never
+ * LOWERS an alpha that is already higher, and passes a non-`rgba()` colour through untouched.
+ */
+export function tourScrim(overlay: string): string {
+  const m = /^rgba\(\s*([^,]+),\s*([^,]+),\s*([^,]+),\s*([\d.]+)\s*\)$/.exec(overlay);
+  if (!m) return overlay;
+  const a = Math.max(Number(m[4]), TOUR_SCRIM_ALPHA);
+  return `rgba(${m[1]},${m[2]},${m[3]},${a})`;
+}

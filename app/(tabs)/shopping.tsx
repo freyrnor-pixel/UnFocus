@@ -22,7 +22,7 @@
  * mind about the order costs a line rather than relocating ~700 lines of drag/merge JSX. The old
  * cross-tab "item just landed in Weekly" tick cue is gone with the tab switch — there's no
  * longer an other tab for it to have landed on unseen. Everything downstream of the tab
- * bar — `WeekListCard`, the Monthly `catalogCard`s, the drag/merge/flight-animation state, the
+ * bar — `WeekListCard`, the Monthly lists (flat in the Lager card since 2026-10-11), the drag/merge/flight-animation state, the
  * sheets/modals — is untouched; only the switch that hid one group while showing the other
  * was removed.
  *
@@ -1919,17 +1919,25 @@ export default function ShoppingScreen() {
           )}
 
           {monthlyListViews.length === 0 ? (
-            <Surface style={styles.catalogCard}>
-              <Text style={[styles.sectionEmpty, { color: theme.textMuted }]}>
-                {t.monthlyListsEmpty}
-              </Text>
-            </Surface>
+            <Text style={[styles.sectionEmpty, { color: theme.textMuted }]}>
+              {t.monthlyListsEmpty}
+            </Text>
           ) : (
-            monthlyListViews.map((view) => {
+            monthlyListViews.map((view, listIdx) => {
               const list = view.list;
               const locked = list.locked;
+              // ⚠️ **A plain View, not a `Surface` (2026-10-11, maintainer: *"Inventory does not
+              // need to be box in box. Looks better as one thing."*).** Each list used to be its
+              // own Surface inside the Lager card — a card in a card. The lists are the card's
+              // body now; a second list is set off by a hairline, not by another box.
               return (
-                <Surface key={list.id} style={styles.catalogCard}>
+                <View
+                  key={list.id}
+                  style={[
+                    styles.monthlyListFlat,
+                    listIdx > 0 && [styles.monthlyListDivider, { borderTopColor: theme.border }],
+                  ]}
+                >
                   {/* Title on the left groups with the reset/lock actions on the right
                       (space-between) — the previous right-aligned-only layout left a big empty
                       gap between the tab label and the icons (2026-07-12 redesign). */}
@@ -2227,7 +2235,7 @@ export default function ShoppingScreen() {
                       </View>
                     )}
                   </View>
-                </Surface>
+                </View>
               );
             })
           )}
@@ -2741,14 +2749,12 @@ export default function ShoppingScreen() {
             embedded
             onNotify={setConfirm}
             locked={catalogueLocked}
-            // Lock + camera sit at the top of the Items body since 2026-10-11 (V2 card rule: a card
-            // header carries only ⌄ and ⤢). Same `header` slot the full-screen pane already used,
-            // so the card and its pane draw them identically. Items tab only: both act on the
-            // item list, neither means anything under Dishes.
-            header={
-              <View style={styles.catalogueControls}>
-                <CatalogueHeaderControls locked={catalogueLocked} onToggleLock={() => setCatalogueLocked((v) => !v)} />
-              </View>
+            // The lock sits at the end of the search row since 2026-10-11 (V2 card rule: a card
+            // header carries only ⌄ and ⤢; and a row of its own above the field was a whole line
+            // spent on one button). The full-screen pane passes it the same way, so the card and
+            // its pane draw it identically. Items tab only: it acts on the item list.
+            searchAccessory={
+              <CatalogueHeaderControls locked={catalogueLocked} onToggleLock={() => setCatalogueLocked((v) => !v)} />
             }
           />
         ) : (
@@ -3004,7 +3010,9 @@ const styles = StyleSheet.create({
   bodyGap: { gap: Spacing.xl },
   dishGroupsWrap: { gap: Spacing.xs },
 
-  catalogCard: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.md },
+  // The Lager card's lists, flat in the card body (2026-10-11) — see the note at the call site.
+  monthlyListFlat: { gap: Spacing.md },
+  monthlyListDivider: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: Spacing.md },
   catalogHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   catalogHeaderTitle: { fontFamily: Type.heading.fontFamily, fontSize: Type.heading.size },
   catalogHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
@@ -3205,7 +3213,6 @@ const styles = StyleSheet.create({
   budgetCellValue: { fontSize: FontSize.lg, fontFamily: Fonts.bold },
   budgetNote: { fontSize: FontSize.xs, fontFamily: Fonts.medium, lineHeight: 18 },
   /** Breathing room under Catalogue's Items/Dishes switch, matching the card's own body gap. */
-  catalogueControls: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' },
   catalogueTabs: { marginBottom: Spacing.sm },
   newListTriggerLabel: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
 });

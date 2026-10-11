@@ -141,6 +141,6 @@ describe('a missing target degrades to a ring-less step, never to a dead tour', 
   });
 
   it('draws no hole rather than requiring one', () => {
-    expect(src).toMatch(/const hole = rect \? spotlightHole\(/);
+    expect(src).toMatch(/const hole = rect\s*\?\s*fitHoleForCard\(spotlightHole\(/);
   });
 });
