@@ -310,7 +310,7 @@ export const CARDS = {
   // declined and this pass leaves alone.
   shopLists: {
     screen: 'shop',
-    order: 1,
+    order: 2,
     hue: 'shopping',
     domain: 'shop',
     badgeHue: true,
@@ -327,7 +327,6 @@ export const CARDS = {
     // on the reasoning that Home's "Shopping" preview already covered "Shopping rests open".
     // That reasoning was about Home's rule, not this tab's own; this tab gets its own first-card
     // exception like every other screen now.
-    openAtRest: true,
     // Already shipped, not new: components/InlineAddItem.tsx's flat panel already carries a
     // quantity Stepper and category chips for every weekly/monthly list — see that file's
     // header. This states what was already true rather than adding anything.
@@ -345,7 +344,7 @@ export const CARDS = {
   // same "nothing to mount that isn't already on screen" refusal.
   shopMonthly: {
     screen: 'shop',
-    order: 2,
+    order: 3,
     hue: 'shopping',
     domain: 'shop',
     icon: 'repeat',
@@ -385,7 +384,7 @@ export const CARDS = {
   // column's own pruning.
   shopCatalogue: {
     screen: 'shop',
-    order: 3,
+    order: 4,
     hue: 'shopping',
     domain: 'shop',
     icon: 'list',
@@ -399,12 +398,15 @@ export const CARDS = {
   },
   shopBudget: {
     screen: 'shop',
-    order: 4,
+    order: 1,
     hue: 'shopping',
     domain: 'shop',
     icon: 'wallet',
     title: (t) => t.budget.cardTitle,
     fold: 'persisted',
+    // V2 (2026-10-11): Budget is Handle's first card, slim like Home's Energy, so it is the
+    // tab's one card open at rest. `shopLists` gave the exception up with the first position.
+    openAtRest: true,
     // No pane: `app/budget.tsx` already IS the full-screen budget, reached from a Monthly
     // list's Budget pill, and it does more than this card (month navigation, the receipt list,
     // the per-store breakdown). A ⤢ here would be a third, thinner rendering of a screen that

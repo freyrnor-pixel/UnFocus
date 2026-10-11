@@ -575,6 +575,7 @@ import { groupByDish, groupByCategory, computeListGroups, listProgress, catalogI
 import { projectOrder, reorderByDrag } from '@/lib/reorder';
 import { categoryPresets, categoryLabel } from '@/lib/shoppingCategories';
 import { formatKr } from '@/lib/money';
+import BudgetBar from '@/components/BudgetBar';
 import { computeSpendPace } from '@/lib/budget';
 import { getDomainColor } from '@/lib/domainColor';
 import { getScreenColor } from '@/lib/screenColor';
@@ -689,7 +690,9 @@ export default function ShoppingScreen() {
   // ── Card collapse (2026-07-22 redesign: collapsed by default) ──
   const [expandedListIds, setExpandedListIds] = useState<Record<string, boolean>>({});
   function toggleListExpanded(listId: string) {
-    setExpandedListIds((s) => ({ ...s, [listId]: !s[listId] }));
+    // Open by default since V2 (2026-10-11): the card shows ONE list at a time, so the one on
+    // screen should show its rows.
+    setExpandedListIds((s) => ({ ...s, [listId]: !(s[listId] ?? true) }));
   }
 
   // ── Per-list draft snapshot (2026-07-22 redesign: full local draft + save/discard) ──
@@ -1413,6 +1416,21 @@ export default function ShoppingScreen() {
     }
     return map;
   }, [nonTemplateLists, monthlyResetDate]);
+
+  // ── V2 list pager (2026-10-11): ONE list on the card at a time, ‹ › between them ──
+  // Maintainer: "Shopping list one at a time ‹ ›". The cursor is the existing `focusedList`
+  // (it already picked the list Home's shortcuts act on), so the pager adds no state of its
+  // own. Order: week of the cycle, then the store's own order inside a week — the same order
+  // the four week sections used to stack them in.
+  const pagerLists = useMemo(() => [1, 2, 3, 4].flatMap((w) => listsByWeek[w] ?? []), [listsByWeek]);
+  const pagerIndex = focusedList ? Math.max(0, pagerLists.findIndex((l) => l.id === focusedList.id)) : 0;
+  const pagerList = pagerLists[pagerIndex];
+  const stepPager = (delta: number) => {
+    if (pagerLists.length < 2) return;
+    const next = pagerLists[(pagerIndex + delta + pagerLists.length) % pagerLists.length];
+    setFocusedListId(next.id);
+    tap();
+  };
 
   /**
    * Every non-template list's groups, computed ONCE per change of `items`, instead of once per
@@ -2330,9 +2348,22 @@ export default function ShoppingScreen() {
               live list is created. With neither, there's nothing to drag yet, so the big
               empty card below covers that case instead of 4 redundant "no lists here"
               sections. */}
+          {pagerLists.length > 1 && pagerList && (
+            <View style={styles.listPager}>
+              <IconButton icon="chevron-back" label={t.listPagerPrev} onPress={() => stepPager(-1)} />
+              <Text style={[styles.listPagerText, { color: theme.textMuted }]} numberOfLines={1}>
+                {t.listPagerPosition(pagerIndex + 1, pagerLists.length)}
+              </Text>
+              <IconButton icon="chevron-forward" label={t.listPagerNext} onPress={() => stepPager(1)} />
+            </View>
+          )}
+
           {(nonTemplateLists.length > 0 || templateLists.length > 0) && [1, 2, 3, 4].map((week) => {
             const weekRange = dateRangeForCycleWeek(todayStr(), monthlyResetDate, week, weeklyResetDay);
-            const weekLists = listsByWeek[week] ?? [];
+            // With a list on the pager, only its week and only it are drawn. With none (saved
+            // lists only), all four weeks stay as drop targets for a saved list.
+            if (pagerList && !(listsByWeek[week] ?? []).some((l) => l.id === pagerList.id)) return null;
+            const weekLists = pagerList ? [pagerList] : listsByWeek[week] ?? [];
             const isDropTarget =
               (weekDrag != null && weekDrag.targetWeek === week && weekDrag.startWeek !== week) ||
               (savedListDrag != null && savedListDrag.targetWeek === week);
@@ -2387,7 +2418,7 @@ export default function ShoppingScreen() {
                       drag && drag.listId === list.id
                         ? projectOrder(drag.order, groups.ungroupedUnchecked)
                         : groups.ungroupedUnchecked;
-                    const expanded = !!expandedListIds[list.id];
+                    const expanded = expandedListIds[list.id] ?? true;
 
                     return (
                       <DraggableTaskRow
@@ -2735,6 +2766,13 @@ export default function ShoppingScreen() {
         {monthlyLists.length > 0 && <BudgetFields />}
         {budgetPace.pace ? (
           <>
+            <BudgetBar
+              spent={budgetPace.spent}
+              budget={budgetPace.totalBudget}
+              daysElapsed={budgetPace.pace.daysElapsed}
+              periodLength={budgetPace.pace.periodLength}
+              color={screenHue}
+            />
             {/* The two numbers, side by side and in the same unit. Over-pace tints with `warn`,
                 never `bad` — a budget you are ahead of is information, not a failure
                 (DESIGN_RULES.md rule 23, and the same token app/budget.tsx uses). */}
@@ -3138,6 +3176,8 @@ const styles = StyleSheet.create({
     minHeight: 56,
   },
   budgetPairRow: { flexDirection: 'row', gap: Spacing.sm },
+  listPager: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  listPagerText: { fontSize: FontSize.sm, fontFamily: Fonts.medium },
   budgetCell: { flex: 1, minWidth: 0, borderRadius: Radius.md, padding: Spacing.sm, gap: 2 },
   budgetCellKey: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   budgetCellValue: { fontSize: FontSize.lg, fontFamily: Fonts.bold },
