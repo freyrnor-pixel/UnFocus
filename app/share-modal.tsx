@@ -288,8 +288,8 @@ const baseStyles = StyleSheet.create({
   },
   cardTitle: { fontSize: FontSize.md, fontFamily: Fonts.bold },
   toggleAll: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
-  explain: { fontSize: FontSize.xs, lineHeight: 17, marginBottom: Spacing.xs },
-  emptyText: { fontSize: FontSize.sm, textAlign: 'center', paddingVertical: Spacing.md },
+  explain: { fontSize: FontSize.xs, lineHeight: 17, marginBottom: Spacing.xs, fontFamily: Fonts.regular },
+  emptyText: { fontSize: FontSize.sm, textAlign: 'center', paddingVertical: Spacing.md, fontFamily: Fonts.regular },
   itemRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.xs },
   checkbox: {
     width: 22, height: 22, borderRadius: Radius.full, borderWidth: 2,
@@ -300,8 +300,8 @@ const baseStyles = StyleSheet.create({
   // lib/__tests__/designTokens.test.ts.
   checkMark: { fontSize: FontSize.xs, fontFamily: Fonts.bold, ...OpticalCenter },
   itemText: { flex: 1 },
-  itemLabel: { fontSize: FontSize.md },
-  itemSub: { fontSize: FontSize.xs, marginTop: 1 },
+  itemLabel: { fontSize: FontSize.md, fontFamily: Fonts.regular },
+  itemSub: { fontSize: FontSize.xs, marginTop: 1, fontFamily: Fonts.regular },
   qrCard: {
     borderRadius: Radius.md,
     padding: Spacing.lg,
@@ -309,7 +309,7 @@ const baseStyles = StyleSheet.create({
     gap: Spacing.md,
   },
   qrTitle: { fontSize: FontSize.xl, fontFamily: Fonts.bold },
-  qrInstructions: { fontSize: FontSize.sm, textAlign: 'center', lineHeight: 20 },
+  qrInstructions: { fontSize: FontSize.sm, textAlign: 'center', lineHeight: 20, fontFamily: Fonts.regular },
   qrWrap: {
     borderRadius: Radius.md,
     overflow: 'hidden',

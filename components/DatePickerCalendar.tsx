@@ -236,5 +236,5 @@ const baseStyles = StyleSheet.create({
   },
   // `OpticalCenter` (2026-08-21): a day number inside a 34px circle whose height it does not
   // set. This is every date cell in the app, so it is the highest-count instance of the bug.
-  dayText: { fontSize: FontSize.sm, ...OpticalCenter },
+  dayText: { fontSize: FontSize.sm, ...OpticalCenter, fontFamily: Fonts.regular },
 });

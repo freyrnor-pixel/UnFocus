@@ -277,10 +277,10 @@ const baseStyles = StyleSheet.create({
   // this screen reserves no nav, so that edge is the safe area, not chrome.
   content: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, gap: Spacing.md },
   card: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.sm },
-  explain: { fontSize: FontSize.sm, lineHeight: 20 },
+  explain: { fontSize: FontSize.sm, lineHeight: 20, fontFamily: Fonts.regular },
   toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   toggleLabel: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
-  emptyText: { fontSize: FontSize.sm, textAlign: 'center', paddingVertical: Spacing.md },
+  emptyText: { fontSize: FontSize.sm, textAlign: 'center', paddingVertical: Spacing.md, fontFamily: Fonts.regular },
   peerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -290,7 +290,7 @@ const baseStyles = StyleSheet.create({
   },
   peerText: { flex: 1 },
   peerName: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
-  peerSub: { fontSize: FontSize.xs, marginTop: 1 },
+  peerSub: { fontSize: FontSize.xs, marginTop: 1, fontFamily: Fonts.regular },
   removeLink: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
 
   wizardSafe: { flex: 1 },
@@ -304,7 +304,7 @@ const baseStyles = StyleSheet.create({
   qrSafeArea: { flex: 1 },
   qrHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: Spacing.md },
   qrTitle: { fontSize: FontSize.xl, fontFamily: Fonts.bold },
-  qrHint: { textAlign: 'center', fontSize: FontSize.sm, paddingHorizontal: Spacing.lg, marginBottom: Spacing.md },
+  qrHint: { textAlign: 'center', fontSize: FontSize.sm, paddingHorizontal: Spacing.lg, marginBottom: Spacing.md, fontFamily: Fonts.regular },
   qrCamera: { flex: 1 },
   backLink: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
   qrOverlay: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },

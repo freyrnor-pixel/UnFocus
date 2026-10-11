@@ -986,8 +986,8 @@ const baseStyles = StyleSheet.create({
   // Padding is symmetric again now that there is no bar to clear on the left.
   tipCardRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, borderRadius: Radius.md, padding: Spacing.md },
   tipTextWrap: { flex: 1, gap: 2 },
-  tipTarget: { fontSize: FontSize.xs },
-  tipText: { fontSize: FontSize.sm, lineHeight: 20 },
+  tipTarget: { fontSize: FontSize.xs, fontFamily: Fonts.regular },
+  tipText: { fontSize: FontSize.sm, lineHeight: 20, fontFamily: Fonts.regular },
 
   storeSection: { gap: Spacing.sm },
   sectionLabel: { fontSize: FontSize.xs, fontFamily: Fonts.bold, letterSpacing: 0.07 },
@@ -1037,7 +1037,7 @@ const baseStyles = StyleSheet.create({
     justifyContent: 'center',
   },
   scanningTitle: { fontSize: FontSize.lg, fontFamily: Fonts.semibold, textAlign: 'center' },
-  scanningSubtitle: { fontSize: FontSize.sm, textAlign: 'center' },
+  scanningSubtitle: { fontSize: FontSize.sm, textAlign: 'center', fontFamily: Fonts.regular },
 
   // RESULT MODE
   itemsCard: { borderRadius: Radius.md, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md },
@@ -1051,7 +1051,7 @@ const baseStyles = StyleSheet.create({
   checkbox: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   checkMark: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   itemName: { flex: 1, fontSize: FontSize.md, fontFamily: Fonts.medium },
-  itemQty: { fontSize: FontSize.sm, minWidth: 40 },
+  itemQty: { fontSize: FontSize.sm, minWidth: 40, fontFamily: Fonts.regular },
   itemPrice: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, minWidth: 44, textAlign: 'right' },
   totalRow: { paddingTop: Spacing.sm, paddingBottom: Spacing.sm, alignItems: 'flex-end' },
   totalText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
@@ -1137,7 +1137,7 @@ const baseStyles = StyleSheet.create({
     padding: Spacing.md,
   },
   qrTitle: { fontSize: FontSize.xl, fontFamily: Fonts.bold },
-  qrHint: { textAlign: 'center', fontSize: FontSize.sm, paddingHorizontal: Spacing.lg, marginBottom: Spacing.md },
+  qrHint: { textAlign: 'center', fontSize: FontSize.sm, paddingHorizontal: Spacing.lg, marginBottom: Spacing.md, fontFamily: Fonts.regular },
   qrCamera: { flex: 1 },
   qrOverlay: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
   qrFrame: {

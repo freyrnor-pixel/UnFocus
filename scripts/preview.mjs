@@ -90,7 +90,9 @@ async function anyVisibleText(page, text) {
  * `<card title>: <action>`, and the action half is localised.
  */
 async function openCardByTitle(page, title) {
-  const toggle = page.getByRole('button', { name: new RegExp(`^${title}: `) }).first();
+  // The FOLD chevron only ("<title>: Expand list" / "Collapse list"). Since V2 (2026-10-11) the ⤢
+  // is named "<title>: Expand card" too, and clicking it opens a full-screen pane instead.
+  const toggle = page.getByRole('button', { name: new RegExp(`^${title}: (Expand|Collapse) list$`) }).first();
   if (!(await toggle.count())) return false;
   // The chevron is present in both states, so ask which one it is: an expanded card's toggle
   // offers "Collapse". Re-opening an open card would close it, which is the failure this guards.
@@ -433,8 +435,9 @@ async function main() {
     // "intercepts pointer events" failure — always take `.last()` for anything scoped to the
     // expanded pane while it's open.
     console.log('> Home -> Notes card, expanded in place (editable rows + the ⋯ sheet)');
-    await clickText(page, 'Notes');
-    await page.waitForTimeout(900);
+    // The ⤢, not the title: since V2 (2026-10-11) the title FOLDS the card.
+    await page.getByRole('button', { name: 'Notes: Expand card', exact: true }).first().click({ timeout: 10000 });
+    await page.waitForTimeout(1200);
     await shot(page, 'notes-screen');
     // Read the live DOM values rather than matching on an attribute: react-native-web sets a
     // controlled input's `value` PROPERTY, which an `input[value=…]` selector doesn't see.
@@ -533,8 +536,12 @@ async function main() {
     // a real `placeholder` since 2026-08-05, so getByPlaceholder would work too; the
     // accessible name is the stable locator either way.) The card was opened by the step above
     // and stays open; re-opening is a no-op guarded inside the helper.
+    // V2 (2026-10-11): Today lives on Home only. Every tab is mounted at once, so the first
+    // "Type task" in the DOM can be another tab's (To-do's Whenever card) — take the VISIBLE one.
+    await page.getByRole('button', { name: 'Home', exact: true }).first().click({ timeout: 10000 });
+    await page.waitForTimeout(900);
     await openCardByTitle(page, 'Today');
-    const todayTypeLine = page.getByLabel('Type task', { exact: true }).first();
+    const todayTypeLine = page.getByLabel('Type task', { exact: true }).filter({ visible: true }).first();
     await todayTypeLine.scrollIntoViewIfNeeded();
     await todayTypeLine.focus();
     await todayTypeLine.fill(logTitle);
@@ -556,13 +563,13 @@ async function main() {
     // Capture a moment through the SAME type line — the feature's "one field, one submit"
     // rule, and the reason there is no second input anywhere.
     //
-    // Stay on the To-do tab. Every tab screen is mounted at once (`lazy: false`), so a bare
+    // Stay on the Home tab (the Today card is Home's since V2). Every tab screen is mounted at once (`lazy: false`), so a bare
     // `.first()` on a shared label resolves to whichever card comes first in the DOM regardless
     // of which tab is on screen — navigating away would leave the input filled but OFF-SCREEN,
     // and every control in it would fail Playwright's visibility check. The day card exists
     // only on this tab, so there is no second "Type task" to be ambiguous about.
     const momentText = `Moment ${Date.now()}`;
-    const typeLineAgain = page.getByLabel('Type task', { exact: true }).first();
+    const typeLineAgain = page.getByLabel('Type task', { exact: true }).filter({ visible: true }).first();
     await typeLineAgain.scrollIntoViewIfNeeded();
     await typeLineAgain.focus();
     await typeLineAgain.fill(momentText);
@@ -617,6 +624,18 @@ async function main() {
     // `main` naming a card the app no longer has. Everything the step is FOR is unchanged: the
     // chevron adds and removes the day sections, and the choice survives leaving the tab.
     console.log('> Planner card unfolds as one, and remembers');
+    // The day-log steps above end on Home since V2 — come to the To-do tab first.
+    await page.getByRole('button', { name: 'To-do', exact: true }).first().click({ timeout: 10000 });
+    await page.waitForTimeout(1200);
+    // Start from a known state: a fold is REMEMBERED (persisted), and an earlier step can leave
+    // Planner open — close it first, so this step tests unfolding rather than where the walk
+    // happened to leave it.
+    const plannerOpen = page.getByRole('button', { name: 'Planner: Collapse list', exact: true }).first();
+    if (await plannerOpen.count()) {
+      await plannerOpen.scrollIntoViewIfNeeded();
+      await plannerOpen.click({ timeout: 10000 });
+      await page.waitForTimeout(700);
+    }
     const weekUnfold = page.getByRole('button', { name: 'Planner: Expand list', exact: true }).first();
     if (await weekUnfold.count()) {
       const mondayBefore = await anyVisibleText(page, 'Monday');

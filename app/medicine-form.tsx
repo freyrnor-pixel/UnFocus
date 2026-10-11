@@ -444,7 +444,7 @@ const baseStyles = StyleSheet.create({
   field: { gap: Spacing.xs, paddingVertical: Spacing.sm },
   label: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   labelRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  hint: { fontSize: FontSize.xs },
+  hint: { fontSize: FontSize.xs, fontFamily: Fonts.regular },
   error: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
   switchRow: {
     flexDirection: 'row',
@@ -481,8 +481,8 @@ const baseStyles = StyleSheet.create({
   notesInput: { minHeight: 72, textAlignVertical: 'top' },
   effectRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.xs },
   effectDot: { width: 8, height: 8, borderRadius: Radius.full, aspectRatio: AspectRatio.square },
-  effectName: { flex: 1, fontSize: FontSize.sm },
-  effectDate: { fontSize: FontSize.xs },
+  effectName: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.regular },
+  effectDate: { fontSize: FontSize.xs, fontFamily: Fonts.regular },
   linkRow: {
     flexDirection: 'row',
     alignItems: 'center',

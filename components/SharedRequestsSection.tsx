@@ -134,7 +134,7 @@ const baseStyles = StyleSheet.create({
   sectionTitle: { fontSize: FontSize.md, fontFamily: Fonts.bold },
   card: { borderRadius: Radius.md, padding: Spacing.sm, gap: Spacing.sm },
   row: { gap: Spacing.xs },
-  itemText: { fontSize: FontSize.sm },
+  itemText: { fontSize: FontSize.sm, fontFamily: Fonts.regular },
   actions: { flexDirection: 'row', gap: Spacing.sm },
   actionBtn: { paddingVertical: 6, paddingHorizontal: Spacing.sm, borderRadius: Radius.full },
   actionBtnText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },

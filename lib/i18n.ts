@@ -634,6 +634,10 @@ const en = {
   // habits, medicine and open episodes — and became readable on the lock screen, which is the
   // part a user needs told before they switch it on.
   persistentNotifHint: 'One notification with the rest of your day, readable on the lock screen',
+  // Settings → Notifications, Android 12+ only (lib/exactAlarmSettings.ts). Phrased as an offer:
+  // the app cannot read whether the switch is already on, so the line must be true either way.
+  exactAlarmLabel: 'Reminders on the minute',
+  exactAlarmHint: 'Android can hold a reminder back a few minutes to save battery. Turning on “Alarms & reminders” for UnFocus keeps them on the minute.',
   habitNotifications: 'Habit reminders',
   medicineNotifications: 'Medicine reminders',
   medicineNotificationsHint: 'One reminder per tray, with a Taken button',
@@ -2778,6 +2782,8 @@ const no: typeof en = {
   taskNotificationsHint: 'Påminnelse når en plan begynner',
   persistentNotifLabel: 'Dagens oversikt-varsel',
   persistentNotifHint: 'Ett varsel med resten av dagen, lesbart på låseskjermen',
+  exactAlarmLabel: 'Påminnelser på minuttet',
+  exactAlarmHint: 'Android kan holde igjen en påminnelse noen minutter for å spare strøm. Slå på «Alarmer og påminnelser» for UnFocus, så kommer de på minuttet.',
   habitNotifications: 'Varslinger for vaner',
   medicineNotifications: 'Medisinvarsler',
   medicineNotificationsHint: 'Én påminnelse per runde, med en Tatt-knapp',
@@ -4562,6 +4568,8 @@ const is: typeof en = {
   taskNotificationsHint: 'Áminning þegar plan byrjar',
   persistentNotifLabel: 'Tilkynning með yfirliti dagsins',
   persistentNotifHint: 'Ein tilkynning með því sem eftir er af deginum, læsileg á lásskjánum',
+  exactAlarmLabel: 'Áminningar á mínútunni',
+  exactAlarmHint: 'Android getur haldið áminningu aftur í nokkrar mínútur til að spara rafhlöðu. Kveiktu á „Vekjarar og áminningar“ fyrir UnFocus og þær koma á mínútunni.',
   habitNotifications: 'Tilkynningar um venjur',
   medicineNotifications: 'Lyfjaáminningar',
   medicineNotificationsHint: 'Ein áminning á hvert hólf, með Tekið-hnappi',

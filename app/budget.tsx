@@ -303,19 +303,19 @@ const baseStyles = StyleSheet.create({
   spentText: { fontSize: FontSize.lg, fontFamily: Fonts.bold },
   track: { height: 10, borderRadius: Radius.full, overflow: 'hidden' },
   fill: { height: '100%', borderRadius: Radius.full },
-  hintText: { fontSize: FontSize.sm, lineHeight: 20 },
+  hintText: { fontSize: FontSize.sm, lineHeight: 20, fontFamily: Fonts.regular },
   paceRow: { gap: 2, marginTop: Spacing.xs },
   paceFigure: { fontSize: FontSize.md, fontFamily: Fonts.bold },
   section: { gap: Spacing.xs },
   sectionLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
-  emptyText: { fontSize: FontSize.sm, textAlign: 'center', lineHeight: 20 },
+  emptyText: { fontSize: FontSize.sm, textAlign: 'center', lineHeight: 20, fontFamily: Fonts.regular },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: 4 },
   // Fixed square regardless of the user's global photoAspectRatio default — a thumbnail
   // this small reads best uncropped-ratio-agnostic and consistent row-to-row.
   receiptThumb: { width: 36, height: 36 },
   rowContent: { flex: 1 },
   rowLabel: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
-  rowMeta: { fontSize: FontSize.xs, marginTop: 1 },
+  rowMeta: { fontSize: FontSize.xs, marginTop: 1, fontFamily: Fonts.regular },
   rowTotal: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
   monthSelector: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs },
   monthText: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
@@ -342,7 +342,7 @@ const baseStyles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   sheetHeaderTitle: { fontSize: FontSize.lg, fontFamily: Fonts.bold },
-  sheetCancel: { fontSize: FontSize.md },
+  sheetCancel: { fontSize: FontSize.md, fontFamily: Fonts.regular },
   sheetSave: { fontSize: FontSize.md, fontFamily: Fonts.bold },
   // `sheetLabel`/`sheetInput` are DELETED (2026-08-21): components/FormControls.tsx's `Input`
   // owns both the label and the box now — see the call site.

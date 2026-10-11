@@ -163,7 +163,7 @@
  *             (exportBackup/exportBackupToDevice/pickAndParseBackup/restoreBackup/reloadApp/
  *             saveAutoBackup/chooseAutoBackupLocation), lib/aiSetupGuide
  *             (exportAiSetupGuide/exportAiSetupGuideToDevice/pickAndParseAiSetupFile),
- *             lib/aiSetupApply (previewAiSetupConfig/applyAiSetupConfig), lib/feedbackMail,
+ *             lib/aiSetupApply (previewAiSetupConfig/applyAiSetupConfig), lib/feedbackMail, lib/exactAlarmSettings (Android "Alarms & reminders" hint),
  *             lib/haptics, lib/i18n, lib/notifications, lib/reminders, lib/syncService, lib/widgets/sync
  *             (syncWidgetsAndOverview — the persistent-overview toggle refreshes/cancels it, and
  *             the Freyr-mode toggle re-syncs after seeding/unseeding today's tasks + shopping),
@@ -381,6 +381,7 @@ import { syncReminders } from '@/lib/reminders';
 import { registerMedicineCategory } from '@/lib/medicineNotifications';
 import { registerHabitCategory } from '@/lib/habitNotifications';
 import { requestPermissions, syncNotificationCategories } from '@/lib/notifications';
+import { openExactAlarmSettings, showExactAlarmHint } from '@/lib/exactAlarmSettings';
 import { syncWidgetsAndOverview } from '@/lib/widgets/sync';
 import { exportBackup, exportBackupToDevice, pickAndParseBackup, restoreBackup, reloadApp, saveAutoBackup, chooseAutoBackupLocation } from '@/lib/backup';
 import { exportAiSetupGuide, exportAiSetupGuideToDevice, pickAndParseAiSetupFile, AiSetupConfig } from '@/lib/aiSetupGuide';
@@ -1539,6 +1540,19 @@ export default function SettingsScreen() {
                   checked={settings.persistentNotifEnabled}
                   onChange={(v) => applyAndSync({ persistentNotifEnabled: v })}
                 />
+                {/* Android 12+: one tap to the system's "Alarms & reminders" switch. Since 1.8.0 the
+                    app no longer holds USE_EXACT_ALARM (Play policy), so without that switch Android
+                    may hold a reminder back a few minutes. See lib/exactAlarmSettings.ts. */}
+                {showExactAlarmHint() && (
+                  <>
+                    <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                    <SettingLinkRow
+                      label={t.exactAlarmLabel}
+                      hint={t.exactAlarmHint}
+                      onPress={() => { void openExactAlarmSettings(); }}
+                    />
+                  </>
+                )}
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
                 <ToggleRow
                   label={t.settings.quietHours.label}
@@ -2225,7 +2239,7 @@ const baseStyles = StyleSheet.create({
   // pass deleted everywhere else. The gap between groups is the content container's own
   // `gap: Spacing.lg`, per DESIGN_RULES rule 3 — the screen owns it, not the child.
   groupHeader: { fontFamily: Type.heading.fontFamily, fontSize: Type.heading.size, lineHeight: Math.round(Type.heading.size * Type.heading.line) },
-  descText: { fontSize: FontSize.xs, marginTop: Spacing.sm, lineHeight: 18 },
+  descText: { fontSize: FontSize.xs, marginTop: Spacing.sm, lineHeight: 18, fontFamily: Fonts.regular },
   // Version card's "experimental build" note — icon + wrapped text on one row.
   experimentalRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm, marginTop: Spacing.md },
   energyCapacityRows: { marginTop: Spacing.md, gap: Spacing.sm },
@@ -2241,10 +2255,10 @@ const baseStyles = StyleSheet.create({
   // `dayRow`/`dayChip`/`dayText` deleted 2026-08-10 — the weekly-reset-day picker is a
   // `SegmentedControl` now. See the note at its call site for why the old `minWidth`-based
   // chip row could not fit seven options on any phone.
-  paydayHint: { fontSize: FontSize.xs, marginTop: Spacing.xs },
+  paydayHint: { fontSize: FontSize.xs, marginTop: Spacing.xs, fontFamily: Fonts.regular },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   switchLabel: { fontSize: FontSize.md, fontFamily: Fonts.medium },
-  switchHint: { fontSize: FontSize.xs, marginTop: Spacing.xs },
+  switchHint: { fontSize: FontSize.xs, marginTop: Spacing.xs, fontFamily: Fonts.regular },
   dangerBtn: { paddingVertical: Spacing.sm },
   dangerBtnText: { fontFamily: Type.bodyStrong.fontFamily, fontSize: Type.bodyStrong.size },
   // One person per row (2026-07-28) — replaced the flat name-chip row, which had nowhere

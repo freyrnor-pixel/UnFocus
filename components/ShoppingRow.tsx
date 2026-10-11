@@ -488,7 +488,7 @@ const baseStyles = StyleSheet.create({
   name: { flex: 1, fontSize: FontSize.md, fontFamily: Fonts.semibold },
   priceTotal: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   line2: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: Spacing.sm, marginTop: 2 },
-  meta: { fontSize: FontSize.xs },
+  meta: { fontSize: FontSize.xs, fontFamily: Fonts.regular },
   // Leading quantity. `minWidth` (not a fixed width) so "1" and "250 g" both sit in a column
   // the names line up after, while a long unit can still take the room it needs; `textAlign`
   // right so the digits themselves align even when the unit varies.

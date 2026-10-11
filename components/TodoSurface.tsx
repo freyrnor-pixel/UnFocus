@@ -1877,7 +1877,7 @@ const styles = StyleSheet.create({
   focusHero: { gap: Spacing.xs },
   focusThen: { gap: Spacing.xs },
   focusLabel: { fontSize: FontSize.xs, fontFamily: Type.label.fontFamily, textTransform: 'uppercase', letterSpacing: 0.6 },
-  focusOverflow: { fontSize: FontSize.xs, paddingHorizontal: Spacing.xs },
+  focusOverflow: { fontSize: FontSize.xs, paddingHorizontal: Spacing.xs, fontFamily: Fonts.regular },
   focusDone: { fontSize: FontSize.sm, fontFamily: Type.label.fontFamily, textAlign: 'center' },
   focusAllClear: {
     fontSize: FontSize.sm,
@@ -1885,7 +1885,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     borderRadius: Radius.md,
     borderWidth: 1,
-    textAlign: 'center',
+    textAlign: 'center', fontFamily: Fonts.regular
   },
   doneZone: { marginTop: Spacing.sm, borderWidth: 1, borderRadius: Radius.md, padding: Spacing.sm },
   personFilterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, marginBottom: Spacing.sm },

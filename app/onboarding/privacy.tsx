@@ -225,7 +225,7 @@ const baseStyles = StyleSheet.create({
   bulletText: {
     flex: 1,
     fontSize: FontSize.md,
-    lineHeight: 22,
+    lineHeight: 22, fontFamily: Fonts.regular
   },
   // Secondary links, stacked and centred under the primary. `gap` rather than margins so the
   // pair reads as one group rather than two strays.

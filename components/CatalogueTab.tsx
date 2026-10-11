@@ -1134,7 +1134,7 @@ const baseStyles = StyleSheet.create({
   // lessons prescribe for an input sharing a row with a fixed-size control.
   // `FontSize.md`, matching every other field in the app (2026-08-21) — it was `sm`, the same
   // divergence components/AddRow.tsx carried until this pass.
-  searchInput: { flex: 1, minWidth: 0, fontSize: FontSize.md, padding: 0 },
+  searchInput: { flex: 1, minWidth: 0, fontSize: FontSize.md, padding: 0, fontFamily: Fonts.regular },
   // A–Z scrubber column: fills the card height so touch-Y ÷ height × letters maps uniformly.
   indexBar: { width: 22, justifyContent: 'space-evenly', alignItems: 'center', paddingVertical: Spacing.xs },
   indexLetter: { fontSize: 11, lineHeight: 13, fontFamily: Fonts.bold, textAlign: 'center' },
@@ -1144,7 +1144,7 @@ const baseStyles = StyleSheet.create({
   // which is the condition Android's asymmetric font padding breaks. Guarded by
   // lib/__tests__/designTokens.test.ts.
   scrubBubbleText: { fontSize: 34, fontFamily: Fonts.extrabold, ...OpticalCenter },
-  empty: { fontSize: FontSize.sm, paddingVertical: Spacing.md, textAlign: 'center' },
+  empty: { fontSize: FontSize.sm, paddingVertical: Spacing.md, textAlign: 'center', fontFamily: Fonts.regular },
   itemRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md, minHeight: MIN_TAP_TARGET },
   rowFirst: { borderTopLeftRadius: Radius.md, borderTopRightRadius: Radius.md },
   rowEmbedded: { paddingHorizontal: Spacing.sm },
@@ -1165,7 +1165,7 @@ const baseStyles = StyleSheet.create({
   // regardless of item count.
   listFiller: { flexGrow: 1, borderBottomLeftRadius: Radius.md, borderBottomRightRadius: Radius.md },
   itemNameTouch: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.medium, ...OpticalCenter },
-  itemPrice: { fontSize: FontSize.sm, ...OpticalCenter },
+  itemPrice: { fontSize: FontSize.sm, ...OpticalCenter, fontFamily: Fonts.regular },
   editRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, paddingVertical: Spacing.xs, paddingHorizontal: Spacing.md },
   // Sizing only — the field's own fill/border/glow now comes from FormControls' `Input`
   // (`recessed`), the same recessed-well style every other in-card field uses. These two

@@ -1918,7 +1918,7 @@ const baseStyles = StyleSheet.create({
   // ONE horizontal inset for the whole card (PAD_GUTTER). The old paddingLeft:52 title inset
   // that dodged an absolutely-pinned badge is gone with the badge.
   cardContent: { paddingHorizontal: PAD_GUTTER, paddingTop: PAD_GUTTER, paddingBottom: PAD_GUTTER, position: 'relative' },
-  emptyText: { fontSize: FontSize.sm, textAlign: 'center', paddingVertical: Spacing.sm },
+  emptyText: { fontSize: FontSize.sm, textAlign: 'center', paddingVertical: Spacing.sm, fontFamily: Fonts.regular },
   // The suggestion row (in its StarterCard trigger wrapper since 2026-08-12) + the ghost add
   // row. The bulb/italic explainer that used to lead this block moved to the foot (2026-07-30),
   // back under the header (2026-08-12), and was deleted with its whole tier (2026-08-17); the
@@ -2034,11 +2034,11 @@ const baseStyles = StyleSheet.create({
   doneCol: { width: DONE_COL_WIDTH, alignItems: 'center', justifyContent: 'center', gap: Spacing.sm },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   title: { fontSize: FontSize.lg, fontFamily: Fonts.semibold, flexShrink: 1 },
-  durationText: { fontSize: FontSize.xs },
+  durationText: { fontSize: FontSize.xs, fontFamily: Fonts.regular },
   followerBadge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 1 },
   followerBadgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   hintRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.xs, marginTop: 2 },
-  hintText: { fontSize: FontSize.xs, flexShrink: 1 },
+  hintText: { fontSize: FontSize.xs, flexShrink: 1, fontFamily: Fonts.regular },
 
   // Fixed-hour grid viewport (2026-07-26 rebuild — see file header). Height is set inline
   // (collapsed vs. expanded); rounded + clipped so the grid's hour lines don't bleed past
@@ -2091,7 +2091,7 @@ const baseStyles = StyleSheet.create({
   hNowLabel: { fontSize: FontSize.xs, fontFamily: Fonts.bold, position: 'absolute', top: -2 },
   hGapMarker: { width: 72, alignItems: 'center', paddingTop: 2 },
   hGapDot: { width: 8, height: 8, borderRadius: Radius.full, borderWidth: 2, borderStyle: 'dashed', marginBottom: 4 },
-  hGapText: { fontSize: FontSize.xs, textAlign: 'center' },
+  hGapText: { fontSize: FontSize.xs, textAlign: 'center', fontFamily: Fonts.regular },
 
   // Frames the done header + its collapsed rows as one card (2026-07-16) — previously a
   // transparent top border (no real frame). This card already sits inside the outer Surface,

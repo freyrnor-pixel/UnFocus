@@ -34,7 +34,7 @@
  * usePathname()/goToSite() routing.
  *
  * Connections:
- *   Imports → @react-navigation/material-top-tabs (MaterialTopTabBarProps type), expo-router,
+ *   Imports → expo-router/js-top-tabs (MaterialTopTabBarProps type), expo-router,
  *             constants/theme (HitSlop + the spacing/type tokens — no gradient, shadow or glow
  *             helper), constants/colors (ThemePalette, type-only), constants/motion (Travel),
  *             lib/i18n, lib/siteNav, lib/useAppTheme (useAppTheme,
@@ -89,7 +89,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import type { MaterialTopTabBarProps } from '@react-navigation/material-top-tabs';
+import type { MaterialTopTabBarProps } from 'expo-router/js-top-tabs';
 import { useT } from '@/lib/i18n';
 import { BORDER_WIDTH, Fonts, FontSize, Radius, Spacing, HitSlop, MIN_TAP_TARGET, OpticalCenter } from '@/constants/theme';
 import type { ThemePalette } from '@/constants/colors';

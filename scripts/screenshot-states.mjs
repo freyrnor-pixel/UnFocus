@@ -1505,7 +1505,7 @@ async function main() {
           state: 'POPULATED. Each row\'s title is a live text field (PadRow\'s titleInput) — this screen exists to edit them. Notes are ordered `checked, sort_order`, the one list whose reorder renumbers per section.',
           components: 'NoteRow, PadRow, SendToSheet',
         });
-        const action = page.getByRole('button', { name: 'Send it to…', exact: true }).first();
+        const action = page.getByRole('button', { name: 'Send it to…', exact: true }).last(); // the open pane's row: every tab is mounted, so .first() is a background tab's (2026-10-11)
         if (await action.count()) {
           await action.scrollIntoViewIfNeeded();
           await action.click({ timeout: 8000 });

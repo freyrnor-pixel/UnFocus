@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.sm,
     borderRadius: Radius.sm,
-    borderWidth: 1,
+    borderWidth: 1, fontFamily: Fonts.regular
   },
   recvCard: {
     borderRadius: Radius.md,

@@ -254,7 +254,7 @@ const baseStyles = StyleSheet.create({
     minHeight: 40,
   },
   addTriggerText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
-  empty: { fontSize: FontSize.sm, textAlign: 'center', paddingVertical: Spacing.lg },
+  empty: { fontSize: FontSize.sm, textAlign: 'center', paddingVertical: Spacing.lg, fontFamily: Fonts.regular },
 
   ruleCard: {
     flexDirection: 'row',
@@ -265,7 +265,7 @@ const baseStyles = StyleSheet.create({
   },
   ruleTextWrap: { flex: 1 },
   ruleSummary: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
-  ruleDetail: { fontSize: FontSize.xs, marginTop: 2 },
+  ruleDetail: { fontSize: FontSize.xs, marginTop: 2, fontFamily: Fonts.regular },
   deleteBtn: { padding: Spacing.xs },
 
   formCard: {

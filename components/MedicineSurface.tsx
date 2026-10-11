@@ -738,8 +738,8 @@ const baseStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  reminderLabel: { flex: 1, fontSize: FontSize.sm },
-  reminderHint: { fontSize: FontSize.xs },
+  reminderLabel: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.regular },
+  reminderHint: { fontSize: FontSize.xs, fontFamily: Fonts.regular },
   // The four wells are now the app's shared in-card field (`recessed`, 2026-08-24), so they
   // carry its halo — and a halo needs room before the card body's fold clips it. The grid's
   // own `gap` already covers the two inner edges; this is the outer four. See
@@ -757,7 +757,7 @@ const baseStyles = StyleSheet.create({
   traySection: { marginTop: Spacing.md },
   trayHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   trayLabel: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.semibold },
-  trayTime: { fontSize: FontSize.xs },
+  trayTime: { fontSize: FontSize.xs, fontFamily: Fonts.regular },
   trayCount: {
     fontSize: FontSize.xs,
     fontFamily: Fonts.semibold,
@@ -776,6 +776,6 @@ const baseStyles = StyleSheet.create({
   // minWidth:0 so a long medicine name shrinks instead of pushing the trailing dose circle
   // off the card — the same guard components/PadRow.tsx carries.
   medNameWrap: { flex: 1, minWidth: 0 },
-  medName: { fontSize: FontSize.sm },
-  medMeta: { fontSize: FontSize.xs },
+  medName: { fontSize: FontSize.sm, fontFamily: Fonts.regular },
+  medMeta: { fontSize: FontSize.xs, fontFamily: Fonts.regular },
 });

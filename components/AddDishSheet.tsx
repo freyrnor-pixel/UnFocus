@@ -256,7 +256,7 @@ const baseStyles = StyleSheet.create({
   cardWrap: { width: '100%', maxWidth: 420, maxHeight: '85%' },
   card: { borderRadius: Radius.lg, padding: Spacing.lg },
   title: { fontSize: FontSize.xl, fontFamily: Fonts.bold, marginBottom: Spacing.sm },
-  empty: { fontSize: FontSize.sm, textAlign: 'center', paddingVertical: Spacing.lg },
+  empty: { fontSize: FontSize.sm, textAlign: 'center', paddingVertical: Spacing.lg, fontFamily: Fonts.regular },
   // maxHeight is applied inline from useWindowDimensions (see render) — a definite pixel cap
   // so the list scrolls internally and the fixed Close footer stays visible.
   scrollView: {},
@@ -276,7 +276,7 @@ const baseStyles = StyleSheet.create({
   },
   dishInfo: { flex: 1 },
   dishName: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
-  dishMeta: { fontSize: FontSize.xs, marginTop: 2 },
+  dishMeta: { fontSize: FontSize.xs, marginTop: 2, fontFamily: Fonts.regular },
   doneBtn: { marginTop: Spacing.md, paddingVertical: Spacing.sm, alignItems: 'center', borderRadius: Radius.md },
   doneBtnText: { fontFamily: Fonts.bold, fontSize: FontSize.md },
 });

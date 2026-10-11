@@ -15,6 +15,7 @@ import { StyleSheet, Text } from 'react-native';
 import { useRouter } from 'expo-router';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import { useT } from '@/lib/i18n';
+import { Fonts } from '@/constants/theme';
 
 export default function ScanScreenWeb() {
   const router = useRouter();
@@ -27,5 +28,5 @@ export default function ScanScreenWeb() {
 }
 
 const styles = StyleSheet.create({
-  text: { textAlign: 'center', marginTop: 40, fontSize: 16 },
+  text: { textAlign: 'center', marginTop: 40, fontSize: 16, fontFamily: Fonts.regular },
 });

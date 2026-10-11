@@ -900,7 +900,7 @@ const styles = StyleSheet.create({
   },
   inputError: {
     fontSize: FontSize.xs,
-    marginTop: 4,
+    marginTop: 4, fontFamily: Fonts.regular
   },
   // ── Design-lab control variants (lib/designLab.ts) ──────────────────────────
   // Only reachable while the lab has reassigned a control slot. They are ordinary styles

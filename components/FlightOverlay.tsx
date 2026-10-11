@@ -233,6 +233,6 @@ const rowCloneStyles = StyleSheet.create({
   line1: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   name: { flex: 1, fontSize: FontSize.md, fontFamily: Fonts.semibold },
   priceTotal: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
-  meta: { fontSize: FontSize.xs },
+  meta: { fontSize: FontSize.xs, fontFamily: Fonts.regular },
   deleteSpace: { width: 28 },
 });

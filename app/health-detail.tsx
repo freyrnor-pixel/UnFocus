@@ -221,7 +221,7 @@ const baseStyles = StyleSheet.create({
   content: { gap: Spacing.md },
   overviewCard: { borderRadius: Radius.md, padding: Spacing.md },
   sectionLabel: { fontSize: FontSize.md, fontFamily: Fonts.semibold, marginBottom: Spacing.xs },
-  detailSub: { fontSize: FontSize.sm },
+  detailSub: { fontSize: FontSize.sm, fontFamily: Fonts.regular },
   sparkRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -237,10 +237,10 @@ const baseStyles = StyleSheet.create({
   detailEntryHeadRight: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, flexShrink: 1 },
   detailEntryDate: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
   // The row's ONE right-hand value — `Ongoing` or a plain-language duration, never a count.
-  detailEntryValue: { fontSize: FontSize.xs },
+  detailEntryValue: { fontSize: FontSize.xs, fontFamily: Fonts.regular },
   closeRow: { alignSelf: 'flex-start', paddingVertical: Spacing.xs },
   closeRowText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
-  detailEntryNotes: { fontSize: FontSize.sm },
+  detailEntryNotes: { fontSize: FontSize.sm, fontFamily: Fonts.regular },
   severityBadge: {
     borderRadius: Radius.full,
     paddingHorizontal: Spacing.sm,

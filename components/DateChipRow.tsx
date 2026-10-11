@@ -144,6 +144,6 @@ const baseStyles = StyleSheet.create({
   weekRow: { flexDirection: 'row', gap: Spacing.xs, justifyContent: 'space-between' },
   weekChip: { flex: 1, paddingVertical: Spacing.sm, borderRadius: Radius.md, alignItems: 'center', gap: 2 },
   weekChipDay: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
-  weekChipNum: { fontSize: FontSize.sm },
+  weekChipNum: { fontSize: FontSize.sm, fontFamily: Fonts.regular },
   calToggleBtn: { alignSelf: 'flex-start' },
 });

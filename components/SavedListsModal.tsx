@@ -112,5 +112,5 @@ const baseStyles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm },
   rowIcon: { width: 32, height: 32, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
   rowText: { flex: 1, fontSize: FontSize.md, fontFamily: Fonts.semibold },
-  emptyText: { fontSize: FontSize.sm, textAlign: 'center', paddingVertical: Spacing.lg },
+  emptyText: { fontSize: FontSize.sm, textAlign: 'center', paddingVertical: Spacing.lg, fontFamily: Fonts.regular },
 });

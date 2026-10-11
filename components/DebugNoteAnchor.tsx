@@ -218,7 +218,7 @@ const baseStyles = StyleSheet.create({
     padding: Spacing.sm,
     fontSize: FontSize.md,
     minHeight: 90,
-    textAlignVertical: 'top',
+    textAlignVertical: 'top', fontFamily: Fonts.regular
   },
   composerActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: Spacing.sm, marginTop: Spacing.xs },
   composerBtn: { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md, borderRadius: Radius.sm },
