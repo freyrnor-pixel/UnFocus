@@ -233,7 +233,7 @@ const en = {
         `tutorialPeek` since 2026-10-11: "Not set for today" beside a stepper reading 10
         contradicted the number under it. The budget IS set; nothing uses it yet. */
     notSetPeek: 'Not set for today',
-    tutorialPeek: (cap: number) => `${cap} for today · nothing uses it yet`,
+    tutorialPeek: (cap: number) => `${cap} free today`,
     /* The adjust row's value in the EMPTY card (2026-09-08): the row is the way IN, so it says
        there is no number yet rather than showing a zero, which would read as a budget of none. */
     /* These two name the meter, not just the period (2026-08-03). They were 'Today' /
@@ -2544,7 +2544,7 @@ const no: typeof en = {
   energyMeter: {
     title: 'Energi',
     notSetPeek: 'Ikke satt for i dag',
-    tutorialPeek: (cap: number) => `${cap} i dag · ingenting bruker av den ennå`,
+    tutorialPeek: (cap: number) => `${cap} ledig i dag`,
     /* Se den engelske tvillingen: disse navngir måleren, ikke bare perioden (2026-08-03). */
     today: 'Energi i dag',
     thisWeek: 'Energi denne uken',
@@ -4338,7 +4338,7 @@ const is: typeof en = {
   energyMeter: {
     title: 'Orka',
     notSetPeek: 'Ekki stillt fyrir daginn',
-    tutorialPeek: (cap: number) => `${cap} í dag · ekkert notar hana enn`,
+    tutorialPeek: (cap: number) => `${cap} laus í dag`,
     /* Sjá enska tvíburann: þetta nefnir mælinn, ekki bara tímabilið (2026-08-03). */
     today: 'Orka í dag',
     thisWeek: 'Orka þessa viku',
