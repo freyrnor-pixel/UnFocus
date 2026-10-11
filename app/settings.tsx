@@ -7,20 +7,23 @@
  * router routes).
  *
  * - General — who you are and how the app looks: Profile (name + language) → Appearance
- *   (dark mode, text size) → Send Feedback. Accessibility and Layout were removed 2026-10-11
- *   (see the note where they used to render, and RETIRED_SETTINGS in store/useSettingsStore.ts).
+ *   (dark mode, text size) → Send Feedback (one link row → mail app). Accessibility and Layout
+ *   were removed 2026-10-11 (see RETIRED_SETTINGS in store/useSettingsStore.ts).
  * - Lists — Shopping (weekly reset weekday, monthly reset date — the `?section=shopping`
  *   deep-link target, and the one DisclosureRow left on this screen) → Content (doors to the
  *   Catalogue and Food editors).
- * - Alerts — one flat card: plan, habit, medicine, weekly + time, persistent overview,
- *   quiet hours + times.
+ * - Alerts — one flat card: plan, habit, medicine, weekly + time, quiet hours + times.
  * - More — Features card (the Energy/Rewards mode SegmentedControl, then Energy's own mode +
- *   capacities when Energy mode is on, then the FEATURE_ROWS flags, then the Automations link
- *   when that flag is on) → [People/family + Paired devices] one merged panel, rendered only
- *   while SHARING_VISIBLE → Tags → Device features (voice/contacts/location/calendar + which
- *   calendars the timeline may read) → Data group ([Backup & restore / Version & updates] one
- *   merged panel) → the destructive Reset data card → Debug mode (which also carries the
- *   Design Lab link while debug is on).
+ *   capacities when Energy mode is on, then the FEATURE_ROWS flags — Goals, Medicine — then the
+ *   Automations link) → [People/family + Paired devices] one merged panel, rendered only
+ *   while SHARING_VISIBLE → Tags → Device features (calendar sync + which calendars the
+ *   timeline may read) → Data group (Backup & restore panel + one Version row + update check)
+ *   → the destructive Reset data card → Debug mode, rendered ONLY while debug is on (seven
+ *   taps on the Version row turn it on); it carries the build diagnostics and the Design Lab
+ *   link.
+ *   2026-10-11 second pass also removed: automations/day-log/washed-away/growth flags, the
+ *   overview notification, and the voice/contacts/location switches — all pinned by
+ *   RETIRED_SETTINGS.
  *
  * **Reorganization to the settings mockup (2026-09-08).** The maintainer supplied a Settings
  * mockup (`docs/audit/Settings_Screen_2026-09-08.html`, committed alongside this change) and
@@ -341,7 +344,7 @@
  *     the sanctioned shape, not a special case.
  */
 import React, { useState, useMemo, useEffect, useContext, useRef, useCallback } from 'react';
-import { KeyboardAvoidingView, Linking, Platform, Share, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
@@ -480,15 +483,13 @@ const FEATURE_ROWS: { key: FeatureFlagKey; copy: (t: ReturnType<typeof useT>) =>
   ...(SHARING_VISIBLE
     ? [{ key: 'featureSharing' as const, copy: (t: ReturnType<typeof useT>) => t.config.features.sharing }]
     : []),
-  { key: 'featureAutomations', copy: (t) => t.config.features.automations },
   { key: 'featureMedicine', copy: (t) => t.config.features.medicine },
-  { key: 'featureDayLog', copy: (t) => t.config.features.dayLog },
-  { key: 'featureTaskDecay', copy: (t) => t.config.features.taskDecay },
+  // Automations, day log, washed-away and growth rows removed 2026-10-11 — those flags are
+  // pinned (always on; growth off) by RETIRED_SETTINGS in store/useSettingsStore.ts.
   // NOTE: `energySystemEnabled` deliberately does NOT live here (2026-08-02). It is a
   // two-mode SegmentedControl at the top of the same card — Energy mode / Rewards mode —
   // because the false side is a named peer, not an absence. Re-adding it as a switch would
   // re-frame Rewards mode as "Energy off". See this file's header note.
-  { key: 'showGrowth', copy: (t) => t.config.features.growth },
 ];
 
 /** The two peer modes over the one `settings.energySystemEnabled` boolean. */
@@ -645,7 +646,6 @@ export default function SettingsScreen() {
   const [name, setName] = useState(settings.userName);
   const [monthlyDateInput, setMonthlyDateInput] = useState(String(settings.monthlyResetDate));
   // Send Feedback (2026-07-13) — free-text composer, mailed via mailto:.
-  const [feedbackText, setFeedbackText] = useState('');
   const [newChildName, setNewChildName] = useState('');
   // In-flight tag renames, keyed by tag id. Only holds a tag while its field is focused —
   // the entry is dropped on blur so the row falls back to the store's own name.
@@ -705,6 +705,23 @@ export default function SettingsScreen() {
   // branch, checkForUpdateAsync returns isAvailable:false for it and we'd wrongly report
   // "up to date" while the app is still running the old bundle.
   const { isUpdatePending } = Updates.useUpdates();
+  // Seven taps on the Version row turn debug mode on (2026-10-11) — the usual hidden door,
+  // since the Debug card itself only renders while debug is on. Taps more than 1.5 s apart
+  // restart the count.
+  const versionTaps = useRef({ count: 0, at: 0 });
+  function handleVersionTap() {
+    if (settings.debugModeEnabled) return;
+    const now = Date.now();
+    const taps = versionTaps.current;
+    taps.count = now - taps.at > 1500 ? 1 : taps.count + 1;
+    taps.at = now;
+    if (taps.count >= 7) {
+      taps.count = 0;
+      selection();
+      settings.update({ debugModeEnabled: true });
+    }
+  }
+
   async function handleCheckUpdates() {
     if (!Updates.isEnabled) {
       showAppModal(t.version.title, t.version.disabled);
@@ -847,7 +864,7 @@ export default function SettingsScreen() {
   async function handleSendFeedback() {
     selection();
     const url = buildFeedbackMailUrl(
-      feedbackText,
+      '',
       { appVersion, runtimeVersion, commit: buildCommit, platform: Platform.OS, osVersion: Platform.Version },
       'Unfocus@hlynsson.no',
       t.feedback.subject,
@@ -855,15 +872,9 @@ export default function SettingsScreen() {
     const supported = await Linking.canOpenURL(url);
     if (supported) {
       await Linking.openURL(url);
-      setFeedbackText('');
       return;
     }
-    try {
-      await Share.share({ message: feedbackText.trim() });
-      setFeedbackText('');
-    } catch {
-      showAppModal(t.feedback.cardTitle, t.feedback.mailUnavailable);
-    }
+    showAppModal(t.feedback.cardTitle, t.feedback.mailUnavailable);
   }
 
   // Local backup & restore (Decision 036) — device-only, no upload.
@@ -1210,27 +1221,15 @@ export default function SettingsScreen() {
                 sheet if no mail client is configured. It stays on this tab while backup,
                 version and the resets moved to Advanced (2026-08-17): sending a note is
                 something any tester does, not a data-management chore. */}
+            {/* One row since 2026-10-11 (was an inline multi-line composer): the mail app is
+                where the message gets written. */}
             <View style={styles.section}>
               <Surface style={[styles.card, { borderColor: theme.border }]}>
-                <Text style={[styles.switchLabel, { color: theme.text }]}>{t.feedback.cardTitle}</Text>
-                <Text style={[styles.descText, { color: theme.textMuted, marginTop: Spacing.xs }]}>{t.feedback.cardDesc}</Text>
-                <View style={{ marginTop: Spacing.sm }}>
-                  <Input
-                    value={feedbackText}
-                    onChangeText={setFeedbackText}
-                    placeholder={t.feedback.placeholder}
-                    multiline
-                    numberOfLines={4}
-                  />
-                </View>
-                <PressableScale
-                  style={[styles.dangerBtn, feedbackText.trim() === '' && { opacity: 0.4 }]}
-                  onPress={handleSendFeedback}
-                  disabled={feedbackText.trim() === ''}
-                  scaleTo={0.97}
-                >
-                  <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.feedback.sendButton}</Text>
-                </PressableScale>
+                <SettingLinkRow
+                  label={t.feedback.cardTitle}
+                  hint={t.feedback.cardDesc}
+                  onPress={() => { void handleSendFeedback(); }}
+                />
               </Surface>
             </View>
           </>
@@ -1398,13 +1397,8 @@ export default function SettingsScreen() {
                     keyboardType="numbers-and-punctuation"
                   />
                 )}
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <ToggleRow
-                  label={t.persistentNotifLabel}
-                  hint={t.persistentNotifHint}
-                  checked={settings.persistentNotifEnabled}
-                  onChange={(v) => applyAndSync({ persistentNotifEnabled: v })}
-                />
+                {/* "Today's overview" notification row removed 2026-10-11 — pinned off by
+                    RETIRED_SETTINGS in store/useSettingsStore.ts. */}
                 {/* Android 12+: one tap to the system's "Alarms & reminders" switch. Since 1.8.0 the
                     app no longer holds USE_EXACT_ALARM (Play policy), so without that switch Android
                     may hold a reminder back a few minutes. See lib/exactAlarmSettings.ts. */}
@@ -1772,27 +1766,8 @@ export default function SettingsScreen() {
             <Text style={[styles.groupHeader, { color: theme.text }]}>{t.permissions.sectionTitle}</Text>
             <View style={styles.section}>
               <Surface style={[styles.card, { borderColor: theme.border }]}>
-                <ToggleRow
-                  label={t.permissions.voiceNotes.label}
-                  hint={t.permissions.voiceNotes.hint}
-                  checked={settings.voiceNotesEnabled}
-                  onChange={(v) => { selection(); settings.update({ voiceNotesEnabled: v }); }}
-                />
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <ToggleRow
-                  label={t.permissions.contacts.label}
-                  hint={t.permissions.contacts.hint}
-                  checked={settings.contactsEnabled}
-                  onChange={(v) => { selection(); settings.update({ contactsEnabled: v }); }}
-                />
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <ToggleRow
-                  label={t.permissions.location.label}
-                  hint={t.permissions.location.hint}
-                  checked={settings.locationEnabled}
-                  onChange={(v) => { selection(); settings.update({ locationEnabled: v }); }}
-                />
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                {/* Voice, contacts and location switches removed 2026-10-11: each asks the OS
+                    for permission the first time it is used, and RETIRED_SETTINGS pins them on. */}
                 <ToggleRow
                   label={t.permissions.calendar.label}
                   hint={t.permissions.calendar.hint}
@@ -1917,42 +1892,31 @@ export default function SettingsScreen() {
                 {/* Version & updates — lets the user see exactly which build/OTA is
                     running and force an OTA check. Runtime + updateId here are the
                     fastest way to diagnose "I haven't received the update". */}
-                <DisclosureRow title={t.version.title} accentColor={theme.accent} rounded>
-                  {[
-                    [t.version.appVersion, appVersion],
-                    [t.version.runtime, runtimeVersion],
-                    [t.version.channel, updateChannel],
-                    [t.version.source, updateSource],
-                    [t.version.updateId, updateIdShort],
-                    [t.version.commit, buildCommit],
-                    [t.version.change, buildSubject],
-                    [t.version.published, updatePublished],
-                  ].map(([label, value], i) => (
-                    <View key={label} style={[styles.switchRow, i > 0 && { marginTop: Spacing.sm }]}>
-                      <Text style={[styles.switchLabel, { color: theme.text }]}>{label}</Text>
-                      <Text style={[styles.switchHint, { color: theme.textMuted }]} selectable>{value}</Text>
-                    </View>
-                  ))}
-                  {/* Standing "this is a work in progress" note — the onboarding tour says
-                      the same thing once, this keeps it findable afterwards. */}
-                  <View style={styles.experimentalRow}>
-                    <Ionicons name="flask-outline" size={16} color={theme.textMuted} />
-                    <Text style={[styles.descText, { color: theme.textMuted, flex: 1, marginTop: 0 }]}>
-                      {t.version.experimental}
-                    </Text>
-                  </View>
-                  {!Updates.isEnabled && (
-                    <Text style={[styles.descText, { color: theme.warn, marginBottom: Spacing.sm }]}>
-                      {t.version.disabled}
-                    </Text>
-                  )}
-                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                  <PressableScale style={styles.dangerBtn} onPress={handleCheckUpdates} disabled={checkingUpdate} scaleTo={0.97}>
-                    <Text style={[styles.dangerBtnText, { color: theme.accent }]}>
-                      {checkingUpdate ? t.version.checking : t.version.checkButton}
-                    </Text>
-                  </PressableScale>
-                </DisclosureRow>
+                {/* Version — one row since 2026-10-11. The build diagnostics (runtime, channel,
+                    update id, commit…) moved into the Debug card. Tapping this row seven times
+                    turns debug mode on, which is now the only way in: the Debug card renders
+                    only while debug is on. scripts/preview.mjs, measure-wraps.mjs and
+                    screenshot-states.mjs tap `settings-version` to get there. */}
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                <Pressable
+                  testID="settings-version"
+                  onPress={handleVersionTap}
+                  style={[styles.switchRow, { minHeight: MIN_TAP_TARGET }]}
+                  accessibilityRole="text"
+                >
+                  <Text style={[styles.switchLabel, { color: theme.text }]}>{t.version.appVersion}</Text>
+                  <Text style={[styles.switchHint, { color: theme.textMuted }]}>{appVersion}</Text>
+                </Pressable>
+                {!Updates.isEnabled && (
+                  <Text style={[styles.descText, { color: theme.warn, marginBottom: Spacing.sm }]}>
+                    {t.version.disabled}
+                  </Text>
+                )}
+                <PressableScale style={styles.dangerBtn} onPress={handleCheckUpdates} disabled={checkingUpdate} scaleTo={0.97}>
+                  <Text style={[styles.dangerBtnText, { color: theme.accent }]}>
+                    {checkingUpdate ? t.version.checking : t.version.checkButton}
+                  </Text>
+                </PressableScale>
               </Surface>
             </View>
             {/* Reset data — its own red-bordered card (not folded into the panel above) so the
@@ -2004,6 +1968,7 @@ export default function SettingsScreen() {
                 unseeded a starter set of tasks and shopping rows — demo scaffolding from before
                 real users were on the app, and the most side-effect-heavy switch on the screen.
                 The columns survive; lib/freyrModeSeed.ts was deleted 2026-10-11 (nothing called it). */}
+            {settings.debugModeEnabled && (
             <View style={styles.section}>
               <Surface style={[styles.card, { borderColor: theme.border }]}>
                 <ToggleRow
@@ -2016,6 +1981,24 @@ export default function SettingsScreen() {
                   <>
                     <View style={[styles.divider, { backgroundColor: theme.border }]} />
                     <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0 }]}>{t.debug.howToUse}</Text>
+                    {/* Build diagnostics — moved here from the Version row (2026-10-11).
+                        Runtime + update id are the fastest way to diagnose "I haven't
+                        received the update". */}
+                    <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                    {[
+                      [t.version.runtime, runtimeVersion],
+                      [t.version.channel, updateChannel],
+                      [t.version.source, updateSource],
+                      [t.version.updateId, updateIdShort],
+                      [t.version.commit, buildCommit],
+                      [t.version.change, buildSubject],
+                      [t.version.published, updatePublished],
+                    ].map(([label, value], i) => (
+                      <View key={label} style={[styles.switchRow, i > 0 && { marginTop: Spacing.sm }]}>
+                        <Text style={[styles.switchLabel, { color: theme.text }]}>{label}</Text>
+                        <Text style={[styles.switchHint, { color: theme.textMuted }]} selectable>{value}</Text>
+                      </View>
+                    ))}
                     {/* ⚠️ **Temporary instrument (2026-09-10) — remove with the `countRender`
                         call sites in components/EnergyMeter.tsx and app/(tabs)/index.tsx.**
                         The Home flicker survived four fixes and every headless gate in this
@@ -2065,6 +2048,7 @@ export default function SettingsScreen() {
                 */}
               </Surface>
             </View>
+            )}
           </>
         )}
 
@@ -2106,7 +2090,6 @@ const baseStyles = StyleSheet.create({
   groupHeader: { fontFamily: Type.heading.fontFamily, fontSize: Type.heading.size, lineHeight: Math.round(Type.heading.size * Type.heading.line) },
   descText: { fontSize: FontSize.xs, marginTop: Spacing.sm, lineHeight: 18, fontFamily: Fonts.regular },
   // Version card's "experimental build" note — icon + wrapped text on one row.
-  experimentalRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm, marginTop: Spacing.md },
   energyCapacityRows: { marginTop: Spacing.md, gap: Spacing.sm },
   energyCapacityRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.md },
   // Each settings group reads as one rounded, bordered block — the whole lined-up set of
