@@ -746,7 +746,7 @@ const en = {
     steps: {
       home: {
         title: 'Home gathers the day',
-        body: 'Today, notes and the shopping list, on one screen.\n• Small beats perfect — one thing you can finish.\n• A quiet day is just a quiet day.',
+        body: 'Energy, today and notes, on one screen.\n• Small beats perfect — one thing you can finish.\n• A quiet day is just a quiet day.',
       },
       shopping: {
         title: 'Everything you need to buy',
@@ -2950,7 +2950,7 @@ const no: typeof en = {
     steps: {
       home: {
         title: 'Hjem samler dagen',
-        body: 'I dag, notater og handlelisten, på én skjerm.\n• Lite slår perfekt — én ting du blir ferdig med.\n• En rolig dag er bare en rolig dag.',
+        body: 'Energi, i dag og notater, på én skjerm.\n• Lite slår perfekt — én ting du blir ferdig med.\n• En rolig dag er bare en rolig dag.',
       },
       shopping: {
         title: 'Alt du trenger å kjøpe',
@@ -4796,7 +4796,7 @@ const is: typeof en = {
     steps: {
       home: {
         title: 'Heim safnar deginum',
-        body: 'Í dag, minnispunktar og innkaupalistinn, á einum skjá.\n• Lítið slær fullkomið — eitt sem þú klárar.\n• Rólegur dagur er bara rólegur dagur.',
+        body: 'Orka, í dag og minnispunktar, á einum skjá.\n• Lítið slær fullkomið — eitt sem þú klárar.\n• Rólegur dagur er bara rólegur dagur.',
       },
       shopping: {
         title: 'Allt sem þarf að kaupa',
