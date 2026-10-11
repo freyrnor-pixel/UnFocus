@@ -213,7 +213,9 @@ describe('EnergyMeter — the strip names itself, and is set from a pop-up', () 
     // this first failed; the length cap is what stops the lazy form matching across the file.
     const wrapped = [...src.matchAll(/<View style=\{styles\.qaLine\}[\s\S]{0,120}?<QuickAddOptionRow\s+wide\b/g)];
     const allWide = [...src.matchAll(/<QuickAddOptionRow\s+wide\b/g)];
-    expect({ wrapped: wrapped.length, total: allWide.length }).toEqual({ wrapped: 2, total: 2 });
+    // One since 2026-10-11 (V2): the week scope's adjust row. The day scope's control is the
+    // slim "Fast hver dag" row, which is not a grid cell.
+    expect({ wrapped: wrapped.length, total: allWide.length }).toEqual({ wrapped: 1, total: 1 });
   });
 
   it('always passes a label — the row signature no longer admits null', () => {
@@ -224,24 +226,28 @@ describe('EnergyMeter — the strip names itself, and is set from a pop-up', () 
     expect(src).toMatch(/row\('week', t\.energyMeter\.thisWeek,/);
   });
 
-  it('has no stepper of its own — every number is set in the folded panel', () => {
-    // The component cannot render a Stepper because it does not import one. A bare ± on the
-    // card has no way to say whether it moves the capacity or the spend, and being always-there
-    // invites nudging it on every glance. The steppers live in EnergyConfigPanel, which is
-    // folded behind the adjust row (2026-09-26: edited in the card, no longer a sheet) — read
-    // EnergyConfigPanel's header before changing either half.
-    expect(src).not.toMatch(/from '@\/components\/Stepper'/);
-    expect(src).not.toMatch(/<Stepper/);
+  it('has exactly ONE stepper of its own — the day amount, labelled, beside "Fast hver dag"', () => {
+    // ⚠️ **Reversed 2026-10-11 (V2, maintainer-approved mockup).** Until then the card had no
+    // stepper: a bare ± could not say whether it moved the capacity or the spend. The V2 card
+    // answers that with a LABEL and a neighbour: one row reading "Fast hver dag", the day's
+    // amount, and the switch that saves it as the everyday default (*"Lacks a way to save
+    // Energy and make it a 'permanent' Daily"*). Every other number — the week, the boost —
+    // still lives in EnergyConfigPanel, now the card's ⤢ pane.
+    expect([...src.matchAll(/<Stepper\b/g)]).toHaveLength(1);
+    expect(src).toMatch(/t\.energyMeter\.fixedDaily/);
+    expect(src).toMatch(/accessibilityLabel=\{t\.energyMeter\.todayCapacity\}/);
     expect(src).not.toMatch(/EnergyConfigSheet/);
   });
 
   it('mounts the panel only inside a Collapsible driven by the card toggle — folded by default', () => {
     // Every mount of the panel sits inside `<Collapsible open={configOpen}>`, and configOpen
     // starts false. An always-open panel is the "too flexible" state the 2026-08-03 review killed.
+    // Since 2026-10-11 (V2) the panel has two homes: folded in the card behind the week adjust
+    // row, and OPEN in the card's ⤢ pane (`inPane`), which is the "everything" view.
     expect(src).toMatch(/const \[configOpen, setConfigOpen\] = useState\(false\)/);
-    const mounts = [...src.matchAll(/\{configPanel\}/g)];
-    const wrapped = [...src.matchAll(/<Collapsible open=\{configOpen\}>\s*\{configPanel\}\s*<\/Collapsible>/g)];
-    expect({ mounts: mounts.length, wrapped: wrapped.length }).toEqual({ mounts: 2, wrapped: 2 });
+    expect(src).toMatch(/\{inPane \? configPanel : \(/);
+    const folded = [...src.matchAll(/<Collapsible open=\{configOpen[^}]*\}>\s*\{configPanel\}\s*<\/Collapsible>/g)];
+    expect(folded).toHaveLength(1);
   });
 
   it('hands all three setters to the panel, which owns all three steppers', () => {
@@ -299,25 +305,27 @@ describe('EnergyMeter — the strip names itself, and is set from a pop-up', () 
     // became that same card rather than a different-shaped panel standing in for it, and the
     // assertion moved with it: what must hold is that this spot draws an EMPTY bar, never a full
     // one, before anything can spend it. That is now checkable directly rather than by proxy.
-    const emptyBranch = src.slice(src.indexOf('showTutorial && ('), src.indexOf('{!pause.paused && !showTutorial'));
-    expect(emptyBranch).toMatch(/<Surface style=\{styles\.budgetCard\}>/);
-    expect(emptyBranch).toMatch(/tier="card"/);
+    // ⚠️ **One registry card since 2026-10-11 (V2)** — `<Card id="homeEnergy">` — so the empty
+    // state is a different PEEK and an all-empty bar inside the same card, not a branch of its
+    // own. The rule is unchanged: before anything can spend energy, the bar is outlines only.
+    const emptyBranch = src.slice(src.indexOf('{showTutorial ? ('), src.indexOf(") : scope === 'day' ? ("));
+    expect(src).toMatch(/<Card\s+id="homeEnergy"/);
+    expect(emptyBranch.length).toBeGreaterThan(0);
     // The BAR in this state is outline glyphs only. A filled pip here would be energy spent
     // with nothing able to spend it — the exact thing this test has always been about. Scoped to
     // the pip row on purpose: the LEGEND beneath it draws a filled bolt as its `brukt` swatch
     // and a green one for `gitt tilbake`, which is a key to the bar, not a reading of it.
     // `tutorialPips` since 2026-09-08 — see the note where the card renders it: `pipRow` is a
     // flex child of the bar's LINE and collapses to nothing as a column child.
-    const pipRow = emptyBranch.slice(emptyBranch.indexOf('styles.tutorialPips'), emptyBranch.indexOf('styles.legendRow'));
+    const pipRow = emptyBranch.slice(emptyBranch.indexOf('styles.tutorialPips'));
     expect(pipRow).toMatch(/name="flash-outline"/);
     expect(pipRow).not.toMatch(/name="flash"/);
-    // And the way in is the same adjust row the live card uses, not a second control shape.
-    expect(emptyBranch).toMatch(/<QuickAddOptionRow/);
+    // The way in is the card's one control row (the day's amount + "Fast hver dag"), the same
+    // row the live card draws — not a second control shape for the empty state.
     expect(src).not.toMatch(/<StarterCard/);
     // Scoped to the JSX rather than the whole file: the source's own comment explains where the
     // prop went, and a bare word-match would forbid saying so.
     expect(src).not.toMatch(/<StarterCard[^>]*noTree/);
-    expect(src).toMatch(/label=\{t\.starters\.energy\.action\}/);
     // ⚠️ **The EMPTY row (2026-09-01)** — maintainer: *"insert empty energy bubbles in the empty
     // state energy card so it's not so empty."* Its whole justification is that this state is the
     // SHAPE of the thing it is inviting you to fill in. It does NOT reopen the rule above — an
@@ -373,8 +381,9 @@ describe('EnergyMeter — the strip names itself, and is set from a pop-up', () 
     // "explainer taller than the thing it explains" complaint all over again. (The permanent
     // hint that used to be the third member of this set was deleted with the bulb tier on
     // 2026-08-17; see lib/__tests__/exampleRows.test.ts section 4.)
-    expect(src).toMatch(/\{!pause\.paused && showTutorial && \(/);
-    expect(src).toMatch(/\{!pause\.paused && !showTutorial && \(/);
+    // One card since 2026-10-11 (V2): the bar is EITHER the empty tutorial row OR the live
+    // reading, chosen by one ternary — never both.
+    expect(src).toMatch(/\{showTutorial \? \(/);
   });
 
   it('names the meter in both languages', () => {

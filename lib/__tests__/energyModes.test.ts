@@ -181,7 +181,8 @@ describe('switching modes is lossless', () => {
  * NOT in this list is one nothing stops from drawing in Rewards mode.
  */
 const ENERGY_SURFACES: { what: string; file: string; token: string }[] = [
-  { what: "Home's Energy strip", file: 'app/(tabs)/index.tsx', token: '<EnergyMeter' },
+  // The Energy CARD since 2026-10-11 (V2) — still gated at the mount itself.
+  { what: "Home's Energy card", file: 'app/(tabs)/index.tsx', token: '<EnergyMeter' },
   { what: 'the shared-load card', file: 'components/TodoSurface.tsx', token: '<EnergyBalanceCard' },
   { what: "the task editor's energy stepper", file: 'components/TaskCard.tsx', token: 't.energyGiveTakeLabel' },
   { what: "the habit form's energy stepper", file: 'app/habit-form.tsx', token: 't.energyGiveTakeLabel' },

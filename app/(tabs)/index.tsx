@@ -3,8 +3,8 @@
  *
  * **V2 re-order (2026-10-11, maintainer-approved mockup).** Each card lives in exactly ONE place.
  * Hjem draws:
- *   1. Energy (components/EnergyMeter.tsx) — fixed, absent when `settings.energySystemEnabled` is
- *      off. Not a registry card, so it can be neither moved nor hidden.
+ *   1. Energy (`homeEnergy`, components/EnergyMeter.tsx) — a registry card since 2026-10-11, absent
+ *      when `settings.energySystemEnabled` is off.
  *   2. Shared card (components/HomeSharedCard.tsx) — only when something has arrived.
  *   3. I dag (`homeToday`, components/PlanTaskCard.tsx) and Notater (`homeNotes`) — registry
  *      cards, ordered/hidden through `settings.cardOrder` + `settings.hiddenCards`.
@@ -308,6 +308,10 @@ export default function HomeScreen() {
   );
 
 
+  // The gate is in the JSX as well as at the hand-off below, so the mount itself is visibly
+  // behind `energySystemEnabled` (lib/__tests__/energyModes.test.ts scans for exactly that).
+  const energyNode = useMemo(() => <>{energySystemEnabled && <EnergyMeter />}</>, [energySystemEnabled]);
+
   const notesNode = useMemo(
     () => (
       <DebugNoteAnchor id="home.notesPreview" label="Home — Notes preview" style={styles.section}>
@@ -384,6 +388,9 @@ export default function HomeScreen() {
   // A dep list here must name everything the card's JSX reads. Getting one wrong shows up as a
   // card that stops updating, not as a crash — if a Home card ever goes stale, look here first.
   const cardNodes: Partial<Record<CardKey, React.ReactNode>> = {
+    // Energy is a registry card since 2026-10-11 (V2) — ⌄ ⤢ like the rest — and still absent
+    // entirely when the Energy system is off.
+    homeEnergy: energySystemEnabled ? energyNode : undefined,
     homeNotes: notesNode,
     homeToday: todayNode,
   };
@@ -420,23 +427,6 @@ export default function HomeScreen() {
               nothing: both are in app/settings.tsx's `NOTIF_SWITCHES`, which is the inventory,
               and the Settings copies additionally ask for the OS permission through
               `applyAndSync` — which these two hand-rolled ones only half did. */}
-          {/* Energy STRIP (2026-07-31, addendum task B.2) — no longer a card: one thin line of
-              pips + `n / n` + an edit glyph, with its permanent explainer under it. It is FIXED
-              here: not a card in lib/cardRegistry.ts, so it can be neither reordered nor
-              removed with the × — the only way to make it go away is turning Energy off in
-              Settings → Advanced → Features, which is what `energySystemEnabled` gates (on by
-              default; the meter was unconditional 2026-07-26→2026-07-31). It uses `energyStrip`,
-              not `section`: a full Spacing.xl band above a one-line strip re-created the card's
-              worth of vertical space the strip exists to give back. Its explainer lives INSIDE
-              the strip as a permanent line (2026-07-27) — it used to be a separate StarterCard
-              rendered here, which sat directly above the Plans card and so read as belonging to
-              the to-do card, making its disappear-on-first-use behaviour look like a bug in the
-              wrong place. */}
-          {energySystemEnabled && (
-            <View style={styles.energyStrip}>
-              <EnergyMeter />
-            </View>
-          )}
 
           {/* Shared preview — HomeSharedCard (incoming shared tasks + shopping). Self-hides
               when nothing is incoming — gated here too (not just inside HomeSharedCard) so no

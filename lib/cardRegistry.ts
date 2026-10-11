@@ -217,7 +217,8 @@ export const CARDS = {
     // specifically, not about whether a tab's own first card gets a bare header on first open.
     // This is a separate, narrower exception: every OTHER screen's own first card rests open
     // too (`shopLists`, `habitsList`, `healthWeek`), which Home's rule never covered.
-    openAtRest: true,
+    // No `openAtRest` since 2026-10-11: as a nested pane body it has no resting state on any
+    // screen.
     // Phase 7's table for this card. Wired into components/TodoSurface.tsx's `InlineTaskAdd`
     // (`compose="today"`) — Time is a TimeBoxInput cell, Effort a signed Stepper gated on
     // `energySystemEnabled`, Goal `components/GoalQuickCell.tsx` gated on `featureGoals`.
@@ -424,6 +425,23 @@ export const CARDS = {
   // until this pass and are tabs again — a card AND a tab for one surface is the duplication
   // worth avoiding, which is the surviving half of the argument that took them OFF the bar.
   // Order is this tab's DEFAULT; settings.cardOrder owns the stored one, same as every screen.
+  // ⚠️ **Energy is a registry card since 2026-10-11 (V2).** It was a fixed "strip" outside the
+  // registry, so it had a pencil where every other card had ⌄ ⤢ — the inconsistency the V2 card
+  // rule removes. Its ⤢ pane is every energy number (components/EnergyConfigPanel.tsx). Order 0:
+  // it sits above I dag, where the strip always stood. app/(tabs)/index.tsx still gates it on
+  // `settings.energySystemEnabled`.
+  homeEnergy: {
+    screen: 'home',
+    order: 0,
+    hue: 'index',
+    domain: 'task',
+    icon: 'flash',
+    badgeHue: true,
+    title: (t) => t.energyMeter.budgetTitle,
+    fold: 'persisted',
+    expand: 'surface',
+    openAtRest: true,
+  },
   homeToday: {
     screen: 'home',
     order: 1,

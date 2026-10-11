@@ -71,7 +71,10 @@ describe('defaultCollapsed — one short exception list', () => {
   // checks it's the right card, not just the right count).
   it('excepts no more cards than the maintainer named', () => {
     const excepted = CARD_KEYS.filter((k) => cardSpec(k).openAtRest);
-    expect(excepted.length).toBeLessThanOrEqual(7);
+    // 8 since 2026-10-11: Energy became a registry card (`homeEnergy`) that rests open, as the
+    // fixed strip always stood open above Hjem's cards. Home is still three (Energi, I dag,
+    // Notater) — the Handleliste card it replaced left the same day.
+    expect(excepted.length).toBeLessThanOrEqual(8);
     const byScreen = new Map<string, number>();
     for (const key of excepted) {
       const screen = cardSpec(key).screen;

@@ -758,7 +758,12 @@ async function main() {
     if (FULL) {
       console.log('> sheets and overlays');
       await tab(page, 'Home');
-      if (await tryButton(page, "Set the day's energy")) {
+      // ⚠️ **The panel is the Energy card's ⤢ pane since 2026-10-11 (V2).** The card itself holds
+      // only the bar and the "Same every day" row; every number is in its full-screen view.
+      const energyExpand = page.getByRole('button', { name: 'Energy budget: Expand card', exact: true }).first();
+      if (await energyExpand.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await energyExpand.click({ timeout: 8000 }).catch(() => {});
+        await page.waitForTimeout(1200);
         await shot(page, 'energy-config-sheet', {
           title: 'The Energy config panel (inline in the card)',
           screen: 'components/EnergyConfigPanel.tsx',
@@ -776,12 +781,16 @@ async function main() {
         //   The `+` keys carry no accessible name of their own (components/Stepper.tsx), so they
         // are reached through the row's label — the last button in the row labelled with
         // `energyMeter.todayCapacity`.
-        const capRow = page.getByLabel("Today's energy").first();
+        // `.last()`: the Hjem card behind the pane carries a stepper with the same name (its
+        // "Same every day" row); the pane's own is later in the document.
+        const capRow = page.getByLabel("Today's energy").last();
         if (await capRow.isVisible({ timeout: 3000 }).catch(() => false)) {
           const plus = capRow.getByRole('button').last();
           for (let i = 0; i < 8; i++) await plus.click({ timeout: 4000 }).catch(() => {});
           await page.waitForTimeout(500);
         }
+        // Leave the pane by its own ‹ (top-left since 2026-10-11).
+        await page.getByRole('button', { name: 'Collapse card', exact: true }).first().click({ timeout: 6000 }).catch(() => {});
         await closeOverlays(page);
         await page.waitForTimeout(900);
         // Re-settle the pager (2026-09-26) — a WEB-ONLY artefact, not an app bug. Since the config
@@ -800,11 +809,23 @@ async function main() {
         await page.waitForTimeout(600);
         // Only shoot it if the starter card is actually gone — otherwise this is another
         // confident capture of the state it was meant to replace.
-        if (!(await page.getByText("Set the day's energy", { exact: true }).first().isVisible({ timeout: 1500 }).catch(() => false))) {
+        // A real `jumpTo` re-seats the pager on a whole page — the scrollLeft reset above is not
+        // always enough after the pane (same round trip the shopping seeding uses).
+        await tab(page, 'To-do');
+        await tab(page, 'Home');
+        // The DOCUMENT itself can be left scrolled sideways by the focused stepper (a web-only
+        // artefact, same family as the scrollLeft note above): reset it.
+        await page.evaluate(() => {
+          window.scrollTo(0, 0);
+          document.documentElement.scrollLeft = 0;
+          document.body.scrollLeft = 0;
+        });
+        await page.waitForTimeout(600);
+        if (!(await page.getByText('Not set for today', { exact: true }).first().isVisible({ timeout: 1500 }).catch(() => false))) {
           await shot(page, 'home-energy-budget', {
             title: 'Home — the Energy budget bar (v2)',
             screen: 'components/EnergyMeter.tsx',
-            state: 'POPULATED METER, and the only baseline that reaches it. Filled = SPENT, outline = left — the inverse of the glossy pip token this row drew until 2026-09-06, and the reading v2 states outright. A third run in the habits hue, after a divider, is energy a habit gave BACK; it is capped so it stays a shape and not a tally. The legend is load-bearing: it is the only thing on screen saying which way the glyphs read.',
+            state: 'POPULATED METER, and the only baseline that reaches it. Gold = spent by a task, outline = left, cyan = given back by a habit (V2, 2026-10-11) — the to-do and habits colours, so no legend is needed. Below it, the one control row: the day amount and "Same every day".',
             components: 'EnergyMeter, energyBudgetBar, EnergyConfigPanel',
           });
         }
@@ -972,7 +993,10 @@ async function main() {
         if (!(await openCard(page, 'Earlier days'))) {
           throw new Error('day-log: no "Earlier days: Expand list" toggle — refusing to shoot a shut section');
         }
-        await page.waitForTimeout(1000);
+        // 2500, not 1000 (2026-10-11): inside the full-screen pane the section's reveal and the
+        // pane's own settle overlap, and two runs of one build differed by ~100-900 px of text
+        // sub-pixel position at 1000 ms.
+        await page.waitForTimeout(2500);
         await shot(page, 'day-log-screen', {
           title: 'Earlier days (the day log, one day at a time)',
           screen: 'app/day-log.tsx',

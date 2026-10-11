@@ -265,6 +265,8 @@ const en = {
     /** Shown instead of a silently-full bar. Never "over budget" — it states, it does not scold. */
     budgetOver: (n: number) => `${n} past today's budget`,
     budgetAdjust: 'Adjust budget',
+    /** The V2 card's one control row (2026-10-11): ON = today's amount is the everyday default. */
+    fixedDaily: 'Same every day',
     budgetUnits: (n: number) => `${n} units`,
     /** The ✏️'s accessibility label (was also the title of the retired EnergyConfigSheet). */
     editTitle: 'Adjust energy',
@@ -2634,6 +2636,7 @@ const no: typeof en = {
       `${used} av ${cap} brukt${back > 0 ? ` · +${back} gitt tilbake` : ''}`,
     budgetOver: (n: number) => `${n} over dagens budsjett`,
     budgetAdjust: 'Juster budsjett',
+    fixedDaily: 'Fast hver dag',
     budgetUnits: (n: number) => `${n} enheter`,
     usedOf: (used: number, cap: number) => `${used} / ${cap} brukt`,
     editTitle: 'Juster energi',
@@ -4468,6 +4471,7 @@ const is: typeof en = {
       `${used} af ${cap} notað${back > 0 ? ` · +${back} skilað` : ''}`,
     budgetOver: (n: number) => `${n} yfir fjárhag dagsins`,
     budgetAdjust: 'Stilla fjárhag',
+    fixedDaily: 'Sama alla daga',
     budgetUnits: (n: number) => `${n} einingar`,
     usedOf: (used: number, cap: number) => `${used} / ${cap} notuð`,
     editTitle: 'Stilla orku',

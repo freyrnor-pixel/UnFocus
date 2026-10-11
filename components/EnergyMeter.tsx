@@ -243,18 +243,20 @@ import { useFocusEffect } from 'expo-router';
 import Animated, { useSharedValue, useAnimatedStyle, withSequence, withTiming } from 'react-native-reanimated';
 import { Badge } from '@/components/Badge';
 import PressableScale from '@/components/PressableScale';
-import Surface from '@/components/Surface';
+import Card from '@/components/Card';
+import Stepper from '@/components/Stepper';
 import QuickAddOptionRow from '@/components/QuickAddOptionRow';
-import { SegmentedControl } from '@/components/FormControls';
-import SectionRail from '@/components/SectionRail';
+import { SegmentedControl, Switch } from '@/components/FormControls';
 import EnergyConfigPanel from '@/components/EnergyConfigPanel';
 import Collapsible from '@/components/Collapsible';
 import EnergyPauseSheet from '@/components/EnergyPauseSheet';
-import { Fonts, FontSize, Radius, RowTrailing, Spacing, getGlow, hitSlopFor, rgba } from '@/constants/theme';
+import { Fonts, FontSize, MIN_TAP_TARGET, Radius, RowTrailing, Spacing, getGlow, rgba } from '@/constants/theme';
 import { useAccessibility, useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { countRender, countLayout } from '@/lib/perfTrace';
 import { useT } from '@/lib/i18n';
-import { todayStr } from '@/lib/date';
+import { dayOfWeekMon0, todayStr } from '@/lib/date';
+import { useIsPaneBody } from '@/lib/cardPane';
+import { getScreenColor } from '@/lib/screenColor';
 import { energyDeltaForDay, energyDeltaForWeek, energySplitForDay, energySplitForWeek, energyBudgetBar, MAX_PIPS } from '@/lib/energy';
 import { useEnergyPause } from '@/lib/useEnergyPause';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -265,30 +267,11 @@ import { Duration, Ease } from '@/constants/motion';
 
 type PulseKind = 'recovered' | 'depleted';
 
-/** The header's edit glyph. Named so `hitSlopFor()` can expand it to MIN_TAP_TARGET from the
- *  one number that matters — at 16px it needs 14px of slop, which a hand-picked 8 or 12
- *  (40px of target) doesn't reach. */
+/** The overspend row's pause glyph. */
 const EDIT_ICON_SIZE = 16;
 
-/**
- * The two glyphs at the end of the strip line — ✏️ alone most days, the calm overspend
- * control to its left when today is over its energy.
- *
- * They are the app's second pair of independent tap targets sitting side by side, so they
- * follow `RowTrailing`'s arithmetic rather than each carrying a symmetric `hitSlopFor(16)`
- * (14px a side, which across ANY sane gap would overlap — and RN hit-tests siblings in
- * reverse order, so the ✏️ would silently swallow the right edge of the pause control). Each
- * is clipped on the side it shares with its neighbour, to the same 4px `RowTrailing` uses,
- * and the gap is `RowTrailing.gap` (16) so 16 − 4 − 4 = 8px belongs to neither. Both keep
- * their full 14px top/bottom, i.e. 44px on the axis a thumb actually misses on.
- */
-const PAIR_CLIP = RowTrailing.actionSlop.right;
-/** ✏️ on its own — nothing beside it, so it keeps a plain symmetric target. */
-const EDIT_SLOP = hitSlopFor(EDIT_ICON_SIZE);
-/** ✏️ with the pause control to its LEFT — clipped on that side. */
-const EDIT_SLOP_PAIRED = { ...EDIT_SLOP, left: PAIR_CLIP };
-/** The pause control, always the LEFT of the pair — clipped on its right. */
-const OVERSPEND_SLOP = { ...EDIT_SLOP, right: PAIR_CLIP };
+/* The header ✏️ and pause glyph pair (and their PAIR_CLIP hit-slop arithmetic) are gone with
+   the header controls (2026-10-11, V2 card rule): the pause control is a body row now. */
 
 /** Pip diameter + the gap between pips. Down from 24/5 in the 2026-07-31 strip pass — see the
  *  file header's "Two layouts, and the width math behind them" note before changing either;
@@ -297,7 +280,8 @@ const PIP_GAP = 4;
 /** The flash glyph inside a pip — ~60% of the badge, same proportion the 24px pip used. */
 /** v2's bar glyph and its legend key. The bar reads at a glance; the legend is a footnote. */
 const BAR_ICON_SIZE = 17;
-const LEGEND_ICON_SIZE = 12;
+/** The day amount's stepper ceiling — matches EnergyConfigPanel's day stepper. */
+const DAILY_MAX = 30;
 
 /** One-shot ~1.5s glow behind a meter row — see the file header's "Depleted/recovered pulse"
  *  note. Local to this file (not GlowPulse) because it needs a timed fade in→hold→out
@@ -369,9 +353,18 @@ export default function EnergyMeter() {
 
   const energyMode = useSettingsStore((s) => s.energyMode);
   // Subscribe to the defaults + overrides so the meter recomputes when either changes.
-  useSettingsStore((s) => s.energyDailyCapacity);
+  const energyDailyCapacity = useSettingsStore((s) => s.energyDailyCapacity);
   useSettingsStore((s) => s.energyWeeklyCapacity);
-  useSettingsStore((s) => s.energyCustomCapacities);
+  const energyCustomCapacities = useSettingsStore((s) => s.energyCustomCapacities);
+  const updateSettings = useSettingsStore((s) => s.update);
+  // ⚠️ **Spent is the to-do colour and given-back is the habits colour (2026-10-11, V2).**
+  // Maintainer: *"Use same coloring in lightning icons as in to-do and habits for giving and
+  // taking Energy."* Tasks take energy and wear gold everywhere else; habits give it back and
+  // wear cyan. The bolts now say which, so the text legend that explained them is gone.
+  const spentHue = getScreenColor(theme, 'plans').base;
+  const givenHue = getScreenColor(theme, 'habits').base;
+  // Inside Hjem's ⤢ pane this card is its body and shows EVERY number (EnergyConfigPanel).
+  const inPane = useIsPaneBody('homeEnergy');
   // Captured, not just subscribed: a non-empty `overrides` is the fingerprint of a user who
   // has set a period's capacity at least once, which is half the tutorial gate below.
   const overrides = useEnergyStore((s) => s.overrides);
@@ -563,42 +556,7 @@ export default function EnergyMeter() {
   // over-full day is exactly the wrong moment for something on screen to start moving.
   const showOverspend = pause.overBudget && !pause.paused;
 
-  const overspendButton = (
-    <PressableScale
-      onPress={() => setSheetOpen(true)}
-      hitSlop={OVERSPEND_SLOP}
-      scaleTo={0.9}
-      accessibilityRole="button"
-      accessibilityLabel={t.energyPause.overspendLabel}
-    >
-      <Ionicons name="pause-circle-outline" size={EDIT_ICON_SIZE} color={theme.accent} />
-    </PressableScale>
-  );
 
-  /**
-   * The one way in to every energy number (2026-08-03) — it opens
-   * the inline components/EnergyConfigPanel.tsx fold (a bottom sheet 2026-08-03 → 2026-09-26).
-   *
-   * It used to swap to a `checkmark` while the Collapsible was open, because the glyph WAS the
-   * open/close toggle. A sheet closes itself, so there is nothing to toggle: the glyph keeps
-   * one shape and only takes the accent while the sheet is up, which is the same "this control
-   * is what's on screen" cue every other opener in the app gives.
-   */
-  const editButton = (
-    <PressableScale
-      onPress={() => setConfigOpen((v) => !v)}
-      hitSlop={showOverspend ? EDIT_SLOP_PAIRED : EDIT_SLOP}
-      scaleTo={0.9}
-      accessibilityRole="button"
-      accessibilityLabel={t.energyMeter.editTitle}
-    >
-      <Ionicons
-        name="create-outline"
-        size={EDIT_ICON_SIZE}
-        color={configOpen ? theme.accent : theme.textMuted}
-      />
-    </PressableScale>
-  );
 
   // The inline editor, mounted in whichever card is showing (tutorial or live). `configOpen`
   // survives the tutorial → live flip, so the fold stays open under the user's thumb when the
@@ -610,7 +568,8 @@ export default function EnergyMeter() {
       /* BASE, not the total the meter shows — see `dayBaseCapacity` above for why handing
          over the sum would re-bank today's boost as the user's usual capacity. */
       dayBaseCapacity={dayBaseCapacity}
-      onDayCapacity={(n) => setDayCapacity(today, n)}
+      // Same rule as the card's row: with "Fast hver dag" on, today's amount IS the default.
+      onDayCapacity={(n) => { setDayCapacity(today, n); if (fixedDaily) saveAsDefault(n); }}
       weekCapacity={weekCapacity}
       onWeekCapacity={(n) => setWeekCapacity(today, n)}
       dayBoost={dayBoost}
@@ -618,16 +577,34 @@ export default function EnergyMeter() {
     />
   );
 
-  // Passed to exactly ONE row (see the file header's "The edit affordance travels" note).
-  // `RowTrailing.gap` between the two, which is what makes PAIR_CLIP's 8px of dead space work.
-  const trailingControls = showOverspend ? (
-    <View style={styles.trailingCluster}>
-      {overspendButton}
-      {editButton}
-    </View>
-  ) : (
-    editButton
-  );
+
+  /**
+   * "Fast hver dag" (2026-10-11, V2). ON means today's amount IS the everyday default, so a step
+   * writes both; OFF means a step changes today only. Seeded from whether they already match, so
+   * a remount reads true when they do — no stored flag. In 'custom' mode the default is that
+   * weekday's own amount, which is what gets written; the mode is never changed from here.
+   */
+  const defaultForToday = energyMode === 'custom'
+    ? energyCustomCapacities[dayOfWeekMon0(new Date(today + 'T12:00:00'))] ?? 0
+    : energyDailyCapacity;
+  const [fixedDaily, setFixedDaily] = useState(() => dayBaseCapacity === defaultForToday);
+  const saveAsDefault = (n: number) => {
+    if (energyMode === 'custom') {
+      const next = [...energyCustomCapacities];
+      next[dayOfWeekMon0(new Date(today + 'T12:00:00'))] = n;
+      updateSettings({ energyCustomCapacities: next });
+    } else {
+      updateSettings({ energyDailyCapacity: n });
+    }
+  };
+  const onDailyAmount = (n: number) => {
+    setDayCapacity(today, n);
+    if (fixedDaily) saveAsDefault(n);
+  };
+  const onFixedDaily = (on: boolean) => {
+    setFixedDaily(on);
+    if (on) saveAsDefault(dayBaseCapacity);
+  };
 
   const row = (
     rowKey: 'day' | 'week',
@@ -690,30 +667,13 @@ export default function EnergyMeter() {
         style={styles.pipRow}
         accessibilityLabel={t.energyMeter.budgetPeek(used, pipCount, gain)}
       >
-        {Array.from({ length: used }).map((_, i) => glyph('flash', theme.accent, `u${i}`, true))}
+        {Array.from({ length: used }).map((_, i) => glyph('flash', spentHue, `u${i}`, true))}
         {Array.from({ length: left }).map((_, i) => glyph('flash-outline', emptyGlyph, `l${i}`))}
-        {gain > 0 && <View style={[styles.barSep, { backgroundColor: theme.border }]} />}
-        {Array.from({ length: gain }).map((_, i) => glyph('flash', theme.good, `g${i}`, true))}
+        {Array.from({ length: gain }).map((_, i) => glyph('flash', givenHue, `g${i}`, true))}
       </View>
     );
     // The legend is the only thing that says which way the glyphs read, so all three words stay
     // even when a run is empty — two of them alone would leave the bar ambiguous.
-    const legend = (
-      <View style={styles.legendRow}>
-        <View style={styles.legendItem}>
-          <Ionicons name="flash" size={LEGEND_ICON_SIZE} color={theme.accent} />
-          <Text style={[styles.legendText, { color: theme.textMuted }]} numberOfLines={1}>{t.energyMeter.legendSpent}</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <Ionicons name="flash-outline" size={LEGEND_ICON_SIZE} color={emptyGlyph} />
-          <Text style={[styles.legendText, { color: theme.textMuted }]} numberOfLines={1}>{t.energyMeter.legendLeft}</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <Ionicons name="flash" size={LEGEND_ICON_SIZE} color={theme.good} />
-          <Text style={[styles.legendText, { color: theme.textMuted }]} numberOfLines={1}>{t.energyMeter.legendGivenBack}</Text>
-        </View>
-      </View>
-    );
     // A bar clamped at full would otherwise read as a day exactly used up. It says so in words
     // instead — stating, never scolding (DESIGN_RULES.md rule 23).
     const overspendNote = overspent > 0 ? (
@@ -780,7 +740,6 @@ export default function EnergyMeter() {
             {pips}
             {chrome && value}
           </View>
-          {legend}
           {overspendNote}
         </View>
       </View>
@@ -805,166 +764,20 @@ export default function EnergyMeter() {
           its worst — see the header's "Tutorial state". The card stands exactly where the meter
           will stand, and the button is the same pop-up the ✏️ opens, so the first thing a new
           user can do here is the deliberate thing rather than a nudge. */}
-      {!pause.paused && showTutorial && (
-        // **No watermark, and no `noTree` prop any more (2026-09-01).** This card carried the
-        // biggest tree in the app until 2026-08-19 ("remove the Tree in Energy"), when it took a
-        // one-call-site `noTree` flag. The tree is now gone from the whole app — same
-        // instruction, applied everywhere — so `components/StageTree.tsx` and both props are
-        // deleted and there is nothing left to opt out of.
-        // No explanatory paragraph any more (2026-08-17, "kill the text bloat"): the two
-        // sentences that used to lead this card — "Energy is how much a day holds…" — were the
-        // longest block of teaching on Home, standing above every piece of real content on the
-        // first screen a new user sees. What is left is the one thing this state is FOR: the
-        // way in to setting the day's energy. The full explanation still lives in the ⓘ.
-        // ⚠️ **`variant="secondary"` again as of 2026-09-06 — reversing the 2026-08-16 change,
-        // on a maintainer ruling this time, not a polish pass** (DECISIONS_OPEN.md, "Does Home's
-        // energy card stay a capacity budget, or become a daily Lav/Middels/Høy level?", option
-        // C). The maintainer's own words on the shipped screenshot: *"Energy was a lone glowing
-        // pill floating outside any card."* This card was already a `StarterCard` `Surface` —
-        // the CTA was never literally outside one — but a raised, haloed `primary` pill on a
-        // small, neutral-bordered card read as the loudest thing on Home regardless, which is
-        // the complaint the mockup's "slim card, glow only on the chosen one" line was actually
-        // making. `secondary` is `!isRaised` (constants/theme.ts's `getGlow`, via Button.tsx),
-        // so this control now draws NO halo — the direct way to make it read as the card's own
-        // subordinate action rather than compete with it. The pop-up it opens, the pips above it,
-        // and the budget/capacity model underneath are all otherwise untouched; do not reinstate
-        // `primary` on this button as a "consistency" fix without re-reading this note and
-        // DECISIONS_OPEN.md's answer first.
-        //   *(Superseded history: 2026-08-16 made this `primary`, reasoning "this button is the
-        // ONE action on this card, not a quiet alternative to a louder one beside it, so it
-        // earns the halo `isRaised` reserves for primary/danger." That reasoning was sound on
-        // its own terms — it is what the maintainer's later screenshot report was actually
-        // objecting to. Its halo, while it was `primary`, correctly wore the to-do gold in dark
-        // as of round 20, not blue, once app/(tabs)/index.tsx started naming Home's screen hue.)*
-        <Surface style={styles.budgetCard}>
-          {/* ⚠️ **The empty state is the SAME card as the live one (2026-09-08).** It was a
-              `StarterCard` holding a bare row of ten grey bolts and a "Set the day's energy"
-              button — reported from a device twice, the second time as "Energy, once again,
-              what?". Two things were wrong with it and only one had been noticed: it did not
-              look like the card it stands in for (fixed 2026-09-07, by matching the glyphs), and
-              it was not the same SHAPE as it (this). A placeholder whose whole justification is
-              *"it is the shape of the thing you are being invited to fill in"* has to be that
-              shape, header and adjust row included — otherwise the first Energy a new user sees
-              is a panel the app never draws again, and on most installs it is the ONLY Energy
-              they ever see, because the bar does not appear until a capacity exists.
-                So: same `Surface`, same rail, same bar (all-empty at `MAX_PIPS`), same legend
-              telling you how to read it, and the same adjust row as the way in — v2's
-              `qa('Juster dagsbudsjett', …)`, which is now the one control here instead of a
-              button in a different shape. No segment: there is nothing to switch between yet. */}
-          <SectionRail
-            hue={theme.accent}
-            domain="task"
-            icon="flash"
-            badgeHue
-            tier="card"
-            label={t.energyMeter.budgetTitle}
-            peek={t.energyMeter.notSetPeek}
-            divider={false}
-          />
-          {/* ⚠️ `tutorialPips`, NOT `pipRow`. `pipRow` carries `flex: 1` + `overflow: hidden`
-              because in the live card it shares a LINE with the value text; as a direct child of
-              this column that `flex` collapses it to zero height and the overflow rule then
-              clips all ten glyphs away — which is exactly what the first render of this card
-              did, in both themes: a legend explaining a bar that was not on screen. The glyph,
-              the size and `emptyGlyph` are still the bar's own, which is what
-              stableLayout.test.ts pins. */}
-          <View
-            style={styles.tutorialPips}
-            onLayout={() => countLayout('L:pips')}
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-          >
-            {Array.from({ length: MAX_PIPS }, (_, i) => (
-              <Ionicons key={i} name="flash-outline" size={BAR_ICON_SIZE} color={emptyGlyph} />
-            ))}
-          </View>
-          <View style={styles.legendRow} onLayout={() => countLayout('L:legend')}>
-            <View style={styles.legendItem}>
-              <Ionicons name="flash" size={LEGEND_ICON_SIZE} color={theme.accent} />
-              <Text style={[styles.legendText, { color: theme.textMuted }]} numberOfLines={1}>{t.energyMeter.legendSpent}</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <Ionicons name="flash-outline" size={LEGEND_ICON_SIZE} color={emptyGlyph} />
-              <Text style={[styles.legendText, { color: theme.textMuted }]} numberOfLines={1}>{t.energyMeter.legendLeft}</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <Ionicons name="flash" size={LEGEND_ICON_SIZE} color={theme.good} />
-              <Text style={[styles.legendText, { color: theme.textMuted }]} numberOfLines={1}>{t.energyMeter.legendGivenBack}</Text>
-            </View>
-          </View>
-          {/* ⚠️ **The row wrapper is load-bearing, and it is a NATIVE-ONLY fix (2026-09-10).**
-              `QuickAddOptionRow` is a GRID CELL — read its header: cells "pair up two-per-line"
-              and its `wide` style is `flexGrow:1 / flexShrink:1 / flexBasis:'100%'`, where the
-              percentage is a WIDTH because the panel it was built for is a ROW. Dropped straight
-              into this card, whose `budgetCard` style is a plain column, that `100%` becomes a
-              percentage of the MAIN axis — the card's HEIGHT — asked for against a parent whose
-              height is indefinite.
-                react-native-web resolves that to content and draws it correctly, which is why
-              every harness here has always shown this card intact and why `home-empty`'s
-              baseline is not a bug report. Yoga does not, and the device showed the result:
-              *"Sett dagens energi"* sliced by the card's own bottom edge, under `Surface`'s
-              `overflow:'hidden'` mask. This is `INVARIANTS.md`'s documented crash-class trap —
-              a flex/basis combination that is wrong on native and **invisible on web** — one
-              rung along from the `flex:N + flexBasis:'auto'` case it names.
-                A `flexDirection:'row'` wrapper is the whole fix: it restores the container the
-              cell's own styles assume, so `100%` means width again. Don't "simplify" it away,
-              and don't fix it by editing `wide` — that basis is what makes a wide cell take a
-              whole line inside the real grid. */}
-          <View style={styles.qaLine} onLayout={() => countLayout('L:qaLine')}>
-            <QuickAddOptionRow
-              wide
-              showsMore
-              icon="flash-outline"
-              label={t.starters.energy.action}
-              value={t.energyMeter.notSetValue}
-              accent={theme.accent}
-              onPress={() => setConfigOpen((v) => !v)}
-            />
-          </View>
-          {/* **Edited IN the card (2026-09-26).** Maintainer: *"energi og månedsbudsjett må kunne
-              redigeres i kortet, ikke via innstillinger"*. The row above opens this fold; it was a
-              bottom sheet from 2026-08-03. Still folded by default so a glance never lands on a ±
-              — read EnergyConfigPanel's header before making it always-open. */}
-          <Collapsible open={configOpen}>
-            {configPanel}
-          </Collapsible>
-        </Surface>
-      )}
-
-      {/* ── v2's Energibudsjett CARD (2026-09-08) ────────────────────────────────────────
-          The mockup (docs/audit/Corrected_Screens_v2_1.html, now committed so this is checkable)
-          draws Energy as `gc slim`: a card header with a peek line, an `I dag`/`Uke` segment, the
-          bar with its legend, and one adjust row. The app drew a bare STRIP with a stacked
-          day row and week row — the v2 BAR had landed on 2026-09-06, its i18n (`budgetTitle`,
-          `scopeDay/Week`, `budgetAdjust`, `budgetUnits`) landed with it, and none of the
-          structure ever did. Two device reports in a row said Energy was still wrong; this is
-          the half that was missing, not a third guess at the bar.
-
-          ⚠️ **This reverses "Strip, not a card" (2026-07-31), knowingly.** That note argued a
-          card here would compete with the four content cards below it. The mockup answers it
-          directly — it draws the header, the peek and the controls — and the maintainer's
-          ruling of 2026-09-08 is v2 plus "my judgement". What does NOT come back is the thing
-          that note was really about: this is not a REGISTRY card, so it has no fold, no ⤢ and
-          no `CardKey`, and `app/(tabs)/index.tsx` still renders it fixed, outside `cardNodes`.
-          The literal `tier="card"` rail is the one `cardAnatomy.test.ts`'s `CARD_RUNG_ALLOWED`
-          already licenses for this file. */}
-      {!pause.paused && !showTutorial && (
-        <Surface style={styles.budgetCard}>
-          <SectionRail
-            hue={theme.accent}
-            domain="task"
-            icon="flash"
-            badgeHue
-            tier="card"
-            label={t.energyMeter.budgetTitle}
-            peek={t.energyMeter.budgetPeek(activeSplit.spent, activeCapacity, activeSplit.gained)}
-            divider={false}
-            right={trailingControls}
-          />
-          {/* The scope segment, and ONLY when there are two scopes to pick between. In
-              `energyMode: 'daily'`/`'weekly'` one of them does not exist, and a two-option
-              control with one dead option is worse than no control. */}
-          {showDay && showWeek && (
+      {/* ── The Energy CARD (V2, 2026-10-11) ──────────────────────────────────────────────
+          A registry card now (`homeEnergy`), so it has the same header as every other card —
+          ⌄ then ⤢ — and its ⤢ opens a pane holding every number (EnergyConfigPanel). The two
+          hand-built `Surface` + `SectionRail` branches (tutorial / live) are one card: the
+          tutorial is only a different PEEK and an all-empty bar. The text legend is gone — the
+          bolts carry their own colours (gold = spent by a task, cyan = given back by a habit,
+          outline = left) — and the "Adjust budget" fold became one slim row: the day's amount
+          and a "Fast hver dag" switch that saves it as the everyday default. */}
+      {!pause.paused && (
+        <Card
+          id="homeEnergy"
+          peek={showTutorial ? t.energyMeter.notSetPeek : t.energyMeter.budgetPeek(activeSplit.spent, activeCapacity, activeSplit.gained)}
+        >
+          {!showTutorial && showDay && showWeek && (
             <SegmentedControl<EnergyScope>
               compact
               options={[
@@ -976,35 +789,85 @@ export default function EnergyMeter() {
               style={styles.scopeSegment}
             />
           )}
-          {scope === 'day'
-            ? row('day', t.energyMeter.today, dayCurrent, dayCapacity, daySplit, dayPulse, null,
-                dayBoost > 0 ? <Badge label={t.energyMeter.boostChip(dayBoost)} /> : null, false)
-            : row('week', t.energyMeter.thisWeek, weekCurrent, weekCapacity, weekSplit, weekPulse, null, null, false)}
-          {/* v2's `qa('Juster dagsbudsjett','8 enheter')`: one row saying what it edits and what
-              the number currently is. `QuickAddOptionRow` is the app's existing shape for
-              exactly that (label line + value + ›) — DESIGN_RULES §8's whole point is that this
-              does not become a fifteenth hand-rolled row. */}
-          {/* Same row wrapper, same reason as the tutorial card's — see that call site's note. */}
-          <View style={styles.qaLine} onLayout={() => countLayout('L:qaLine')}>
-            <QuickAddOptionRow
-              wide
-              showsMore
-              icon="flash-outline"
-              label={t.energyMeter.budgetAdjust}
-              value={t.energyMeter.budgetUnits(scope === 'day' ? dayCapacity : weekCapacity)}
-              isSet
-              accent={theme.accent}
-              onPress={() => setConfigOpen((v) => !v)}
-            />
-          </View>
-          {/* **Edited IN the card (2026-09-26).** Maintainer: *"energi og månedsbudsjett må kunne
-              redigeres i kortet, ikke via innstillinger"*. The row above opens this fold; it was a
-              bottom sheet from 2026-08-03. Still folded by default so a glance never lands on a ±
-              — read EnergyConfigPanel's header before making it always-open. */}
-          <Collapsible open={configOpen}>
-            {configPanel}
-          </Collapsible>
-        </Surface>
+          {showTutorial ? (
+            <View
+              style={styles.tutorialPips}
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+            >
+              {Array.from({ length: MAX_PIPS }, (_, i) => (
+                <Ionicons key={i} name="flash-outline" size={BAR_ICON_SIZE} color={emptyGlyph} />
+              ))}
+            </View>
+          ) : scope === 'day' ? (
+            row('day', t.energyMeter.today, dayCurrent, dayCapacity, daySplit, dayPulse, null,
+              dayBoost > 0 ? <Badge label={t.energyMeter.boostChip(dayBoost)} /> : null, false)
+          ) : (
+            row('week', t.energyMeter.thisWeek, weekCurrent, weekCapacity, weekSplit, weekPulse, null, null, false)
+          )}
+          {/* Over today's energy: the pause sheet's way in, as a row in the body now that the
+              header carries only ⌄ and ⤢. */}
+          {showOverspend && (
+            <PressableScale
+              onPress={() => setSheetOpen(true)}
+              scaleTo={0.97}
+              accessibilityRole="button"
+              accessibilityLabel={t.energyPause.overspendLabel}
+              style={styles.overspendRow}
+            >
+              <Ionicons name="pause-circle-outline" size={EDIT_ICON_SIZE} color={theme.accent} />
+              <Text style={[styles.overspendRowText, { color: theme.accent }]} numberOfLines={1}>
+                {t.energyPause.overspendLabel}
+              </Text>
+            </PressableScale>
+          )}
+          {/* The one control row. Day scope: the amount + "Fast hver dag". Week scope (or a
+              weekly-only setup) keeps the adjust row and its fold, which owns the week number. */}
+          {inPane ? (
+            // In the ⤢ pane the panel below owns the day amount ("Today's energy"), so the row
+            // keeps only its switch — one stepper per number, never two.
+            showDay ? (
+              <View style={styles.dailyRow}>
+                <Text style={[styles.dailyLabel, { color: theme.text }]} numberOfLines={1}>
+                  {t.energyMeter.fixedDaily}
+                </Text>
+                <Switch checked={fixedDaily} onChange={onFixedDaily} accessibilityLabel={t.energyMeter.fixedDaily} />
+              </View>
+            ) : null
+          ) : showDay && scope === 'day' ? (
+            <View style={styles.dailyRow}>
+              <Text style={[styles.dailyLabel, { color: theme.text }]} numberOfLines={1}>
+                {t.energyMeter.fixedDaily}
+              </Text>
+              <Stepper
+                value={dayBaseCapacity}
+                onChange={onDailyAmount}
+                min={0}
+                max={DAILY_MAX}
+                accessibilityLabel={t.energyMeter.todayCapacity}
+              />
+              <Switch checked={fixedDaily} onChange={onFixedDaily} accessibilityLabel={t.energyMeter.fixedDaily} />
+            </View>
+          ) : (
+            <View style={styles.qaLine}>
+              <QuickAddOptionRow
+                wide
+                showsMore
+                icon="flash-outline"
+                label={t.energyMeter.budgetAdjust}
+                value={t.energyMeter.budgetUnits(weekCapacity)}
+                isSet
+                accent={theme.accent}
+                onPress={() => setConfigOpen((v) => !v)}
+              />
+            </View>
+          )}
+          {inPane ? configPanel : (
+            <Collapsible open={configOpen && !(showDay && scope === 'day')}>
+              {configPanel}
+            </Collapsible>
+          )}
+        </Card>
       )}
 
       {/* The one line the pause leaves behind. It is the acknowledgement itself — the narrator
@@ -1050,6 +913,11 @@ const styles = StyleSheet.create({
   // v2's `gc slim`: the card's own padding and inner rhythm. `Surface` brings the fill, edge and
   // shadow; this is only the box it wraps around the rail, the segment, the bar and the row.
   budgetCard: { padding: Spacing.md, gap: Spacing.sm },
+  // The V2 card's one control row: label, the day's amount, and "Fast hver dag".
+  dailyRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: MIN_TAP_TARGET },
+  dailyLabel: { flex: 1, minWidth: 0, fontSize: FontSize.sm, fontFamily: Fonts.medium },
+  overspendRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, minHeight: MIN_TAP_TARGET },
+  overspendRowText: { fontSize: FontSize.sm, fontFamily: Fonts.medium, flexShrink: 1 },
   // The ROW container a `QuickAddOptionRow` assumes it is in — see both call sites' notes. Its
   // `wide` basis is a width percentage, and this card is otherwise a column, where the same
   // number would be read against the card's own height.
