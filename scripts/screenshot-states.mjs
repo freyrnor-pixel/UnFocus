@@ -38,7 +38,7 @@ import { chromium } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 import { resolveChromium } from './chromium-path.mjs';
-import { forceAppearance, freezeNarratorQuote } from './force-appearance.mjs';
+import { forceAppearance, freezeNarratorQuote, hideBackdropPainting } from './force-appearance.mjs';
 
 const BASE_URL = process.env.PREVIEW_URL || 'http://127.0.0.1:8787';
 const args = process.argv.slice(2);
@@ -701,6 +701,9 @@ async function main() {
   // `quick-add-focused-empty` differ run to run by the quote text alone — a random 3517 px of
   // diff on any branch, on any machine. See freezeNarratorQuote's comment.
   await freezeNarratorQuote(page);
+  // Leave the painted tree out (2026-10-11) — it rasterises differently on CI and here, see
+  // hideBackdropPainting's comment. Without this every baseline fails on the runner.
+  await hideBackdropPainting(page);
 
   try {
     // ---- 1. onboarding + tour -------------------------------------------

@@ -71,3 +71,24 @@ export async function freezeNarratorQuote(page, index = 0) {
     window.__unfocusFixedQuoteIndex__ = i;
   }, index);
 }
+
+/**
+ * Leave the PAINTED backdrop out of a pixel-gate capture (2026-10-11).
+ *
+ * components/TreeBackdrop.tsx draws a 390×844 watercolour scaled to the viewport. Chromium on the
+ * CI runner and on a dev container interpolate that bitmap differently, by a few channel levels
+ * across the whole tree. At the old 0.22 opacity that stayed under visual-diff's 4-level rule;
+ * at full strength (every screen, since 2026-10-07) it turned EVERY baseline red on CI by 2-5%
+ * while two local runs stayed bit-identical — a gate that fails on the machine, not the change.
+ *   Same shape as freezeNarratorQuote: set from outside, before the bundle loads, no writer in
+ *   the app. What it costs: the gate no longer sees the painting itself, which is a fixed
+ *   asset, not layout. Everything drawn OVER it is still compared.
+ *
+ * Call BEFORE the first `page.goto()`.
+ */
+export async function hideBackdropPainting(page) {
+  await page.addInitScript(() => {
+    // eslint-disable-next-line no-undef
+    window.__unfocusHideBackdropPainting__ = true;
+  });
+}
