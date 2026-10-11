@@ -165,7 +165,7 @@
  *   - **There is no blur.** See the comment where the `BlurView` used to mount.
  *
  * Connections:
- *   Imports → constants/theme (BORDER_WIDTH, darken,
+ *   Imports → components/FrostLayer + lib/frost (the frosted slice, 2026-10-11), constants/theme (BORDER_WIDTH, darken,
  *             getLayeredShadow, Radius), constants/motion (Travel),
  *             lib/useAppTheme (useAppTheme, useIsDark, useAccessibility),
  *             lib/useDesignLab (useLabShape — the design lab's geometry,
@@ -287,6 +287,8 @@
  *     already; the mask and the key base need the same four corners, which is what the memoised
  *     `radii` object below is for (it was three identical inline literals until 2026-08-28).
  */
+import FrostLayer from '@/components/FrostLayer';
+import { backdropPaintingHidden, shouldFrost, useFrost } from '@/lib/frost';
 import React, { useMemo } from 'react';
 import { AccessibilityRole, Platform, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import {
@@ -324,6 +326,13 @@ type Props = {
   tint?: string;
   /** Boosts this card's shadow to the `floating` tier — the focus/active pop. */
   elevated?: boolean;
+  /**
+   * Opt an `overlay` pane into frost (2026-10-11). Off by default for overlays because a sheet
+   * has the app's own cards behind it, not the painting. The full-screen card pane
+   * (components/CardExpandHost.tsx) is the exception: it covers the whole screen, so the slice of
+   * painting it shows is exactly the backdrop it stands in for.
+   */
+  frosted?: boolean;
   /**
    * Makes the whole card a key: Surface draws a base behind itself and sinks onto it on press,
    * rather than the caller wrapping it in its own scale-bouncing PressableScale. Prefer this
@@ -411,6 +420,7 @@ export default function Surface({
   surfaceContext = 'ambient',
   tint,
   elevated,
+  frosted,
   onPress,
   onLongPress,
   accessibilityRole = 'button',
@@ -600,6 +610,23 @@ export default function Surface({
   // 2026-08-18: a sheet or the nav bar has the app's own CARDS behind it, so "frost" there is the
   // card underneath reading through, not depth. Those tiers stay opaque at every setting.
   const transmits = isAmbient && !reduceEffects && glassSurfaces;
+  // ── FROST (2026-10-11, V2 build step 3) ────────────────────────────────────────────────
+  // A pane that is in front of the painted backdrop draws the BLURRED slice of it that sits
+  // behind it (components/FrostLayer.tsx), under its usual tint — glass that is frosted rather
+  // than merely see-through, with no per-frame blur. Read lib/frost.ts for the design. Cards and
+  // the nav bar only: a sheet has the app's own cards behind it, not the painting, so a slice of
+  // the painting there would be a lie. Same two user switches as transmission.
+  const frostCtx = useFrost();
+  const frostOn = shouldFrost({
+    enabled: frostCtx.enabled,
+    hasTint: !!tint,
+    staticPressed,
+    reduceEffects,
+    glassSurfaces,
+    context: surfaceContext,
+    frosted: !!frosted,
+    paintingHidden: backdropPaintingHidden(),
+  });
   const opaqueFill = isAmbient ? theme.surface : theme.surfaceRaised;
   const baseFill = transmits ? theme.surfaceGlass : opaqueFill;
   const fill = staticPressed ? theme.surfaceMuted : tint ?? baseFill;
@@ -680,6 +707,18 @@ export default function Surface({
   const paneImage = pane
     ? { [Platform.OS === 'web' ? 'backgroundImage' : 'experimental_backgroundImage']: pane.image }
     : null;
+  // The tint (and, on a translucent pane, the lit ramp) drawn OVER a frosted slice — see
+  // FrostLayer's `overlay`. Memoised so FrostLayer's memo holds across renders.
+  const paneImageCss = pane ? pane.image : null;
+  const frostOverlay = useMemo(
+    () => [
+      { backgroundColor: theme.surfaceGlass },
+      transmits && paneImageCss
+        ? { [Platform.OS === 'web' ? 'backgroundImage' : 'experimental_backgroundImage']: paneImageCss }
+        : null,
+    ],
+    [theme.surfaceGlass, transmits, paneImageCss],
+  );
   // ⚠️ **`litEdgeOn` IS GONE (2026-09-15), and it is deleted rather than left constant-false.**
   // That is #703's own lesson applied to #703's own predicate: a switch that still reads as live
   // while every branch lands in the same place is how 2026-09-06 shipped a whole app with no
@@ -1007,6 +1046,15 @@ export default function Surface({
               without removing it. It is removed now. `expo-blur` has no other mount in the
               app. If a blur is ever wanted again, bring it back for ONE tier with a
               measurement attached, not as a foundation. */}
+          {frostOn ? (
+            <FrostLayer
+              scrollY={frostCtx.scrollY}
+              // The tint goes OVER the slice — see FrostLayer's `overlay`. Ambient panes also
+              // carry their lit ramp there (it is a veil when `transmits`, i.e. translucent);
+              // the nav's ramp is opaque stops, so it takes the tint alone.
+              overlay={frostOverlay}
+            />
+          ) : null}
           <View style={[content, padding]}>{children}</View>
         </View>
     </View>

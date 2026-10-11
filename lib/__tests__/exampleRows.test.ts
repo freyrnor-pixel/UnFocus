@@ -410,8 +410,10 @@ describe('StarterCard — `embedded` wherever it is mounted inside another card'
     // is what this test wanted all along, so it checks that instead of the component that used
     // to stand for it.
     expect(source).not.toMatch(/<StarterCard/);
-    const mounts = source.match(/<Surface style=\{styles\.budgetCard\}>/g) ?? [];
-    expect(mounts.length).toBe(2);
+    // One registry card since 2026-10-11 (V2): the tutorial and the live meter are the same
+    // `<Card id="homeEnergy">`, differing only in peek and bar.
+    const mounts = source.match(/<Card\s+id="homeEnergy"/g) ?? [];
+    expect(mounts.length).toBe(1);
     // …and it carries NO explanatory text since 2026-08-17 ("Remove the 'Energy is how much a
     // day holds…' block"). What is left is the card and the one row into the config sheet,
     // which is the only thing this state exists to offer.

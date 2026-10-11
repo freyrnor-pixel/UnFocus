@@ -78,7 +78,7 @@
  * including why this needed no sync decision (`shopping_lists` isn't a synced table at all).
  *
  * Connections:
- *   Imports → components/InlineAddItem, components/BudgetFields (the Budget card's editable
+ *   Imports → components/BudgetBar (V2 budget bar), expo-keep-awake (V2 shopping mode), components/InlineAddItem, components/BudgetFields (the Budget card's editable
  *             amount + payday, 2026-09-26), components/AddDishSheet (AddDishTarget type),
  *             components/NarratorQuote (2026-08-19 — an unlocked monthly list with nothing
  *             in it; see that file's header for the three empty states it stays out of),
@@ -449,6 +449,9 @@
  *     both receipt OCR and QR import, so this one button is the sole replacement for the
  *     bottom-nav tab Scan used to occupy. The existing "Shopping done!" Scan/Upload choices
  *     (line ~245) already pushed `/scan` directly and are unaffected by this move.
+ *   - **Scan back in the header (V2, 2026-10-11)**, targeted this time: it opens `/scan` with
+ *     `target: 'catalogue'` (add/update names and prices, every line reviewed first). The
+ *     per-list scans ("Ferdig" → Scan, Monthly's ⋯) keep their own list targets.
  *   - **Still dropped**: SiteSwipeView's swipe-between-screens wrapper (Phase 3e, not
  *     ported, not required by A2-1/A2-4).
  *   - `ConfirmationBanner` renders as a sibling of ScreenScaffold, not inside its
@@ -508,6 +511,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, LayoutAnimation, Modal, NativeScrollEvent, NativeSyntheticEvent, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { Ionicons } from '@expo/vector-icons';
 import { useShoppingStore, ShoppingItem, MonthlyResetSummary, UNALLOCATED_LIST_ID } from '@/store/useShoppingStore';
 import { useShoppingListStore, ShoppingList } from '@/store/useShoppingListStore';
@@ -575,6 +579,7 @@ import { groupByDish, groupByCategory, computeListGroups, listProgress, catalogI
 import { projectOrder, reorderByDrag } from '@/lib/reorder';
 import { categoryPresets, categoryLabel } from '@/lib/shoppingCategories';
 import { formatKr } from '@/lib/money';
+import BudgetBar from '@/components/BudgetBar';
 import { computeSpendPace } from '@/lib/budget';
 import { getDomainColor } from '@/lib/domainColor';
 import { getScreenColor } from '@/lib/screenColor';
@@ -603,6 +608,8 @@ type DragState = {
   mergeTargetDish: string | null;
 };
 
+
+const SHOPPING_MODE_TAG = 'unfocus-shopping-mode';
 
 export default function ShoppingScreen() {
   const theme = useAppTheme();
@@ -689,7 +696,9 @@ export default function ShoppingScreen() {
   // ── Card collapse (2026-07-22 redesign: collapsed by default) ──
   const [expandedListIds, setExpandedListIds] = useState<Record<string, boolean>>({});
   function toggleListExpanded(listId: string) {
-    setExpandedListIds((s) => ({ ...s, [listId]: !s[listId] }));
+    // Open by default since V2 (2026-10-11): the card shows ONE list at a time, so the one on
+    // screen should show its rows.
+    setExpandedListIds((s) => ({ ...s, [listId]: !(s[listId] ?? true) }));
   }
 
   // ── Per-list draft snapshot (2026-07-22 redesign: full local draft + save/discard) ──
@@ -1414,6 +1423,21 @@ export default function ShoppingScreen() {
     return map;
   }, [nonTemplateLists, monthlyResetDate]);
 
+  // ── V2 list pager (2026-10-11): ONE list on the card at a time, ‹ › between them ──
+  // Maintainer: "Shopping list one at a time ‹ ›". The cursor is the existing `focusedList`
+  // (it already picked the list Home's shortcuts act on), so the pager adds no state of its
+  // own. Order: week of the cycle, then the store's own order inside a week — the same order
+  // the four week sections used to stack them in.
+  const pagerLists = useMemo(() => [1, 2, 3, 4].flatMap((w) => listsByWeek[w] ?? []), [listsByWeek]);
+  const pagerIndex = focusedList ? Math.max(0, pagerLists.findIndex((l) => l.id === focusedList.id)) : 0;
+  const pagerList = pagerLists[pagerIndex];
+  const stepPager = (delta: number) => {
+    if (pagerLists.length < 2) return;
+    const next = pagerLists[(pagerIndex + delta + pagerLists.length) % pagerLists.length];
+    setFocusedListId(next.id);
+    tap();
+  };
+
   /**
    * Every non-template list's groups, computed ONCE per change of `items`, instead of once per
    * list per render (2026-09-15).
@@ -1432,6 +1456,22 @@ export default function ShoppingScreen() {
     for (const list of nonTemplateLists) map.set(list.id, computeListGroups(items, list.id));
     return map;
   }, [nonTemplateLists, items]);
+
+  // ── V2 shopping mode (2026-10-11): the screen stays on while you are mid-shop ──
+  // Maintainer: Handleliste's full screen = "shopping mode, screen stays on". Shipped as the
+  // STATE rather than a button: once the list on the pager has something in the cart and this
+  // tab is showing, the phone does not lock between aisles. Ticking the last item off via
+  // "Ferdig", leaving the tab, or emptying the cart releases it. No toggle to remember.
+  const midShop = !!pagerList && listProgress(groupsByList.get(pagerList.id) ?? EMPTY_LIST_GROUPS).inCart > 0;
+  useFocusEffect(
+    useCallback(() => {
+      if (!midShop) return undefined;
+      activateKeepAwakeAsync(SHOPPING_MODE_TAG).catch(() => {});
+      return () => {
+        deactivateKeepAwake(SHOPPING_MODE_TAG).catch(() => {});
+      };
+    }, [midShop])
+  );
 
   /** Rewrites the live store back to exactly what `snap` captured — undoes any add/
    *  remove/toggle/qty/merge/rename made since the snapshot, via the same store actions
@@ -2330,9 +2370,22 @@ export default function ShoppingScreen() {
               live list is created. With neither, there's nothing to drag yet, so the big
               empty card below covers that case instead of 4 redundant "no lists here"
               sections. */}
+          {pagerLists.length > 1 && pagerList && (
+            <View style={styles.listPager}>
+              <IconButton icon="chevron-back" label={t.listPagerPrev} onPress={() => stepPager(-1)} />
+              <Text style={[styles.listPagerText, { color: theme.textMuted }]} numberOfLines={1}>
+                {t.listPagerPosition(pagerIndex + 1, pagerLists.length)}
+              </Text>
+              <IconButton icon="chevron-forward" label={t.listPagerNext} onPress={() => stepPager(1)} />
+            </View>
+          )}
+
           {(nonTemplateLists.length > 0 || templateLists.length > 0) && [1, 2, 3, 4].map((week) => {
             const weekRange = dateRangeForCycleWeek(todayStr(), monthlyResetDate, week, weeklyResetDay);
-            const weekLists = listsByWeek[week] ?? [];
+            // With a list on the pager, only its week and only it are drawn. With none (saved
+            // lists only), all four weeks stay as drop targets for a saved list.
+            if (pagerList && !(listsByWeek[week] ?? []).some((l) => l.id === pagerList.id)) return null;
+            const weekLists = pagerList ? [pagerList] : listsByWeek[week] ?? [];
             const isDropTarget =
               (weekDrag != null && weekDrag.targetWeek === week && weekDrag.startWeek !== week) ||
               (savedListDrag != null && savedListDrag.targetWeek === week);
@@ -2387,7 +2440,7 @@ export default function ShoppingScreen() {
                       drag && drag.listId === list.id
                         ? projectOrder(drag.order, groups.ungroupedUnchecked)
                         : groups.ungroupedUnchecked;
-                    const expanded = !!expandedListIds[list.id];
+                    const expanded = expandedListIds[list.id] ?? true;
 
                     return (
                       <DraggableTaskRow
@@ -2673,20 +2726,6 @@ export default function ShoppingScreen() {
         //   It states BOTH halves now that one card holds both: a peek naming only the items
         // would under-report the card the moment Dishes moved in.
         peek={t.peek.shopCatalogueTabs(catalogueSize, dishCount)}
-        // The camera and the lock sit in the card's HEADER (2026-08-20, maintainer: *"the two
-        // buttons for camera and lock should be in the top part instead"*) — they were inside
-        // the list's own first box, which is deleted. `CardExpandButton` stays LAST, which is
-        // the app-wide rule this pass settled: whatever a card's own controls are, ⤢ is the
-        // right-most thing in the header.
-        //   ⚠️ Only on the **Items** tab (2026-09-07): both act on the catalogue's item list —
-        // the lock guards editing it, the camera scans INTO it — and neither has any meaning
-        // while Dishes is showing. Leaving them mounted would put two dead controls in the most
-        // crowded header in the app.
-        controls={
-          catalogueTab === 'items' ? (
-            <CatalogueHeaderControls locked={catalogueLocked} onToggleLock={() => setCatalogueLocked((v) => !v)} />
-          ) : undefined
-        }
       >
         <TabSlider
           options={[
@@ -2698,7 +2737,20 @@ export default function ShoppingScreen() {
           style={styles.catalogueTabs}
         />
         {catalogueTab === 'items' ? (
-          <CatalogueTab embedded onNotify={setConfirm} locked={catalogueLocked} />
+          <CatalogueTab
+            embedded
+            onNotify={setConfirm}
+            locked={catalogueLocked}
+            // Lock + camera sit at the top of the Items body since 2026-10-11 (V2 card rule: a card
+            // header carries only ⌄ and ⤢). Same `header` slot the full-screen pane already used,
+            // so the card and its pane draw them identically. Items tab only: both act on the
+            // item list, neither means anything under Dishes.
+            header={
+              <View style={styles.catalogueControls}>
+                <CatalogueHeaderControls locked={catalogueLocked} onToggleLock={() => setCatalogueLocked((v) => !v)} />
+              </View>
+            }
+          />
         ) : (
           <FoodTab embedded onNotify={setConfirm} />
         )}
@@ -2736,6 +2788,13 @@ export default function ShoppingScreen() {
         {monthlyLists.length > 0 && <BudgetFields />}
         {budgetPace.pace ? (
           <>
+            <BudgetBar
+              spent={budgetPace.spent}
+              budget={budgetPace.totalBudget}
+              daysElapsed={budgetPace.pace.daysElapsed}
+              periodLength={budgetPace.pace.periodLength}
+              color={screenHue}
+            />
             {/* The two numbers, side by side and in the same unit. Over-pace tints with `warn`,
                 never `bad` — a budget you are ahead of is information, not a failure
                 (DESIGN_RULES.md rule 23, and the same token app/budget.tsx uses). */}
@@ -2790,7 +2849,7 @@ export default function ShoppingScreen() {
 
   return (
     <>
-    <ScreenScaffold title={t.shoppingTitle} tier="site" screenKey="shopping" bottomNav={false} pagerFloatingNav ownBackground={false} onSharePress={featureSharing ? () => router.push('/share-modal?kind=s') : undefined} onManageCardsPress={() => setManageCardsOpen(true)} onScroll={handleScreenScroll}>
+    <ScreenScaffold title={t.shoppingTitle} tier="site" screenKey="shopping" bottomNav={false} pagerFloatingNav ownBackground={false} onSharePress={featureSharing ? () => router.push('/share-modal?kind=s') : undefined} onScanPress={() => router.push({ pathname: '/scan', params: { target: 'catalogue' } })} onManageCardsPress={() => setManageCardsOpen(true)} onScroll={handleScreenScroll}>
       {/* Debug notes: one anchor for the whole list region. Don't also wrap the inner
           cards/rows — one DebugNoteAnchor per region (no nesting). */}
       <DebugNoteAnchor id="shopping.list" label="Shopping — List" style={styles.content}>
@@ -3139,11 +3198,14 @@ const styles = StyleSheet.create({
     minHeight: 56,
   },
   budgetPairRow: { flexDirection: 'row', gap: Spacing.sm },
+  listPager: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  listPagerText: { fontSize: FontSize.sm, fontFamily: Fonts.medium },
   budgetCell: { flex: 1, minWidth: 0, borderRadius: Radius.md, padding: Spacing.sm, gap: 2 },
   budgetCellKey: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   budgetCellValue: { fontSize: FontSize.lg, fontFamily: Fonts.bold },
   budgetNote: { fontSize: FontSize.xs, fontFamily: Fonts.medium, lineHeight: 18 },
   /** Breathing room under Catalogue's Items/Dishes switch, matching the card's own body gap. */
+  catalogueControls: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' },
   catalogueTabs: { marginBottom: Spacing.sm },
   newListTriggerLabel: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
 });

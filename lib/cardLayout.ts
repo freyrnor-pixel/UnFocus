@@ -85,7 +85,8 @@ export const SURFACE_LAYOUTS: Record<LayoutSurface, readonly LayoutId[]> = {
   // Settings like every other surface's.
   shopping: ['basic', 'normal', 'everything'],
   plans: ['basic', 'normal', 'everything', 'timeline', 'nowNext', 'focusFirst', 'byPerson'],
-  // Home's to-do card offers the timeline too — it just doesn't default to it. `byPerson`
+  // Home's to-do card offers the timeline, and DEFAULTS to it since 2026-10-11 (V2: "To-do —
+  // only today, with a timeline"); see `SURFACE_DEFAULT` below. `byPerson`
   // is deliberately absent: a Home preview card is not the place for a second person filter
   // (the same call the Habits card already makes).
   homeTodo: ['basic', 'normal', 'everything', 'timeline', 'nowNext', 'focusFirst'],
@@ -178,6 +179,13 @@ export function isLayoutValidFor(surface: LayoutSurface, id: string | undefined)
  * step is validated, so a stale id left in the settings JSON by an older build (or a
  * hand-edited backup) degrades to a sane layout instead of rendering nothing.
  */
+/**
+ * A surface's own default, used when the user has set no override for it — ahead of the global
+ * detail level (2026-10-11). Only Hjem's I dag has one: it is the day's timeline by design, and
+ * the global "basic/normal/everything" setting is a density choice, not a shape choice.
+ */
+const SURFACE_DEFAULT: Partial<Record<LayoutSurface, LayoutId>> = { homeTodo: 'timeline' };
+
 export function resolveLayout(
   surface: LayoutSurface,
   cardLayouts: Record<string, string> | undefined,
@@ -185,6 +193,8 @@ export function resolveLayout(
 ): LayoutId {
   const override = cardLayouts?.[surface];
   if (isLayoutValidFor(surface, override)) return override;
+  const own = SURFACE_DEFAULT[surface];
+  if (own) return own;
   if (isLayoutValidFor(surface, globalDetail)) return globalDetail;
   return FALLBACK_LAYOUT;
 }

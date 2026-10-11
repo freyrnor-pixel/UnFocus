@@ -50,6 +50,8 @@ import pixelmatch from 'pixelmatch';
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
 const UPDATE = args.includes('--update');
+/** `--reuse`: compare the shots already in .visual-work/<theme>/ instead of walking the app again. */
+const REUSE = args.includes('--reuse');
 const THEME = args.find((a) => a.startsWith('--theme='))?.split('=')[1] || 'light';
 
 const BASELINE_DIR = path.join(ROOT, 'visual-baselines', THEME);
@@ -271,6 +273,14 @@ const MACHINE_DEPENDENT = [
   // top corners. A finding whose size changes between identical runs is the rasteriser, not the
   // app — and leaving it guarded would make this gate intermittently red, which is how a gate
   // stops being read. Re-narrow it to 'light' if the dark base ever goes flat again.
+  // ⚠️ **2026-10-11, and NOT a cross-machine entry — a same-machine one.** Since the day log
+  // became the Today card's ⤢ pane, two runs of ONE build on ONE machine differ by 46-350 px,
+  // confined to glyph edges in the two section labels ("Suggestions", "Earlier days"). Waits of
+  // 1000 → 2500 → 5000 ms and parking the pointer/focus did not change it, so it is not a settle
+  // race. Open item: find what in the pane rasterises text non-deterministically, then delete
+  // this entry and bless. The screen is still CAPTURED every run (and measured by wraps and
+  // geometry); only the pixel comparison is off.
+  ['day-log-screen', 'glyph-edge noise in the pane’s two section labels, 46-350 px between identical runs on one machine — see this constant’s note; do not fix by raising the pixel budget'],
   ['task-editor', 'the base gradient is an SVG scaled to COVER, so its stops land differently on two rasterisers and the translucent card transmits the difference (~90-125 px, varying run to run) — see this constant’s note; do not fix by raising the pixel budget'],
 ];
 /** The members that apply to the theme being diffed right now. */
@@ -382,20 +392,38 @@ function compareOne(name, shotPath) {
   const ratio = changed / (shot.width * shot.height);
   if (changed <= MAX_DIFF_PIXELS) return { name, status: 'ok', changed, ratio };
 
+  // WHERE it changed, printed in the log (2026-10-11). A CI run's diff images are in an artifact
+  // that a remote session cannot download, so a 26/26 red run read as "everything moved" with
+  // nothing to go on. The bounding box, the densest 40 px bands and one sampled pixel's
+  // expected → actual colour are usually enough to tell a layout shift from a colour shift.
+  const bands = new Map();
+  let x0 = Infinity, y0 = Infinity, x1 = -1, y1 = -1, sample = null;
+  for (let i = 0; i < diff.data.length; i += 4) {
+    const flagged = diff.data[i] > 200 && diff.data[i + 1] < 140 && diff.data[i + 3] === 255;
+    if (!flagged) continue;
+    const p = i / 4, x = p % shot.width, y = Math.floor(p / shot.width);
+    x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+    const b = Math.floor(y / 40) * 40;
+    bands.set(b, (bands.get(b) ?? 0) + 1);
+    if (!sample) sample = `(${x},${y}) rgb(${base.data[i]},${base.data[i + 1]},${base.data[i + 2]}) → rgb(${shot.data[i]},${shot.data[i + 1]},${shot.data[i + 2]})`;
+  }
+  const topBands = [...bands.entries()].sort((m, n) => n[1] - m[1]).slice(0, 4).map(([b, c]) => `y${b}-${b + 39}:${c}`).join(' ');
+  const where = x1 < 0 ? '' : `box x${x0}-${x1} y${y0}-${y1} · bands ${topBands} · first ${sample}`;
+
   fs.mkdirSync(DIFF_DIR, { recursive: true });
   const diffPath = path.join(DIFF_DIR, `${name}.diff.png`);
   fs.writeFileSync(diffPath, PNG.sync.write(diff));
   // Copy both sides next to the diff — a diff mask alone does not tell you which way it went.
   fs.copyFileSync(basePath, path.join(DIFF_DIR, `${name}.expected.png`));
   fs.copyFileSync(shotPath, path.join(DIFF_DIR, `${name}.actual.png`));
-  return { name, status: 'changed', changed, ratio, diffPath };
+  return { name, status: 'changed', changed, ratio, diffPath, where };
 }
 
 // ---------------------------------------------------------------------------
 // main
 // ---------------------------------------------------------------------------
 
-capture();
+if (!REUSE) capture();
 const captured = capturedByName();
 
 if (UPDATE) {
@@ -454,7 +482,7 @@ log(`  not captured     ${missingShot.length}`);
 
 for (const r of changed) {
   if (r.status === 'size') log(`\n  [size]    ${r.name} — ${r.detail}`);
-  else log(`\n  [changed] ${r.name} — ${r.changed} px (${(r.ratio * 100).toFixed(3)}%)`);
+  else log(`\n  [changed] ${r.name} — ${r.changed} px (${(r.ratio * 100).toFixed(3)}%)${r.where ? `\n            ${r.where}` : ''}`);
 }
 if (changed.length) {
   log(`\n  Diffs, expected and actual written to visual-diff-out/${THEME}/`);

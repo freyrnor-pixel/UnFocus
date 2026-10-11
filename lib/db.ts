@@ -520,7 +520,7 @@ export function initDb() {
     // Child-mode variant (Decision 038c) — same binary, a locked mode gated by a
     // parent password. Only FLAGS live here: `child_mode` (currently locked) and
     // `child_mode_password_set` (a password exists). The password itself is NEVER
-    // stored in SQLite — it lives in expo-secure-store (lib/childLock.ts).
+    // stored in SQLite — it lives in expo-secure-store (lib/childLock.ts, deleted 2026-10-11 — nothing ever read it).
     "ALTER TABLE settings ADD COLUMN child_mode INTEGER DEFAULT 0",
     "ALTER TABLE settings ADD COLUMN child_mode_password_set INTEGER DEFAULT 0",
     // LAN live-sync app integration (Decision 038, wiring the 038a/038d/038b
@@ -1454,6 +1454,14 @@ export function initDb() {
     "ALTER TABLE task_steps ADD COLUMN updated_at TEXT DEFAULT ''",
     "ALTER TABLE task_steps ADD COLUMN origin_device_id TEXT DEFAULT ''",
     'ALTER TABLE task_steps ADD COLUMN deleted_at TEXT DEFAULT NULL',
+    // ── 2026-10-11: V2 re-order — every card in exactly one place ──────────────────────────
+    // Handle is Budsjett → Handleliste → Lager → Katalog now, Hjem lost its shopping card and
+    // Gjøremål lost I dag (lib/cardRegistry.ts). A stored order is a PREFERENCE layered over the
+    // registry's, so an install that ever reordered would keep the old Handle order forever.
+    // Emptying it puts everyone on the new registry order — the same "force it once" call the
+    // 2026-08-22 lines above made when the card set moved. Not a literal array: writing the
+    // answer into a migration freezes it for every install it ever runs on.
+    "UPDATE settings SET card_order = '{}'",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

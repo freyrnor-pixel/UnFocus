@@ -10,7 +10,7 @@
  * Connections:
  *   Imports → constants/theme, lib/narratorQuotes (the lines + the wrapping index),
  *             lib/useAppTheme (useAppTheme, useScaledStyles), lib/i18n (useLang, for the
- *             active language)
+ *             active language), lib/cardHintContext (stays silent beside a card's hint)
  *   Used by → app/(tabs)/plans.tsx (`DoneSplitList`'s empty branch — Today/This week/Whenever/
  *             a day group — and the Recurring section's own),
  *             app/(tabs)/shopping.tsx (an unlocked monthly list with nothing in it),
@@ -78,6 +78,7 @@ import { FontSize, Fonts, Spacing } from '@/constants/theme';
 import { useLang } from '@/lib/i18n';
 import { quoteAt, randomQuoteIndex, type NarratorCategory } from '@/lib/narratorQuotes';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { useCardShowsHint } from '@/lib/cardHintContext';
 
 /**
  * How faint the line is. The brief's band is 50–60%; 0.55 is its middle, and in dark mode —
@@ -105,11 +106,16 @@ export default function NarratorQuote({ category, style }: Props) {
   const lang = useLang();
   const styles = useScaledStyles(baseStyles);
 
+  // ⚠️ **Silent inside a card that is showing its hint (2026-10-11).** One empty card, one line —
+  // see lib/cardHintContext.ts. Read before the early return so hook order never changes.
+  const cardShowsHint = useCardShowsHint();
+
   // Lazy initialiser, not a bare call: `randomQuoteIndex()` in the argument position would
   // re-roll on every render and the line would change under the user as the card re-renders
   // for reasons that have nothing to do with them. Picked ONCE, at mount, and never advanced
   // — see the header's note on the deleted cycle button.
   const [index] = useState(() => randomQuoteIndex(category, lang));
+  if (cardShowsHint) return null;
 
   return (
     // No Surface, no fill, no edge — see the header. The only thing this View does is give the

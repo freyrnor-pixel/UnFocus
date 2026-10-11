@@ -227,10 +227,6 @@ for (const id of ids) {
 // ── Emit ─────────────────────────────────────────────────────────────────────────────────
 const camel = (s) => s.replace(/-([a-z0-9])/g, (_, c) => c.toUpperCase());
 
-// Written by scripts/author-screen-bgs.mjs alongside the strip itself, so the panel order has
-// exactly one source of truth rather than being restated here.
-const panelOrder = JSON.parse(readFileSync(join(SRC, 'strip-panels.json'), 'utf8'));
-
 const body = ids
   .map((id) => {
     const m = motifs.get(id);
@@ -251,29 +247,19 @@ const out = `/**
  * brush-daub canopy, forking trunk, ground arc, floating dots. Each \`-light\`/\`-dark\` SVG
  * pair is geometrically identical and differs only in colour and opacity, so one entry here
  * holds the shared geometry plus BOTH opacities (\`o\` light, \`od\` dark) and no colour at
- * all — the consumer passes a theme token. That is what keeps components free of raw hex and
- * lets one backdrop be recoloured per tab from lib/screenColor.ts.
+ * all — the consumer passes a theme token, which keeps components free of raw hex.
  *
  * Connections:
  *   Imports → nothing (deliberately dependency-free, like lib/cardLayout.ts and lib/growth.ts)
- *   Used by → components/Motif.tsx (the only renderer), components/ScreenBackground.tsx
+ *   Used by → components/Motif.tsx (the only renderer)
  *   Data    → none — pure data
  *
  * Edit notes:
  *   - Elements are painted back-to-front; \`els\` order is load-bearing.
  *   - Coordinates are in the motif's own viewBox (\`w\` × \`h\`), never screen pixels.
- *   - \`screen-bg-strip\` is the tab backdrops as ONE continuous run of 390-wide panels,
- *     slid with the pager rather than swapped per tab, so the branch never breaks at a seam.
- *     Panel k occupies x [390k, 390(k+1)) in bottom-nav order — read \`STRIP_PANEL_ORDER\` at
- *     the foot of this file for what that order actually is, never a prose list like this one:
- *     it went 5 panels → 3 on 2026-08-20, and a stale prose ordering has already once put
- *     every tab on its neighbour's art. \`screen-bg-calm\` is the standalone 390×844 backdrop
- *     for sub-tier screens.
- *     lib/__tests__/motifs.test.ts pins the strip's geometry and the protected centre box
- *     (x 84–306, y 236–612 per panel) that cards live in.
- *   - Regenerate the strip with \`node scripts/author-screen-bgs.mjs\` — it is authored from a
- *     shared spine, which is what makes continuity structural instead of a coordinate two
- *     files have to agree on. Don't hand-edit screen-bg-strip-*.svg.
+ *   - Only the motifs something draws are kept (2026-10-11: halo-ring for the tour finale,
+ *     leaf-icon for HabitLeading). The tab backdrops, the tree illustrations and the other
+ *     ornaments were deleted with their SVGs once nothing drew them — git history has them.
  */
 
 /** What a part of a motif is, so a consumer can treat parts differently without re-parsing. */
@@ -327,17 +313,6 @@ export const MOTIFS: Record<MotifId, Motif> = RAW;
 
 export const MOTIF_IDS = Object.keys(MOTIFS) as MotifId[];
 
-/** The full-screen backdrops: the sliding tab strip and the standalone sub-tier one. */
-export const SCREEN_BG_IDS = MOTIF_IDS.filter((id) => id.startsWith('screen-bg-'));
-
-/**
- * Which tab each 390-wide panel of \`screen-bg-strip\` belongs to, left to right.
- *
- * This MUST match the <TopTabs.Screen> order in app/(tabs)/_layout.tsx, because the strip is
- * slid by that navigator's index — if they disagree, every tab quietly shows its neighbour's
- * art. lib/__tests__/motifs.test.ts checks the two against each other.
- */
-export const STRIP_PANEL_ORDER = ${JSON.stringify(panelOrder)} as const;
 `;
 
 writeFileSync(OUT, out);

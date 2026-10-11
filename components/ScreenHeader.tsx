@@ -50,8 +50,8 @@
  * settings/feedback/expo-updates — no props threaded down.
  *
  * Site-tier headers also accept an optional `onSharePress` — when a screen passes it, a share
- * icon appears in the controls group. `onScanPress` still exists but **no screen passes it any
- * more** (2026-08-13): the camera moved to a per-card action, because one header icon could not
+ * icon appears in the controls group. `onScanPress` is passed by Handle again since V2 (2026-10-11),
+ * with an explicit catalogue target. Before that, no screen passed it (2026-08-13): the camera moved to a per-card action, because one header icon could not
  * know which list you meant and so could only ever ADD rows. See lib/scanTarget.ts.
  *
  * Connections:

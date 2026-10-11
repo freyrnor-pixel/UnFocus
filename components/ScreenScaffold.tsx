@@ -7,7 +7,7 @@
  * with a back link (iOS) instead of Settings/Focus buttons.
  *
  * Connections:
- *   Imports → react-native, react-native-safe-area-context, components/ScreenBackground, components/HomeHeroBackground,
+ *   Imports → lib/frost (FrostContext provider + scroll shared value, 2026-10-11), react-native, react-native-safe-area-context, components/ScreenBackground, components/HomeHeroBackground,
  *             components/ScreenHeader (now also passed `isHome`, so
  *             ScreenHeader can gate its OTA "update available" button to Home only), components/BottomNav,
  *             components/DebugGeneralNoteButton (floating "Add general note" FAB, self-gated on
@@ -259,7 +259,8 @@
  *     own backgroundColor) now sits between them, and the sticky block + content's top padding
  *     shift down by the same amount. Zero-cost for screens that don't pass `stickyBelowHeader`.
  */
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useMemo, useRef } from 'react';
+import { useSharedValue } from 'react-native-reanimated';
 import { NativeScrollEvent, NativeSyntheticEvent, PixelRatio, Platform, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets, type Edge } from 'react-native-safe-area-context';
 import { CHROME_FLOAT_INSET, CHROME_REST_GAP, getHeaderMetrics, Radius, Spacing } from '@/constants/theme';
@@ -274,6 +275,7 @@ import DebugGeneralNoteButton from '@/components/DebugGeneralNoteButton';
 import { getScreenColor, ScreenColorContext, type ScreenKey } from '@/lib/screenColor';
 import { ScrollIntoViewContext, type Measurable } from '@/lib/scrollIntoView';
 import { useKeyboardAwareScroll } from '@/lib/useKeyboardAwareScroll';
+import { bumpFrostEpoch, FrostContext } from '@/lib/frost';
 
 
 /**
@@ -627,12 +629,29 @@ export default function ScreenScaffold({
   // which mounted its frosted backdrop only past a few px of scroll. The header card is
   // unconditional now ("Make top header card always visible"), so there is no scroll-dependent
   // chrome state left — this is back to a ref write plus the caller's own listener.
+  // The same offset as a Reanimated shared value, for the frosted panes (lib/frost.ts): each
+  // card's blurred slice counter-moves on the UI thread as the content scrolls. Written from this
+  // existing JS handler rather than by converting the ScrollView to an animated one — the
+  // keyboard lift and scroll-to-node both hold this ref, and a one-frame lag on a blur this soft
+  // is invisible.
+  const frostScrollY = useSharedValue(0);
   const handleScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       scrollY.current = e.nativeEvent.contentOffset.y;
+      frostScrollY.value = e.nativeEvent.contentOffset.y;
       onScroll?.(e);
     },
-    [onScroll],
+    [onScroll, frostScrollY],
+  );
+  // Frost is on only where the painted backdrop is actually behind the panes: a pager tab
+  // (the shared backdrop), or a screen drawing its own decorative one. Not on a plain/flat
+  // screen. `reduceEffects`/`glassSurfaces` are Surface's to check, not this provider's.
+  const frost = useMemo(
+    () => ({
+      enabled: ownBackground ? decorative && !plainBackground : true,
+      scrollY: scrollable ? frostScrollY : null,
+    }),
+    [ownBackground, decorative, plainBackground, scrollable, frostScrollY],
   );
   // Lift the field being typed into above the keyboard (see ScrollIntoViewContext doc). The
   // shared hook also supplies `keyboardPad`: the scroll room a field near the END of the content
@@ -913,6 +932,11 @@ export default function ScreenScaffold({
           scrollIndicatorInsets={{ top: contentPad.paddingTop, bottom: contentPad.paddingBottom }}
           keyboardShouldPersistTaps="handled"
           onScroll={handleScroll}
+          // A card above another one opening or closing moves it without laying it out again;
+          // so does a scroll coming to rest. Either way the frosted panes re-measure.
+          onContentSizeChange={bumpFrostEpoch}
+          onScrollEndDrag={bumpFrostEpoch}
+          onMomentumScrollEnd={bumpFrostEpoch}
           onLayout={keyboard.onLayout}
           scrollEventThrottle={16}
           scrollEnabled={!tourLocksScroll}
@@ -947,6 +971,7 @@ export default function ScreenScaffold({
     // for the whole pager), so it stays neutral by construction, which is correct: it belongs
     // to no single screen.
     <ScreenColorContext.Provider value={screenHue}>
+    <FrostContext.Provider value={frost}>
     <SafeAreaView edges={safeAreaEdges} style={[styles.safeArea, { paddingTop: topInset }, ownBackground && { backgroundColor: bgColor }]}>
       {/* L1: Background — skipped when a parent (the tabs pager) already renders a
           shared instance behind this screen (see ownBackground doc above), or when
@@ -1077,6 +1102,7 @@ export default function ScreenScaffold({
           debugModeEnabled, so every screen gets it for free via this one mount point. */}
       <DebugGeneralNoteButton bottomOffset={(reserveBottomNav ? bottomNavClearance : bottomInset) + Spacing.md} />
     </SafeAreaView>
+    </FrostContext.Provider>
     </ScreenColorContext.Provider>
   );
 

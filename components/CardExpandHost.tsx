@@ -8,7 +8,7 @@
  * no z-index arithmetic, the same reasoning AppModalHost already relies on.
  *
  * Connections:
- *   Imports → components/Surface, components/KeyboardAwareScrollView, components/CardExpandButton, constants/theme, constants/motion,
+ *   Imports → lib/frost (the pane's FrostContext), components/Surface, components/KeyboardAwareScrollView, components/IconButton (the pane's ‹ back), constants/theme, constants/motion,
  *             lib/cardPane, lib/expandableCards, lib/i18n, lib/useAppTheme, react-native-reanimated
  *   Used by → <CardExpandHost/> mounted in app/_layout.tsx; expandCard()/collapseCard() called
  *             from lib/useCardExpand.ts (which every expandable card uses); useExpandedCardId()
@@ -104,18 +104,19 @@ import Animated, {
 } from 'react-native-reanimated';
 import Surface from '@/components/Surface';
 import KeyboardAwareScrollView from '@/components/KeyboardAwareScrollView';
-import CardExpandButton from '@/components/CardExpandButton';
+import IconButton from '@/components/IconButton';
+import EnergyMeter from '@/components/EnergyMeter';
+import { FrostContext } from '@/lib/frost';
 import TodoSurface from '@/components/TodoSurface';
 import TabSlider from '@/components/TabSlider';
 import MedicineSurface from '@/components/MedicineSurface';
-import MedicineReminderBell from '@/components/MedicineReminderBell';
 import NotesSurface from '@/components/NotesSurface';
 import HabitsSurface from '@/components/HabitsSurface';
 import HealthSurface from '@/components/HealthSurface';
 import FoodTab from '@/components/FoodTab';
 import CatalogueTab, { CatalogueHeaderControls } from '@/components/CatalogueTab';
 import { Duration, Ease } from '@/constants/motion';
-import { Fonts, FontSize, MIN_TAP_TARGET, Radius, Spacing, getLayeredShadow, rgba } from '@/constants/theme';
+import { Fonts, FontSize, IconSize, MIN_TAP_TARGET, Radius, Spacing, getLayeredShadow, rgba } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { DOMAIN_ICON } from '@/components/CardAccent';
 import PressableScale from '@/components/PressableScale';
@@ -251,14 +252,9 @@ function HealthIssuesExpandedBody() {
 }
 
 function MedicineExpandedBody() {
-  return (
-    <>
-      <View style={styles.expandedControls}>
-        <MedicineReminderBell />
-      </View>
-      <MedicineSurface />
-    </>
-  );
+  // The reminders switch is MedicineSurface's own first row since 2026-10-11, so the pane needs
+  // nothing of its own here any more.
+  return <MedicineSurface />;
 }
 
 /**
@@ -288,6 +284,9 @@ const CARD_BODIES: Record<ExpandableCardId, CardBodyEntry> = {
   // `card: 'todoToday'` because that is what this body actually draws — see CardBodyEntry's
   // `card` note. Without it the pane would paint "Today" and then let TodoSurface paint a whole
   // second Today card inside it.
+  // Energy (2026-10-11, V2): the same component the card mounts; inside the pane it draws its
+  // body plus EnergyConfigPanel — every energy number — open.
+  homeEnergy: { title: (t) => t.energyMeter.budgetTitle, Body: () => <EnergyMeter /> },
   homeToday: { title: (t) => t.tasksTabToday, Body: () => <TodoSurface section="today" />, card: 'todoToday' },
   // The pane draws its own title bar, so this entry supplies the one header control the card
   // shell has that the pane would otherwise lose: the reminder bell, which IS the reminders
@@ -463,6 +462,14 @@ export function useExpandedCardId(): ExpandableCardId | null {
   return id;
 }
 
+/**
+ * The pane is frosted glass over the painted backdrop (lib/frost.ts). Always "on" here: Surface
+ * itself drops frost for `reduceEffects`/`glassSurfaces`, and this file deliberately never reads
+ * the settings store (lib/__tests__/expandableCards.test.ts). No scroll value — the pane never
+ * moves as a whole; its body scrolls inside it.
+ */
+const PANE_FROST = { enabled: true, scrollY: null };
+
 export default function CardExpandHost() {
   const theme = useAppTheme();
   const t = useT();
@@ -597,12 +604,17 @@ export default function CardExpandHost() {
             style={[styles.pane, { boxShadow: getLayeredShadow(theme.shadow, 'floating') }, rectStyle]}
           >
             <ScreenColorContext.Provider value={paneHue}>
-            <Surface surfaceContext="overlay" style={styles.surface}>
+            <FrostContext.Provider value={PANE_FROST}>
+            <Surface surfaceContext="overlay" frosted style={styles.surface}>
+              {/* ⚠️ **Back is TOP-LEFT (2026-10-11, V2 card rule)** — where Android and iOS put it,
+                  and the side the system back gesture already means. It was a contract ⤢ in the
+                  top-right corner, the one control in the app that closed something from the
+                  opposite side to every other screen. */}
               <Animated.View style={[styles.header, { borderBottomColor: theme.border }, headerStyle]}>
+                <IconButton icon="chevron-back" label={t.collapseCardLabel} onPress={collapseCard} size={IconSize.compact} />
                 <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
                   {entry.title(t)}
                 </Text>
-                <CardExpandButton expanded onExpand={() => {}} onCollapse={collapseCard} />
               </Animated.View>
               <Animated.View style={[styles.bodyOuter, bodyStyle]}>
                 <GroupStrip current={request.id} />
@@ -632,6 +644,7 @@ export default function CardExpandHost() {
                 </PaneCardContext.Provider>
               </Animated.View>
             </Surface>
+            </FrostContext.Provider>
             </ScreenColorContext.Provider>
           </Animated.View>
         </>
@@ -652,7 +665,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     borderBottomWidth: 1,
   },
-  title: { flex: 1, fontFamily: Fonts.bold, fontSize: FontSize.lg, marginRight: Spacing.sm },
+  title: { flex: 1, fontFamily: Fonts.bold, fontSize: FontSize.lg, marginLeft: Spacing.sm },
   // The catalogue's camera + lock inside the expanded pane. Right-aligned and boxless — the
   // rule this pass established is that these two sit in the surface's top part, not in an edge
   // of their own.

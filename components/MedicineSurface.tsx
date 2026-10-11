@@ -81,12 +81,10 @@
  *     down the card, and `Input` doesn't forward a ref, so each field's wrapping View is what
  *     gets measured/lifted (see lib/useKeyboardLift.ts's doc on wrapping vs. direct refs).
  *     The trailing AddRow already lifts itself internally — nothing to add there.
- *   - **The bell IS the reminders switch (2026-08-10), and it lives in the HEADER — which this
- *     file no longer draws.** It is components/MedicineReminderBell.tsx now, mounted by both
- *     shells; read that file's header and components/ReminderBell.tsx's for the full story. The
- *     part that still concerns THIS file is the second half of the fix: the reminder-times panel
- *     below opens on `medicineRemindersEnabled` — the same boolean the bell writes — so the
- *     panel appearing is the confirmation that the bell landed. Don't give the panel a toggle of
+ *   - **The reminders switch is the first row of this body (2026-10-11)** —
+ *     components/MedicineReminderRow.tsx, which replaced the header bell under the V2 card rule.
+ *     The reminder-times panel below opens on `medicineRemindersEnabled` — the same boolean the
+ *     switch writes — so the panel appearing is the confirmation that the switch landed. Don't give the panel a toggle of
  *     its own again; that duplicate `Switch` is exactly what was deleted.
  *   - **There is no "nothing scheduled" status line (2026-08-10)**: `statusLine()` returns null
  *     for that case and the `<Text>` is skipped. It sat immediately above the starter card
@@ -95,6 +93,7 @@
  *     `medicines.length !== 0`, so no starter card renders either — the as-needed section
  *     speaks for itself there. Don't reintroduce the line to "fill" that gap.
  */
+import MedicineReminderRow from '@/components/MedicineReminderRow';
 import React, { useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -366,6 +365,8 @@ export default function MedicineSurface() {
 
   return (
     <View style={styles.content}>
+      {/* The reminders switch, in the body since 2026-10-11 — see MedicineReminderRow's header. */}
+      <MedicineReminderRow />
       {status && <Text style={[styles.status, { color: status.color }]}>{status.text}</Text>}
 
 

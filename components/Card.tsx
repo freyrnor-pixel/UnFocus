@@ -29,8 +29,8 @@
  *             components/CardCollapseToggle, components/CardExpandButton, components/CardHintLine,
  *             constants/theme,
  *             lib/cardRegistry, lib/cardPane, lib/useCollapsedCard, lib/useCardExpand,
- *             lib/screenColor, lib/useAppTheme, lib/siteNav + expo-router (a registry
- *             `expandRoute` ⤢ opens a tab instead of a pane)
+ *             lib/screenColor, lib/useAppTheme, lib/cardHintContext (tells NarratorQuote a hint
+ *             is showing)
  *   Used by → every card on every tab; components/SectionCard.tsx (via `CardShell`, until it
  *             is retired)
  *   Data    → settings.collapsedCards, for cards whose registry entry folds
@@ -43,8 +43,13 @@
  *     of 30 without — nearly all at 360px, and only on a card that ALSO carries its own control
  *     (Catalogue's lock, Medicine's bell) plus the ⤢ plus the fold. Three buttons is one too
  *     many at that width, and it is a known, accepted cost rather than a regression to chase.
- *     **The title stays pressable too** — two ways in is fine, and it is what keeps
- *     `labelPressHint` honest for anyone who still reaches for the name.
+ *     ⚠️ **Since 2026-10-11 the title FOLDS instead** (V2 card rule) — ⤢ is the only door to
+ *     full screen. Medicine's bell and Catalogue's lock left the header the same day, so the
+ *     three-button truncation above no longer occurs.
+ *   - ⚠️ **V2 card rule (2026-10-11): the trailing cluster is ⌄ → ⤢ and NOTHING ELSE.** `controls`
+ *     is gone from `Card`'s props — a card-specific control (a reminders switch, a lock) lives in
+ *     the card's BODY. `CardShell` keeps the slot for `SectionCard`, whose sections are not cards.
+ *     The history below is how the order was reached.
  *   - **The trailing cluster is fold → `{controls}` → ⤢, in that order, always** (2026-08-27,
  *     round 20, reversing 2026-08-26's `{controls}` → ⤢ → fold). `controls` is the caller's OWN
  *     controls and nothing else — a bell, a lock, a ⋮. The **⤢ is outermost** now, in the card's
@@ -84,7 +89,6 @@
  *     a public escape hatch: a new surface takes `Card` and an entry in the registry.
  */
 import React from 'react';
-import { usePathname, useRouter } from 'expo-router';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import Surface from '@/components/Surface';
 import SectionRail from '@/components/SectionRail';
@@ -102,9 +106,9 @@ import { useIsCardHidden } from '@/lib/useHiddenCard';
 import { useCardExpand } from '@/lib/useCardExpand';
 import { useCollapsedCard } from '@/lib/useCollapsedCard';
 import CardHintLine from '@/components/CardHintLine';
+import { CardHintContext } from '@/lib/cardHintContext';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
-import { goToSite } from '@/lib/siteNav';
 
 type CardProps = {
   id: CardKey;
@@ -128,12 +132,11 @@ type CardProps = {
    */
   hint?: string;
   /**
-   * Ref onto the rendered count, to MEASURE it. One caller — components/HomeShoppingCard.tsx
-   * flies a ticked row to that figure. Not a styling hook; see SectionRail's `countRef`.
+   * Ref onto the rendered count, to MEASURE it (for a flight animation landing on the figure).
+   * No caller since HomeShoppingCard was deleted (2026-10-11). Not a styling hook; see
+   * SectionRail's `countRef`.
    */
   countRef?: React.Ref<Text>;
-  /** The caller's OWN header controls — a bell, a lock, a ⋮. Never a fold. */
-  controls?: React.ReactNode;
   /** Drawn inside another card, so this one draws no card of its own. */
   embedded?: boolean;
   /** Extra style for the inner content wrapper below the header. */
@@ -141,11 +144,9 @@ type CardProps = {
   children: React.ReactNode;
 };
 
-export default function Card({ id, count, peek, hint, countRef, controls, embedded, contentStyle, children }: CardProps) {
+export default function Card({ id, count, peek, hint, countRef, embedded, contentStyle, children }: CardProps) {
   const t = useT();
   const theme = useAppTheme();
-  const router = useRouter();
-  const pathname = usePathname();
   const spec = cardSpec(id);
   // Both hooks run unconditionally, unlike SectionCard's split-by-component dance. That split
   // existed because a per-day section would otherwise subscribe to the settings store; a Card is
@@ -169,8 +170,6 @@ export default function Card({ id, count, peek, hint, countRef, controls, embedd
 
   const folds = spec.fold === 'persisted';
   const expands = spec.expand === 'surface';
-  // A card with no pane but a tab of its own (`expandRoute`) still gets the ⤢ — it opens the tab.
-  const expandRoute = expands ? undefined : spec.expandRoute;
   const label = spec.title(t);
 
   // ⚠️ **Inside its own pane a card is its BODY and nothing else** (2026-08-28). Not `embedded`,
@@ -181,10 +180,12 @@ export default function Card({ id, count, peek, hint, countRef, controls, embedd
   if (isPaneBody) {
     return (
       <PaneCardContext.Provider value={null}>
-        <View style={[styles.content, contentStyle]}>
-          {hint ? <CardHintLine text={hint} /> : null}
-          {children}
-        </View>
+        <CardHintContext.Provider value={!!hint}>
+          <View style={[styles.content, contentStyle]}>
+            {hint ? <CardHintLine text={hint} /> : null}
+            {children}
+          </View>
+        </CardHintContext.Provider>
       </PaneCardContext.Provider>
     );
   }
@@ -207,22 +208,18 @@ export default function Card({ id, count, peek, hint, countRef, controls, embedd
       contentStyle={contentStyle}
       collapsed={folds ? collapsed : undefined}
       onToggleCollapse={folds ? toggleCollapsed : undefined}
-      // Pressing a card's NAME opens it full screen, and since 2026-08-22 it is the ONLY way to:
-      // the ⤢ that used to sit beside the fold is deleted. The rail has had a slot for exactly
-      // this since 2026-08-10; wiring it here means every expandable card gets it, rather than
-      // the four that remembered.
-      onLabelPress={expands ? expand.onExpand : undefined}
-      // The title still carries the "open full screen" wording in its accessible label even
-      // though the ⤢ is back — two ways in, one accessible name each. See the header note.
-      labelPressHint={expands ? `${label} — ${t.expandCardLabel}` : undefined}
-      controls={controls}
-      // Just inside the fold, which stays outermost. `undefined` (not a component call) when
-      // the card doesn't expand, so a non-expandable card's cluster is exactly `{controls}` →
-      // fold, unchanged.
+      // ⚠️ **Pressing a card's NAME folds it (2026-10-11, V2 card rule)**, the same as ⌄. It
+      // opened full screen from 2026-08-22, and that was the one surprise in the header: a
+      // beginner tapping the title to open the card got a different screen instead. ⤢ is the
+      // only way to full screen now — one control, one meaning.
+      onLabelPress={folds ? toggleCollapsed : undefined}
+      // Says what the press does, like the chevron's own name — but with a dash, not the toggle's
+      // colon, so the two stay distinct to anything that looks a control up by name.
+      labelPressHint={folds ? `${label} — ${collapsed ? t.expandListLabel : t.collapseListLabel}` : undefined}
+      // ⌄ then ⤢, and nothing else: no card passes its own header controls any more (`controls`
+      // is gone from this component's props). `undefined` when the card doesn't expand.
       expandButton={expands ? (
-        <CardExpandButton expanded={expand.expanded} onExpand={expand.onExpand} onCollapse={expand.onCollapse} />
-      ) : expandRoute ? (
-        <CardExpandButton expanded={false} onExpand={() => goToSite(router, pathname, expandRoute)} onCollapse={() => {}} />
+        <CardExpandButton expanded={expand.expanded} onExpand={expand.onExpand} onCollapse={expand.onCollapse} cardLabel={label} />
       ) : undefined}
     >
       {children}
@@ -383,11 +380,15 @@ export function CardShell({
   // rule that survived the 2026-08-17 deletion ("explanation always sits underneath sub-header",
   // 2026-08-12) and is now used again. Inside the `Collapsible`, so a folded card takes its
   // explanation away with its content.
+  // The provider tells a NarratorQuote further down that this card is already explaining
+  // itself, so an empty card speaks once (2026-10-11 — lib/cardHintContext.ts).
   const body = (
-    <View style={[styles.content, folds && styles.contentFoldGap, contentStyle]}>
-      {hint ? <CardHintLine text={hint} /> : null}
-      {children}
-    </View>
+    <CardHintContext.Provider value={!!hint}>
+      <View style={[styles.content, folds && styles.contentFoldGap, contentStyle]}>
+        {hint ? <CardHintLine text={hint} /> : null}
+        {children}
+      </View>
+    </CardHintContext.Provider>
   );
 
   return (

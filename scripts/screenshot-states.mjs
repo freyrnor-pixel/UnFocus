@@ -37,8 +37,8 @@
 import { chromium } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
-import { resolveChromium } from './chromium-path.mjs';
-import { forceAppearance, freezeNarratorQuote } from './force-appearance.mjs';
+import { resolveChromium, CHROMIUM_ARGS } from './chromium-path.mjs';
+import { forceAppearance, freezeNarratorQuote, hideBackdropPainting } from './force-appearance.mjs';
 
 const BASE_URL = process.env.PREVIEW_URL || 'http://127.0.0.1:8787';
 const args = process.argv.slice(2);
@@ -684,7 +684,7 @@ async function main() {
   const browser = await chromium.launch({
     executablePath: CHROMIUM_PATH,
     headless: true,
-    args: ['--no-sandbox', '--disable-dev-shm-usage'],
+    args: CHROMIUM_ARGS,
   });
   const page = await browser.newPage({ viewport: { width: 430, height: 932 } });
   page.on('pageerror', (err) => problems.push(`[pageerror] ${err.message}`));
@@ -701,6 +701,9 @@ async function main() {
   // `quick-add-focused-empty` differ run to run by the quote text alone — a random 3517 px of
   // diff on any branch, on any machine. See freezeNarratorQuote's comment.
   await freezeNarratorQuote(page);
+  // Leave the painted tree out (2026-10-11) — it rasterises differently on CI and here, see
+  // hideBackdropPainting's comment. Without this every baseline fails on the runner.
+  await hideBackdropPainting(page);
 
   try {
     // ---- 1. onboarding + tour -------------------------------------------
@@ -755,7 +758,12 @@ async function main() {
     if (FULL) {
       console.log('> sheets and overlays');
       await tab(page, 'Home');
-      if (await tryButton(page, "Set the day's energy")) {
+      // ⚠️ **The panel is the Energy card's ⤢ pane since 2026-10-11 (V2).** The card itself holds
+      // only the bar and the "Same every day" row; every number is in its full-screen view.
+      const energyExpand = page.getByRole('button', { name: 'Energy budget: Expand card', exact: true }).first();
+      if (await energyExpand.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await energyExpand.click({ timeout: 8000 }).catch(() => {});
+        await page.waitForTimeout(1200);
         await shot(page, 'energy-config-sheet', {
           title: 'The Energy config panel (inline in the card)',
           screen: 'components/EnergyConfigPanel.tsx',
@@ -773,12 +781,16 @@ async function main() {
         //   The `+` keys carry no accessible name of their own (components/Stepper.tsx), so they
         // are reached through the row's label — the last button in the row labelled with
         // `energyMeter.todayCapacity`.
-        const capRow = page.getByLabel("Today's energy").first();
+        // `.last()`: the Hjem card behind the pane carries a stepper with the same name (its
+        // "Same every day" row); the pane's own is later in the document.
+        const capRow = page.getByLabel("Today's energy").last();
         if (await capRow.isVisible({ timeout: 3000 }).catch(() => false)) {
           const plus = capRow.getByRole('button').last();
           for (let i = 0; i < 8; i++) await plus.click({ timeout: 4000 }).catch(() => {});
           await page.waitForTimeout(500);
         }
+        // Leave the pane by its own ‹ (top-left since 2026-10-11).
+        await page.getByRole('button', { name: 'Collapse card', exact: true }).first().click({ timeout: 6000 }).catch(() => {});
         await closeOverlays(page);
         await page.waitForTimeout(900);
         // Re-settle the pager (2026-09-26) — a WEB-ONLY artefact, not an app bug. Since the config
@@ -797,11 +809,23 @@ async function main() {
         await page.waitForTimeout(600);
         // Only shoot it if the starter card is actually gone — otherwise this is another
         // confident capture of the state it was meant to replace.
-        if (!(await page.getByText("Set the day's energy", { exact: true }).first().isVisible({ timeout: 1500 }).catch(() => false))) {
+        // A real `jumpTo` re-seats the pager on a whole page — the scrollLeft reset above is not
+        // always enough after the pane (same round trip the shopping seeding uses).
+        await tab(page, 'To-do');
+        await tab(page, 'Home');
+        // The DOCUMENT itself can be left scrolled sideways by the focused stepper (a web-only
+        // artefact, same family as the scrollLeft note above): reset it.
+        await page.evaluate(() => {
+          window.scrollTo(0, 0);
+          document.documentElement.scrollLeft = 0;
+          document.body.scrollLeft = 0;
+        });
+        await page.waitForTimeout(600);
+        if (!(await page.getByText('Not set for today', { exact: true }).first().isVisible({ timeout: 1500 }).catch(() => false))) {
           await shot(page, 'home-energy-budget', {
             title: 'Home — the Energy budget bar (v2)',
             screen: 'components/EnergyMeter.tsx',
-            state: 'POPULATED METER, and the only baseline that reaches it. Filled = SPENT, outline = left — the inverse of the glossy pip token this row drew until 2026-09-06, and the reading v2 states outright. A third run in the habits hue, after a divider, is energy a habit gave BACK; it is capped so it stays a shape and not a tally. The legend is load-bearing: it is the only thing on screen saying which way the glyphs read.',
+            state: 'POPULATED METER, and the only baseline that reaches it. Gold = spent by a task, outline = left, cyan = given back by a habit (V2, 2026-10-11) — the to-do and habits colours, so no legend is needed. Below it, the one control row: the day amount and "Same every day".',
             components: 'EnergyMeter, energyBudgetBar, EnergyConfigPanel',
           });
         }
@@ -943,7 +967,7 @@ async function main() {
 
       await excursion(page, 'notes-empty', async () => {
         await tab(page, 'Home');
-        await clickText(page, 'Notes');
+        await page.getByRole('button', { name: 'Notes: Expand card', exact: true }).first().click({ timeout: 10000 }).catch(() => {}); // ⤢, not the title — the title folds since 2026-10-11
         await page.waitForTimeout(1000);
         await shot(page, 'notes-empty', {
           title: 'Notes (reached from Home\'s Notes card)',
@@ -961,12 +985,23 @@ async function main() {
         // matched, returned false without throwing, and this shot was the To-do tab with the
         // section still SHUT — the same silent locator drift the `catalogue` entry below records,
         // and the reason this shot was not blessed until 2026-09-12 even once the walk reached it.
-        await tab(page, 'To-do');
-        await openCard(page, 'Today');
+        // ⚠️ **Through Hjem's I dag ⤢ since 2026-10-11 (V2 re-order).** I dag left the To-do tab;
+        // its full-screen pane is To-do's `todoToday` body, which still carries Earlier days.
+        await tab(page, 'Home');
+        await page.getByRole('button', { name: 'Today: Expand card', exact: true }).first().click({ timeout: 10000 }).catch(() => {});
+        await page.waitForTimeout(1200);
         if (!(await openCard(page, 'Earlier days'))) {
           throw new Error('day-log: no "Earlier days: Expand list" toggle — refusing to shoot a shut section');
         }
-        await page.waitForTimeout(1000);
+        // 2500, not 1000 (2026-10-11): inside the full-screen pane the section's reveal and the
+        // pane's own settle overlap, and two runs of one build differed by ~100-900 px of text
+        // sub-pixel position at 1000 ms.
+        // Still ~100-350 px of glyph-edge residue at 2500 ms, varying run to run: something in
+        // the pane is still settling by a fraction of a pixel. 5000 ms, and the pointer and focus
+        // parked so neither can be the variable.
+        await page.mouse.move(0, 0);
+        await page.evaluate(() => document.activeElement && document.activeElement.blur && document.activeElement.blur());
+        await page.waitForTimeout(5000);
         await shot(page, 'day-log-screen', {
           title: 'Earlier days (the day log, one day at a time)',
           screen: 'app/day-log.tsx',
@@ -1124,7 +1159,8 @@ async function main() {
 
     // ---- 5. seed for real, shoot the populated states --------------------
     console.log('> seeding + populated states');
-    await tab(page, 'To-do');
+    // Tasks are seeded on Hjem's I dag since 2026-10-11 — the To-do tab is planning only.
+    await tab(page, 'Home');
 
     const typeLine = (await onScreenField(page, 'Type task')) || page.getByLabel('Type task', { exact: true }).first();
     await typeLine.scrollIntoViewIfNeeded().catch(() => {});
@@ -1150,6 +1186,7 @@ async function main() {
     // Recurring and this week is part of planning card"*), and every To-do baseline draws that
     // card COLLAPSED — so the merge itself would have been invisible to this gate, which is the
     // same rule-2 gap `home-energy-budget` and `catalogue` were both added to close.
+    await tab(page, 'To-do');
     if (await openCard(page, 'Planner')) {
       await page.waitForTimeout(900);
       // The range segment belongs to the Calendar section and cannot be on screen while the
@@ -1165,6 +1202,7 @@ async function main() {
       });
     }
 
+    await tab(page, 'Home');
     const check = page.getByRole('checkbox', { name: 'Ring the dentist', exact: true }).first();
     if (await check.count()) {
       await check.click({ timeout: 10000 });
@@ -1174,7 +1212,7 @@ async function main() {
       // does not draw the newly-logged row until it REMOUNTS — Home's copy of the same card
       // updates live, which is why the gap is easy to miss. Round-trip the tab, then expand.
       await tab(page, 'To-do');
-      await tab(page, 'To-do');
+      await tab(page, 'Home');
       await clickOnScreenText(page, 'Show all');
       await shot(page, 'day-log-after-tick', {
         title: 'To-do — a ticked task crosses the now-line into the day log',
@@ -1288,6 +1326,9 @@ async function main() {
 
     console.log('> shopping');
     await tab(page, 'Shop');
+    // V2 (2026-10-11): Budget is Shop's first card and the one open at rest, so the shopping
+    // list card rests folded — open it before looking for its empty-state button.
+    await openCard(page, 'Shopping list');
     // TWO doors into a new week list, and which one is on screen depends on whether ANY week
     // list already exists — `isWeeklyEmpty` in app/(tabs)/shopping.tsx, the 2026-08-13 "the
     // empty state and the trigger are ONE card" ruling:
@@ -1396,19 +1437,19 @@ async function main() {
       await closeOverlays(page);
     }
 
-    if (await tryText(page, 'Monthly list', 3000)) {
+    if (await tryText(page, 'Inventory', 3000)) {
       await page.waitForTimeout(900);
       // Tapping the LABEL does not open the section — the chevron does, and its accessible name
       // is composed as "<title>: Expand list". `openCard` already knows that shape and is a
       // no-op on an already-open card.
-      await openCard(page, 'Monthly list');
+      await openCard(page, 'Inventory');
       // The Monthly section sits BELOW the week lists, and `shot()` scrolls every non-overlay
       // screen back to the top — so expanding Monthly and then shooting produced a frame
       // byte-identical to `shopping-populated` (md5sum-confirmed). Same family of defect as the
       // seeding no-op: a distinct name over an indistinct capture. Hold the scroll position
       // (`top: false`) and bring the section into frame instead.
       await page
-        .getByText('Monthly list', { exact: true })
+        .getByText('Inventory', { exact: true })
         .first()
         .scrollIntoViewIfNeeded({ timeout: 5000 })
         .catch(() => {});
@@ -1456,7 +1497,7 @@ async function main() {
     if (FULL) {
       console.log('> notes, populated (last)');
       try {
-        await clickText(page, 'Notes');
+        await page.getByRole('button', { name: 'Notes: Expand card', exact: true }).first().click({ timeout: 10000 }).catch(() => {}); // ⤢, not the title — the title folds since 2026-10-11
         await page.waitForTimeout(1200);
         await shot(page, 'notes-populated', {
           title: 'Notes — with a note, edited in place',

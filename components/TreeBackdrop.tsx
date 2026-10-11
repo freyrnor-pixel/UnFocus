@@ -58,6 +58,12 @@ function TreeBackdrop({ strength, still = false }: Props) {
 
   const style = useAnimatedStyle(() => ({ opacity: opacity.value }));
 
+  // ⚠️ **Harness-only off switch (2026-10-11).** scripts/force-appearance.mjs's
+  // `hideBackdropPainting` sets this before the bundle loads, because the bitmap rasterises a few
+  // levels differently on CI than locally and turned every visual baseline red. Nothing in the
+  // app writes it; on a real install it is undefined and the tree always draws.
+  if ((globalThis as { __unfocusHideBackdropPainting__?: boolean }).__unfocusHideBackdropPainting__) return null;
+
   return (
     <Animated.View pointerEvents="none" renderToHardwareTextureAndroid style={[styles.layer, style]}>
       <Image

@@ -23,15 +23,18 @@ type Props = {
   expanded: boolean;
   onExpand: () => void;
   onCollapse: () => void;
+  /** The card's name, so each ⤢ has its own accessible name ("Notes: Expand card") rather than
+   *  five identical buttons on one screen. */
+  cardLabel?: string;
   style?: StyleProp<ViewStyle>;
 };
 
-export default function CardExpandButton({ expanded, onExpand, onCollapse, style }: Props) {
+export default function CardExpandButton({ expanded, onExpand, onCollapse, cardLabel, style }: Props) {
   const t = useT();
   return (
     <IconButton
       icon={expanded ? 'contract-outline' : 'expand-outline'}
-      label={expanded ? t.collapseCardLabel : t.expandCardLabel}
+      label={`${cardLabel ? `${cardLabel}: ` : ''}${expanded ? t.collapseCardLabel : t.expandCardLabel}`}
       onPress={expanded ? onCollapse : onExpand}
       // ⚠️ **`compact` (30), not the default `action` (36) — 2026-08-27, round 20.** The drawn
       // screens put a 29px control in the card header, and the difference is not fussiness: at

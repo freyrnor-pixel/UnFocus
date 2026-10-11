@@ -47,6 +47,41 @@ describe('visual gate — the toolchain is pinned', () => {
       .replace(/\/\*[\s\S]*?\*\//g, '')
       .replace(/^\s*\/\/.*$/gm, '');
 
+  // Text was rasterised from the machine's fontconfig until 2026-10-11: CI (stock Ubuntu, slight
+  // hinting) and the cloud dev image (unhinted since 2026-10-03) disagreed on every glyph edge,
+  // so every baseline blessed in one place failed in the other. See CHROMIUM_ARGS's note.
+  it('every harness launches Chromium with the shared, machine-independent text flags', () => {
+    const args = codeOf('scripts/chromium-path.mjs');
+    expect(args).toMatch(/'--font-render-hinting=none'/);
+    expect(args).toMatch(/'--disable-lcd-text'/);
+    // …and the per-font rules a flag cannot reach: the harness's own fontconfig, loaded at import.
+    expect(args).toMatch(/process\.env\.FONTCONFIG_FILE\s*=/);
+    const conf = read('scripts/harness-fonts.conf');
+    expect(conf).toMatch(/<include ignore_missing="yes">\/etc\/fonts\/fonts\.conf<\/include>/);
+    // Same FONTS too: the dev image's system-ui/sans-serif is Inter, CI has none — fallback text
+    // rendered in two different typefaces until the generic families were pinned.
+    expect(conf).toMatch(/<rejectfont>[\s\S]*Inter[\s\S]*<\/rejectfont>/);
+    for (const family of ['sans-serif', 'system-ui']) {
+      expect(conf).toMatch(new RegExp(`<family>${family}</family><prefer><family>Liberation Sans</family>`));
+    }
+    // An XML comment may not contain a double hyphen; fontconfig then drops the WHOLE file.
+    for (const comment of conf.match(/<!--[\s\S]*?-->/g) ?? []) {
+      expect(comment.slice(4, -3)).not.toMatch(/--/);
+    }
+    for (const target of ['pattern', 'font']) {
+      expect(conf).toMatch(new RegExp(`<match target="${target}">[\\s\\S]*?hintnone[\\s\\S]*?<\\/match>`));
+    }
+    for (const f of [
+      'scripts/measure-geometry.mjs',
+      'scripts/measure-halos.mjs',
+      'scripts/measure-wraps.mjs',
+      'scripts/screenshot-states.mjs',
+      'scripts/preview.mjs',
+    ]) {
+      expect(codeOf(f)).toMatch(/args: CHROMIUM_ARGS/);
+    }
+  });
+
   it('no harness hardcodes a Chromium revision', () => {
     // The resolver's whole job is to NOT know a revision — see its header. A number here is a
     // claim about which Playwright the project pins, made in a file that cannot check.

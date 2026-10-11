@@ -8,8 +8,7 @@
  *
  * Connections:
  *   Imports → lib/date (monthlyResetDayIn, parseDateStr, todayStr)
- *   Used by → app/budget.tsx, app/(tabs)/shopping.tsx, app/(tabs)/index.tsx (feeds
- *             components/HomeShoppingCard)
+ *   Used by → app/budget.tsx, app/(tabs)/shopping.tsx
  *   Data    → pure function; callers pass in receipts/settings, no store access here
  *
  * Edit notes:
@@ -24,6 +23,10 @@ export type SpendPace = {
   actualPerDay: number;
   budgetedPerDay: number;
   overPace: boolean;
+  /** Days since payday, inclusive of both ends (≥ 1). The card's "today" mark sits at daysElapsed / periodLength. */
+  daysElapsed: number;
+  /** Payday to the next payday, in days (≥ 1). */
+  periodLength: number;
 };
 
 export function computeSpendPace(
@@ -50,5 +53,5 @@ export function computeSpendPace(
 
   const actualPerDay = spendSinceReset / daysElapsed;
   const budgetedPerDay = monthlyBudgetNok / periodLength;
-  return { actualPerDay, budgetedPerDay, overPace: actualPerDay > budgetedPerDay };
+  return { actualPerDay, budgetedPerDay, overPace: actualPerDay > budgetedPerDay, daysElapsed, periodLength };
 }

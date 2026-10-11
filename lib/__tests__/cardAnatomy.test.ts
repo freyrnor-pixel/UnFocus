@@ -312,14 +312,14 @@ describe('the fold is FIRST in the header, and the ⤢ is built in exactly one p
     expect(code('components/Card.tsx')).toMatch(/<CardExpandButton\b/);
   });
 
-  it('an expandable card gives its pressable title an accessible name that says what it does', () => {
-    // With the button gone, the title is the only control — and a bare card name does not read
-    // as one. `labelPressHint` is what SectionRail puts on the PressableScale's
-    // accessibilityLabel; without it a screen reader announces the card's name as a button with
-    // no hint that it opens anything.
+  it('a folding card gives its pressable title an accessible name that says what it does', () => {
+    // Since 2026-10-11 (V2 card rule) the title FOLDS the card, like ⌄ — ⤢ alone opens full
+    // screen. A bare card name does not read as a control, so `labelPressHint` (SectionRail's
+    // accessibilityLabel for the pressable title) has to name the fold action.
     const src = code('components/Card.tsx');
-    expect(src).toMatch(/labelPressHint=\{expands \?/);
-    expect(src).toContain('t.expandCardLabel');
+    expect(src).toMatch(/onLabelPress=\{folds \? toggleCollapsed : undefined\}/);
+    expect(src).toMatch(/labelPressHint=\{folds \?/);
+    expect(src).toContain('t.expandListLabel');
   });
 
   it('SectionRail lays its right slot out as a ROW, not a column', () => {
@@ -559,16 +559,8 @@ describe('a collapsed card draws no rule and reserves no room', () => {
    * short, it is that a new one cannot arrive without someone writing down why.
    */
   const CARD_RUNG_ALLOWED: Record<string, string> = {
-    'components/EnergyMeter.tsx':
-      'KEEP — the EMPTY-state placeholder only, inside a StarterCard, and it cannot go through '
-      + 'Card.tsx: Energy is deliberately NOT a registry card (app/(tabs)/index.tsx renders the '
-      + 'strip fixed, outside `cardNodes`), so it has no CardKey and must not gain a fold or a '
-      + '⤢. It stands among Home\'s real cards — Today, Notes, Shopping list — and until '
-      + '2026-09-07 was the one panel there with no title, badge or summary line, which read as '
-      + 'unfinished rather than empty. Reusing the canonical rail at the card rung is what keeps '
-      + 'it identical to those neighbours; hand-rolling the row would have been the actual §8 '
-      + 'violation. The LIVE strip is not a card and must not grow this header — see '
-      + 'EnergyMeter\'s "Strip, not a card" note.',
+    // components/EnergyMeter.tsx was here — it is a registry card (`homeEnergy`) since 2026-10-11
+    // (V2), so it goes through Card.tsx and needs no hand-drawn card rung.
   };
 
   it('a rail declares which rung it is, and a group heading carries no badge', () => {

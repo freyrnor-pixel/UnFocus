@@ -857,12 +857,17 @@ export default function CatalogueTab({ onNotify, header, embedded = false, locke
               ADD, so it belongs beside the other add. That is also where it is more findable:
               the mockup's own note says "scan lives in its body". Same destination, same
               `lib/scanTarget.ts` target — only the seat changed. */}
-          <IconButton
-            icon="camera-outline"
-            label={t.scanForCatalogueLabel}
-            onPress={() => router.push({ pathname: '/scan', params: { target: 'catalogue' } })}
-            size={IconSize.compact}
-          />
+          {/* V2 (2026-10-11): on Handle (`embedded`) the camera is the screen header's, with the
+              same catalogue target — drawing it here too would be the same button twice. The
+              full-screen pane and app/catalogue.tsx have no such header, so they keep it. */}
+          {!embedded && (
+            <IconButton
+              icon="camera-outline"
+              label={t.scanForCatalogueLabel}
+              onPress={() => router.push({ pathname: '/scan', params: { target: 'catalogue' } })}
+              size={IconSize.compact}
+            />
+          )}
           <IconButton
             icon="add"
             label={t.catalogueAddNewBtn}

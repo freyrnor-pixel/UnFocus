@@ -49,7 +49,7 @@
 // Needs the preview bundle: `npm run preview:build` (or FORCE_BUILD=1) and a server on 8787 —
 // scripts/run-halos.sh wires both up, the same way run-preview.sh does.
 import { chromium } from '@playwright/test';
-import { resolveChromium } from './chromium-path.mjs';
+import { resolveChromium, CHROMIUM_ARGS } from './chromium-path.mjs';
 import { forceAppearance, themeFromArgs } from './force-appearance.mjs';
 
 const BASE_URL = process.env.PREVIEW_URL || 'http://127.0.0.1:8787';
@@ -98,6 +98,9 @@ async function openCards(page) {
       for (const el of document.querySelectorAll('[role="button"]')) {
         const label = el.getAttribute('aria-label') || '';
         if (!/: (Expand|Open)/i.test(label)) continue;
+        // Not the ⤢: since 2026-10-11 it is named "<card>: Expand card" too, and it opens a
+        // full-screen pane over every field this walk is looking for.
+        if (/: Expand card$/i.test(label)) continue;
         const r = el.getBoundingClientRect();
         if (r.width <= 0 || r.height <= 0) continue;
         if (r.bottom <= 0 || r.top >= window.innerHeight || r.right <= 0 || r.left >= window.innerWidth) continue;
@@ -241,7 +244,7 @@ async function scrollActiveTab(page, delta) {
 }
 
 const browser = await chromium.launch({
-  executablePath: CHROMIUM_PATH, headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'],
+  executablePath: CHROMIUM_PATH, headless: true, args: CHROMIUM_ARGS,
 });
 const page = await browser.newPage({ viewport: { width, height: 932 } });
 let clipped = 0, clean = 0, noHalo = 0;

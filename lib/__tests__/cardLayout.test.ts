@@ -53,7 +53,9 @@ describe('resolveLayout', () => {
     for (const surface of SURFACES) {
       const spec = resolveLayoutSpec(surface, undefined, undefined);
       expect(spec).toBeDefined();
-      expect(spec.id).toBe(FALLBACK_LAYOUT);
+      // Hjem's I dag has its own default (the timeline, 2026-10-11); every other surface falls
+      // back to the global default.
+      expect(spec.id).toBe(surface === 'homeTodo' ? 'timeline' : FALLBACK_LAYOUT);
     }
   });
 });
