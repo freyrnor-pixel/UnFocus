@@ -566,10 +566,11 @@ import SectionCard from '@/components/SectionCard';
 import PadRow from '@/components/PadRow';
 import SectionRail from '@/components/SectionRail';
 import FoodTab from '@/components/FoodTab';
-import CatalogueTab, { CatalogueHeaderControls } from '@/components/CatalogueTab';
+import CatalogueTab from '@/components/CatalogueTab';
+import { EditModeContext } from '@/lib/editMode';
 import TabSlider from '@/components/TabSlider';
 import NewMonthlyListRow from '@/components/NewMonthlyListRow';
-import { success, heavy, warning, tap } from '@/lib/haptics';
+import { success, heavy, warning, tap, selection } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { todayStr, dateStr, getWeekRangeContaining, weekOfMonthlyCycle, dateRangeForCycleWeek, formatDateRange, monthlyBoundaryOnOrBefore } from '@/lib/date';
 import { useAppTheme, useAccessibility } from '@/lib/useAppTheme';
@@ -643,7 +644,17 @@ export default function ShoppingScreen() {
   // CatalogueTab.tsx because the button that flips it is in that card's SectionCard header.
   // Local and NOT persisted: a per-visit safety catch on a one-tap delete, not a preference,
   // and it must never sync — a paired phone locking your catalogue is nonsense.
-  const [catalogueLocked, setCatalogueLocked] = useState(true);
+  // ⚠️ **Replaced by edit mode (2026-10-12)** — the catalogue is locked whenever the screen is NOT
+  // in edit mode, so its lock button is gone: one ✏️ for the screen instead of a lock per card.
+  //
+  // **Edit mode** (lib/editMode.ts). Maintainer: *"Shopping ser fortsatt rotete ut … f.eks.
+  // redigeringsmodus som henter inn flere elementer, slik at vanlig bruk er ryddigere."* Off, the
+  // tab shows what you use while shopping; on, it adds everything else (rename, ⋮ menus, budget
+  // fields, from-monthly/from-a-dish, new lists, deletes). Local and reset on leaving the tab —
+  // a visit, not a preference, so nobody comes back to a screen still full of edit controls.
+  const [editing, setEditing] = useState(false);
+  useFocusEffect(useCallback(() => () => setEditing(false), []));
+  const catalogueLocked = !editing;
   // ⚠️ **Which of Catalogue's two tabs is showing (2026-09-07).** Maintainer: *"Food/Dishes is a
   // tab with Catalogue now in its own card."* v3 draws the same: *"Katalog = ett kort, to
   // faner."*
@@ -1908,7 +1919,7 @@ export default function ShoppingScreen() {
         <>
           {/* Shared name+category filter — one search box narrows every list's visible
               rows at once, rather than one filter bar per card (2026-07-22 redesign). */}
-          {anyMonthlyItems && (
+          {editing && anyMonthlyItems && (
             <ShoppingFilterBar
               search={monthlyTabSearch}
               onSearchChange={setMonthlyTabSearch}
@@ -1948,12 +1959,14 @@ export default function ShoppingScreen() {
                           action row and next to the title it describes. */}
                       {/* No `size` — the IconButton default (2026-08-21). Was `size={22}`;
                           see components/CatalogueTab.tsx's `CatalogueHeaderControls`. */}
-                      <IconButton
-                        icon={locked ? 'lock-closed' : 'lock-open-outline'}
-                        label={locked ? t.unlockListButtonLabel : t.lockListButtonLabel}
-                        onPress={() => toggleMonthlyListLocked(list.id)}
-                        active={locked}
-                      />
+                      {editing && (
+                        <IconButton
+                          icon={locked ? 'lock-closed' : 'lock-open-outline'}
+                          label={locked ? t.unlockListButtonLabel : t.lockListButtonLabel}
+                          onPress={() => toggleMonthlyListLocked(list.id)}
+                          active={locked}
+                        />
+                      )}
                       {editingMonthlyListId === list.id ? (
                         <TextInput
                           ref={monthlyNameLift.ref}
@@ -1970,15 +1983,16 @@ export default function ShoppingScreen() {
                         />
                       ) : (
                         <PressableScale
-                          onPress={() => !locked && startMonthlyListNameEdit(list)}
+                          onPress={() => editing && !locked && startMonthlyListNameEdit(list)}
                           style={styles.monthlyNamePreviewBtn}
                           scaleTo={0.98}
-                          disabled={locked}
+                          disabled={!editing || locked}
                         >
                           <Text style={[styles.catalogHeaderTitle, { color: theme.text }]} numberOfLines={1}>{monthlyListLabel(list, t.defaultMonthlyListName)}</Text>
                         </PressableScale>
                       )}
                     </View>
+                    {editing && (
                     <View style={styles.catalogHeaderActions}>
                       {/* Budget is always available (2026-07-25 defaults revision — Scan &
                           receipts is no longer an opt-in, so neither is the screen that reads
@@ -2009,6 +2023,7 @@ export default function ShoppingScreen() {
                         onPress={() => openMonthlyListOptions(list)}
                       />
                     </View>
+                    )}
                   </View>
 
                   {view.pace && (
@@ -2174,13 +2189,16 @@ export default function ShoppingScreen() {
                               screen's single secondary action under InlineAddItem's solid
                               primary. Same label, different weight, because weight is
                               relative to the screen it sits on. */}
-                          <Button
-                            label={t.addDishBtn}
-                            icon="restaurant-outline"
-                            variant="secondary"
-                            onPress={() => setDishSheetTarget({ mode: 'monthly', listId: list.id })}
-                            style={styles.addItemSpacing}
-                          />
+                          {/* Edit mode only (2026-10-12): one way to add per card in everyday use. */}
+                          {editing && (
+                            <Button
+                              label={t.addDishBtn}
+                              icon="restaurant-outline"
+                              variant="secondary"
+                              onPress={() => setDishSheetTarget({ mode: 'monthly', listId: list.id })}
+                              style={styles.addItemSpacing}
+                            />
+                          )}
                         </>
                       )}
                       {/* Month → week: this card's ONE primary action (2026-09-26). Shown in
@@ -2240,7 +2258,9 @@ export default function ShoppingScreen() {
             })
           )}
 
-          <NewMonthlyListRow onCreate={(name) => addMonthlyList({ name })} />
+          {(editing || monthlyLists.length === 0) && (
+            <NewMonthlyListRow onCreate={(name) => addMonthlyList({ name })} />
+          )}
           <AddFromMonthlyModal
             visible={weekFromMonthlyId !== null}
             items={weekFromMonthlyId ? catalogItemsForList(items, weekFromMonthlyId) : []}
@@ -2440,7 +2460,7 @@ export default function ShoppingScreen() {
                      dimmed rail above says the same thing without words. */
                   null
                 ) : (
-                  weekLists.map((list) => {
+                  weekLists.map((list, weekIdx) => {
                     const groups = groupsByList.get(list.id) ?? EMPTY_LIST_GROUPS;
                     const groupsProgress = listProgress(groups);
                     const order = groups.ungroupedUnchecked.map((i) => i.id);
@@ -2460,6 +2480,7 @@ export default function ShoppingScreen() {
                       >
                         <WeekListCard
                           list={list}
+                          divided={weekIdx > 0}
                           focused={focusedList?.id === list.id}
                           onFocus={() => setFocusedListId(list.id)}
                           expanded={expanded}
@@ -2630,7 +2651,7 @@ export default function ShoppingScreen() {
                   : handleCreateNewWeeklyList,
               }}
             />
-          ) : (
+          ) : editing ? (
             <PressableScale
               // SECONDARY — accent-tinted, the same weight as "Add dish" and the Monthly
               // tab's NewMonthlyListRow twin (2026-08-09). See that file for the reasoning;
@@ -2652,7 +2673,7 @@ export default function ShoppingScreen() {
                 {t.newWeeklyListTitle}
               </Text>
             </PressableScale>
-          )}
+          ) : null}
 
           {/* Archive (2026-08-26) — a past weekly list put away without deleting it, a
               DIFFERENT drawer from Saved lists (that's `isTemplate`, a reusable blueprint).
@@ -2753,9 +2774,7 @@ export default function ShoppingScreen() {
             // header carries only ⌄ and ⤢; and a row of its own above the field was a whole line
             // spent on one button). The full-screen pane passes it the same way, so the card and
             // its pane draw it identically. Items tab only: it acts on the item list.
-            searchAccessory={
-              <CatalogueHeaderControls locked={catalogueLocked} onToggleLock={() => setCatalogueLocked((v) => !v)} />
-            }
+
           />
         ) : (
           <FoodTab embedded onNotify={setConfirm} />
@@ -2791,7 +2810,11 @@ export default function ShoppingScreen() {
         {/* **Edited in the card (2026-09-26).** Amount and payday are fields here, not read-only
             rows pointing elsewhere — see components/BudgetFields.tsx. Shown in BOTH branches so an
             empty card leads with its own input rather than a sentence about where to go. */}
-        {monthlyLists.length > 0 && <BudgetFields />}
+        {/* Fields in edit mode only (2026-10-12); the everyday card is the pace below. */}
+        {editing && monthlyLists.length > 0 && <BudgetFields />}
+        {!editing && monthlyLists.length > 0 && budgetPace.totalBudget <= 0 && (
+          <Text style={[styles.budgetNote, { color: theme.textMuted }]}>{t.editMode.budgetUnset}</Text>
+        )}
         {budgetPace.pace ? (
           <>
             <BudgetBar
@@ -2855,7 +2878,8 @@ export default function ShoppingScreen() {
 
   return (
     <>
-    <ScreenScaffold title={t.shoppingTitle} tier="site" screenKey="shopping" bottomNav={false} pagerFloatingNav ownBackground={false} onSharePress={featureSharing ? () => router.push('/share-modal?kind=s') : undefined} onScanPress={() => router.push({ pathname: '/scan', params: { target: 'catalogue' } })} onManageCardsPress={() => setManageCardsOpen(true)} onScroll={handleScreenScroll}>
+    <ScreenScaffold title={t.shoppingTitle} tier="site" screenKey="shopping" bottomNav={false} pagerFloatingNav ownBackground={false} onSharePress={featureSharing ? () => router.push('/share-modal?kind=s') : undefined} onScanPress={() => router.push({ pathname: '/scan', params: { target: 'catalogue' } })} onManageCardsPress={() => setManageCardsOpen(true)} editMode={{ active: editing, onToggle: () => { selection(); setEditing((v) => !v); } }} onScroll={handleScreenScroll}>
+      <EditModeContext.Provider value={editing}>
       {/* Debug notes: one anchor for the whole list region. Don't also wrap the inner
           cards/rows — one DebugNoteAnchor per region (no nesting). */}
       <DebugNoteAnchor id="shopping.list" label="Shopping — List" style={styles.content}>
@@ -2874,6 +2898,7 @@ export default function ShoppingScreen() {
           {cardOrder.map((id) => (cardNodes[id] ? <React.Fragment key={id}>{cardNodes[id]}</React.Fragment> : null))}
 
         </DebugNoteAnchor>
+      </EditModeContext.Provider>
 
       <AddDishSheet
         visible={dishSheetTarget !== null}

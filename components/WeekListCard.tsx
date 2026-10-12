@@ -21,8 +21,7 @@
  *             components/Collapsible, components/DisclosureRow,
  *             components/FlightOverlay (FlightRect type only),
  *             components/IconButton, components/Button (the two ghost secondary add paths),
- *             components/InlineAddItem, components/ShoppingFilterBar,
- *             components/Surface,
+ *             components/InlineAddItem, components/ShoppingFilterBar, lib/editMode (edit-mode gating),
  *             components/ShoppingRow (CHECKED_OPACITY), components/ShoppingRow.tsx (the chip
  *             layout's row), lib/shoppingStarters (SHOPPING_STARTERS — the quick-add tray's
  *             bundles), constants/theme (incl. getMatte, shared by the chips and the tray),
@@ -192,7 +191,6 @@ import { useT } from '@/lib/i18n';
 import { listProgress } from '@/lib/shoppingGroups';
 import { formatKr } from '@/lib/money';
 import { categoryPresets } from '@/lib/shoppingCategories';
-import Surface from '@/components/Surface';
 import IconButton from '@/components/IconButton';
 import { SectionFoldToggle } from '@/components/Card';
 import Button from '@/components/Button';
@@ -205,6 +203,7 @@ import { LAYOUT_SPECS, type LayoutSpec } from '@/lib/cardLayout';
 import InlineAddItem from '@/components/InlineAddItem';
 import AddFromMonthlyModal from '@/components/AddFromMonthlyModal';
 import ShoppingFilterBar from '@/components/ShoppingFilterBar';
+import { useEditMode } from '@/lib/editMode';
 import { showAppModal } from '@/components/AppModal';
 import type { FlightRect } from '@/components/FlightOverlay';
 import { getScreenColor } from '@/lib/screenColor';
@@ -212,6 +211,8 @@ import { useKeyboardLift } from '@/lib/useKeyboardLift';
 
 type Props = {
   list: ShoppingList;
+  /** A hairline above this list — set for every list after the first (2026-10-12). */
+  divided?: boolean;
   focused: boolean;
   onFocus: () => void;
   dishGroups: [string, ShoppingItem[]][];
@@ -321,6 +322,7 @@ function calcSectionTotal(items: ShoppingItem[]): number {
 }
 
 export default function WeekListCard({
+  divided,
   list,
   focused,
   onFocus,
@@ -478,13 +480,20 @@ export default function WeekListCard({
 
   const totalInList = ungroupedUnchecked.length + dishUnchecked.length;
   const totalInCart = allChecked.length;
+  // The screen's edit mode (lib/editMode.ts, 2026-10-12). Off, this card is the list itself and one
+  // add bar; on, it also draws rename, the ⋮ menu, search/filter, from-monthly/from-a-dish, and the
+  // section headers that are still empty.
+  const editing = useEditMode();
 
   // The card wears no hue at all as of 2026-08-20 (components/Surface.tsx). It was shopping
   // green from 2026-07-22 — the amber-while-unlocked/green-while-locked coding before that read
   // as "not appealing" and was dropped — and lock state has been carried entirely by the lock
   // icon + Save/Discard buttons below ever since, which is why nothing here needed replacing.
   return (
-    <Surface style={styles.cardRow}>
+    // ⚠️ **A plain View, not a `Surface` (2026-10-12)** — the same "no box in a box" fix the Lager
+    // card got: each week list used to be its own Surface inside the Handleliste card. It is the
+    // card's body now, set off from the list above it by a hairline.
+    <View style={[styles.cardRow, divided && [styles.cardDivided, { borderTopColor: theme.border }]]}>
       <View style={styles.cardContent}>
       {/* ── Card header: tap-to-edit name + expand/collapse + save/discard/lock/settings ── */}
       <View style={styles.header}>
@@ -523,7 +532,7 @@ export default function WeekListCard({
                 autoFocus
               />
             ) : (
-              <PressableScale onPress={startNameEdit} style={styles.namePreviewBtn} scaleTo={0.98}>
+              <PressableScale onPress={startNameEdit} disabled={!editing} style={styles.namePreviewBtn} scaleTo={0.98}>
                 <Text
                   style={[styles.namePreviewText, { color: list.isCustomName ? theme.text : theme.textMuted }]}
                   numberOfLines={1}
@@ -560,7 +569,9 @@ export default function WeekListCard({
                 <IconButton icon="arrow-undo-outline" label={t.listDiscardButtonLabel} onPress={onDiscardChanges} color={theme.bad} size={IconSize.compact} />
               </>
             )}
-            <IconButton icon="ellipsis-vertical" label={t.listOptionsButtonLabel} onPress={openListOptions} size={IconSize.compact} />
+            {editing && (
+              <IconButton icon="ellipsis-vertical" label={t.listOptionsButtonLabel} onPress={openListOptions} size={IconSize.compact} />
+            )}
             {/* ⚠️ **The shared fold control, not a plated `IconButton` (2026-08-21,
                 CONSISTENCY_AUDIT.md §2/§8).** This was an `IconButton size={30}` — a glass key
                 cap, where every other card in the app folds with a bare chevron glyph — and it
@@ -615,12 +626,16 @@ export default function WeekListCard({
                 dimmed, never explained — is what teaches that a tick MOVES a row down a zone.
                 Until now "I liste" only labelled itself while locked and the other two appeared
                 only once they had rows, so the model was invisible until you'd already used it. */}
-            <View style={[styles.sectionHeaderRow, { backgroundColor: theme.surfaceMuted }, totalInList === 0 && { opacity: CHECKED_OPACITY }]}>
-              <Text style={[styles.sectionLabel, { color: theme.good }]}>{t.toBuySection(totalInList)}</Text>
-              <View style={[styles.sectionRule, { backgroundColor: theme.good }]} />
-            </View>
+            {/* Everyday view (2026-10-12): an empty zone's header is edit-mode only. The three-zone
+                model this header teaches is still visible the moment a zone has a row in it. */}
+            {(editing || totalInList > 0) && (
+              <View style={[styles.sectionHeaderRow, { backgroundColor: theme.surfaceMuted }, totalInList === 0 && { opacity: CHECKED_OPACITY }]}>
+                <Text style={[styles.sectionLabel, { color: theme.good }]}>{t.toBuySection(totalInList)}</Text>
+                <View style={[styles.sectionRule, { backgroundColor: theme.good }]} />
+              </View>
+            )}
 
-            {(totalInList > 0 || totalInCart > 0) && (
+            {editing && (totalInList > 0 || totalInCart > 0) && (
               <ShoppingFilterBar
                 search={listSearch}
                 onSearchChange={setListSearch}
@@ -645,7 +660,8 @@ export default function WeekListCard({
                 is this screen's ONE primary action (DESIGN_RULES.md rule 6); a tray of accent
                 buttons above it would be a second, louder one. Planning mode only — there is
                 nothing to stock up on while you are standing in the shop. */}
-            {!list.locked && (
+            {/* Shown on an empty list as the way to start one; otherwise edit mode only. */}
+            {!list.locked && (editing || (totalInList === 0 && totalInCart === 0)) && (
               <View style={styles.starterTray}>
                 <Text style={[styles.starterTrayLabel, { color: theme.textMuted }]}>
                   {t.shoppingStarters.trayLabel}
@@ -784,7 +800,7 @@ export default function WeekListCard({
                 paths, and InlineAddItem's solid accent bar above stays the screen's one
                 filled primary (DESIGN_RULES.md rule 6). `size="sm"` keeps them visibly
                 quieter than that bar. */}
-            {!list.locked && (
+            {!list.locked && editing && (
               <View style={styles.addOptionsRow}>
                 <Button
                   label={t.addFromMonthlyOption}
@@ -829,7 +845,9 @@ export default function WeekListCard({
           </View>
 
         {/* ── IN CART section ── */}
-          <View style={styles.section}>
+          {/* ⚠️ The cart section stays MOUNTED when empty: its header is the flight target a
+              ticked row animates into (`registerCartHeaderNode`). Hidden by opacity, not removed. */}
+          <View style={[styles.section, !editing && totalInCart === 0 && styles.zoneHidden]}>
             <View
               ref={(node) => registerCartHeaderNode?.(node)}
               style={[styles.sectionHeaderRow, { backgroundColor: theme.surfaceMuted }, totalInCart === 0 && { opacity: CHECKED_OPACITY }]}
@@ -868,7 +886,7 @@ export default function WeekListCard({
 
         {/* ── PURCHASED section (collapsed) ── */}
         {purchased.length === 0 ? (
-          <View style={styles.section}>
+          editing && <View style={styles.section}>
             <View style={[styles.sectionHeaderRow, { backgroundColor: theme.surfaceMuted, opacity: CHECKED_OPACITY }]}>
               <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>{t.purchasedSection(0)}</Text>
               <View style={[styles.sectionRule, { backgroundColor: theme.textMuted }]} />
@@ -930,13 +948,14 @@ export default function WeekListCard({
       </View>
       </Collapsible>
       </View>
-    </Surface>
+    </View>
   );
 }
 
 const baseStyles = StyleSheet.create({
-  cardRow: { borderRadius: Radius.md },
-  cardContent: { flex: 1, padding: Spacing.md, gap: Spacing.md },
+  cardRow: {},
+  cardDivided: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: Spacing.md },
+  cardContent: { flex: 1, gap: Spacing.md },
   header: { gap: Spacing.xs },
   headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm },
   nameWrap: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, flex: 1 },
@@ -969,6 +988,8 @@ const baseStyles = StyleSheet.create({
   emptyTitle: { fontFamily: Type.bodyStrong.fontFamily, fontSize: Type.bodyStrong.size, textAlign: 'center' },
   emptySubtitle: { fontSize: FontSize.sm, textAlign: 'center', fontFamily: Fonts.regular },
   section: { gap: Spacing.xs },
+  // An empty cart zone outside edit mode: still mounted (it is the flight target), but takes no room.
+  zoneHidden: { height: 0, overflow: 'hidden', opacity: 0, marginTop: -Spacing.md },
   // Visual-audit 2026-07-11: a surfaceMuted card behind the label + rule so "sub-headers"
   // (In list / In cart / From monthly list) read with real weight instead of floating
   // bare text over the particle background — background colour applied inline (theme).

@@ -593,6 +593,13 @@ const en = {
    * anything. The hint exists because "off" here is not "deleted", which is the one thing a user
    * could reasonably fear about a switch that makes a surface disappear.
    */
+  /** A screen's edit mode (2026-10-12, Handle first) — the ✏️/✓ in the header. */
+  editMode: {
+    start: 'Edit',
+    done: 'Done editing',
+    /** Budget card, everyday view, before a budget exists. */
+    budgetUnset: 'No budget yet. Tap ✏️ at the top to set one.',
+  },
   manageCards: {
     title: 'Cards on this screen',
     hint: 'Turn one off to put it away. Nothing is deleted — reminders keep working, and you can turn it back on here.',
@@ -2757,6 +2764,11 @@ const no: typeof en = {
   addedBody: (n: number) => `${n} varer ble lagt til i handlelisten.`,
   addItemBtn: 'Legg til vare',
   settingsTitle: 'Innstillinger',
+  editMode: {
+    start: 'Rediger',
+    done: 'Ferdig med å redigere',
+    budgetUnset: 'Ikke noe budsjett ennå. Trykk ✏️ øverst for å sette et.',
+  },
   manageCards: {
     title: 'Kort på denne skjermen',
     hint: 'Slå av et kort for å legge det bort. Ingenting slettes — påminnelser virker som før, og du kan slå det på igjen her.',
@@ -4553,6 +4565,11 @@ const is: typeof en = {
   addedBody: (n: number) => `${n} ${isCount(n, 'vara fór', 'vörur fóru')} á innkaupalistann.`,
   addItemBtn: 'Bæta við vöru',
   settingsTitle: 'Stillingar',
+  editMode: {
+    start: 'Breyta',
+    done: 'Búið að breyta',
+    budgetUnset: 'Enginn fjárhagur enn. Ýttu á ✏️ efst til að setja hann.',
+  },
   manageCards: {
     title: 'Spjöld á þessum skjá',
     hint: 'Slökktu á spjaldi til að leggja það til hliðar. Engu er eytt — áminningar virka áfram og þú getur kveikt á því aftur hér.',
