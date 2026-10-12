@@ -185,13 +185,19 @@ type Props = {
    */
   onManageCardsPress?: () => void;
   /**
+   * The screen's edit mode (2026-10-12, Handle first). When given, a ✏️ sits in the controls; while
+   * `active` it is a ✓ in the accent colour, so the way out is the same button in the same place.
+   * Everyday use of the screen is the tidy view; edit mode is where rarely-used controls live.
+   */
+  editMode?: { active: boolean; onToggle: () => void };
+  /**
    * True when a sticky tab bar is attached directly under this header, i.e. the two are drawn as
    * ONE card. Suppresses the bottom edge — see `headerBackdrop`.
    */
   attachedBelow?: boolean;
 };
 
-export default function ScreenHeader({ title, tier, isHome, onBack, headerRight, style, onSharePress, onScanPress, onManageCardsPress, attachedBelow }: Props) {
+export default function ScreenHeader({ title, tier, isHome, onBack, headerRight, style, onSharePress, onScanPress, onManageCardsPress, editMode, attachedBelow }: Props) {
   const t = useT();
   const theme = useAppTheme();
   const router = useRouter();
@@ -367,6 +373,23 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
     </PressableScale>
   ) : null;
 
+  const editButton = editMode ? (
+    <PressableScale
+      onPress={editMode.onToggle}
+      hitSlop={HitSlop.base}
+      accessibilityRole="button"
+      accessibilityLabel={editMode.active ? t.editMode.done : t.editMode.start}
+      accessibilityState={{ selected: editMode.active }}
+      scaleTo={0.9}
+    >
+      <Ionicons
+        name={editMode.active ? 'checkmark-circle' : 'create-outline'}
+        size={editMode.active ? 26 : 22}
+        color={editMode.active ? theme.accent : theme.text}
+      />
+    </PressableScale>
+  ) : null;
+
   // Home-only OTA update icon (see edit notes) — a small spinner while fetching.
   const updateButton = isHome && updateAvailable ? (
     <PressableScale
@@ -438,7 +461,7 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
   // which Shopping now does only when the matching feature flag is on. Gear is outermost on
   // whichever side the group sits (Decision 034). Items that don't apply are null/filtered.
   const siteControls = tier === 'site'
-    ? ([updateButton, bugButton, emailButton, deleteButton, manageCardsButton, scanButton, shareButton, gearButton].filter(Boolean) as React.ReactNode[])
+    ? ([updateButton, bugButton, emailButton, deleteButton, editButton, manageCardsButton, scanButton, shareButton, gearButton].filter(Boolean) as React.ReactNode[])
     : [];
 
   // **List controls follow the LIST, not the tier (2026-08-20).** The layout and share icons
