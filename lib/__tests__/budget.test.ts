@@ -5,7 +5,7 @@
  * boundary), the inclusive days-elapsed count, the payday-to-payday period length, and the
  * overPace boundary (equal-to-budget is NOT over).
  */
-import { computeSpendPace } from '@/lib/budget';
+import { computeSpendPace, payPeriod } from '@/lib/budget';
 
 describe('computeSpendPace', () => {
   it('returns null when no budget is set', () => {
@@ -39,5 +39,38 @@ describe('computeSpendPace', () => {
     // 1 day elapsed, budgetedPerDay = 3000/31; make actual exactly equal to it.
     const exact = computeSpendPace([{ date: '2026-07-01', total: 3000 / 31 }], 3000, 1, '2026-07-01', '2026-07-01');
     expect(exact!.overPace).toBe(false);
+  });
+});
+
+describe('two paydays a month (2026-10-12)', () => {
+  it('payPeriod picks the half today is in', () => {
+    expect(payPeriod('2026-07-10', 1, 15)).toEqual({ start: '2026-07-01', next: '2026-07-15', length: 14 });
+    expect(payPeriod('2026-07-20', 1, 15)).toEqual({ start: '2026-07-15', next: '2026-08-01', length: 17 });
+    // Second payday earlier in the month than the first works the same.
+    expect(payPeriod('2026-07-03', 20, 5)).toEqual({ start: '2026-06-20', next: '2026-07-05', length: 15 });
+  });
+
+  it('one payday (or a second equal to the first) is the plain month', () => {
+    expect(payPeriod('2026-07-10', 1)).toEqual({ start: '2026-07-01', next: '2026-08-01', length: 31 });
+    expect(payPeriod('2026-07-10', 1, 1)).toEqual(payPeriod('2026-07-10', 1));
+  });
+
+  it('paces the half-month: spend since its payday, a share of the monthly budget', () => {
+    const receipts = [
+      { date: '2026-07-10', total: 999 }, // previous half — not counted
+      { date: '2026-07-16', total: 300 },
+    ];
+    const pace = computeSpendPace(receipts, 3100, 1, '', '2026-07-20', 15)!;
+    expect(pace.periodLength).toBe(17);
+    expect(pace.daysElapsed).toBe(6);
+    expect(pace.periodSpent).toBe(300);
+    expect(pace.budgetedPerDay).toBe(100); // 3100 / 31-day month
+    expect(pace.periodBudget).toBe(1700);
+  });
+
+  it('single payday reports the whole month as the period', () => {
+    const pace = computeSpendPace([{ date: '2026-07-05', total: 500 }], 3000, 1, '2026-07-01', '2026-07-10')!;
+    expect(pace.periodBudget).toBe(3000);
+    expect(pace.periodSpent).toBe(500);
   });
 });

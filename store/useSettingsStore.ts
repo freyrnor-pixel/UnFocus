@@ -271,6 +271,12 @@ export type Settings = {
   userName: string;
   weeklyResetDay: number;
   monthlyResetDate: number;
+  /**
+   * A second payday in the month (2026-10-12), 1–31, or 0 for "paid once a month". When set,
+   * the Budget card paces payday-to-payday over the HALF period it is in (lib/budget.ts). The
+   * monthly list reset still runs on `monthlyResetDate` alone.
+   */
+  secondPayday: number;
   remindersEnabled: boolean;
   reminderTime: string;
   taskNotificationsEnabled: boolean;
@@ -784,6 +790,7 @@ function rowToStoredSettings(row: Row): Settings {
     userName: readStr(row, 'user_name'),
     weeklyResetDay: readInt(row, 'weekly_reset_day', 0),
     monthlyResetDate: readInt(row, 'monthly_reset_date', 1),
+    secondPayday: readInt(row, 'second_payday', 0),
     remindersEnabled: readBool(row, 'reminders_enabled'),
     reminderTime: readStr(row, 'reminder_time', '08:00'),
     taskNotificationsEnabled: readBool(row, 'task_notifications_enabled'),
@@ -891,6 +898,7 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   userName: { col: 'user_name' },
   weeklyResetDay: { col: 'weekly_reset_day' },
   monthlyResetDate: { col: 'monthly_reset_date' },
+  secondPayday: { col: 'second_payday' },
   remindersEnabled: { col: 'reminders_enabled', to: bool },
   reminderTime: { col: 'reminder_time' },
   taskNotificationsEnabled: { col: 'task_notifications_enabled', to: bool },
@@ -984,6 +992,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   userName: '',
   weeklyResetDay: 0,
   monthlyResetDate: 1,
+  secondPayday: 0,
   remindersEnabled: false,
   reminderTime: '08:00',
   taskNotificationsEnabled: false,

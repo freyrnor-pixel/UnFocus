@@ -256,7 +256,6 @@ import { countRender, countLayout } from '@/lib/perfTrace';
 import { useT } from '@/lib/i18n';
 import { dayOfWeekMon0, todayStr } from '@/lib/date';
 import { useIsPaneBody } from '@/lib/cardPane';
-import { getScreenColor } from '@/lib/screenColor';
 import { energyDeltaForDay, energyDeltaForWeek, energySplitForDay, energySplitForWeek, energyBudgetBar, MAX_PIPS } from '@/lib/energy';
 import { useEnergyPause } from '@/lib/useEnergyPause';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -361,8 +360,12 @@ export default function EnergyMeter() {
   // Maintainer: *"Use same coloring in lightning icons as in to-do and habits for giving and
   // taking Energy."* Tasks take energy and wear gold everywhere else; habits give it back and
   // wear cyan. The bolts now say which, so the text legend that explained them is gone.
-  const spentHue = getScreenColor(theme, 'plans').base;
-  const givenHue = getScreenColor(theme, 'habits').base;
+  //   ⚠️ **Superseded 2026-10-12** — maintainer: *"Blå betyr fylt, grønn betyr ekstra, tomt
+  // betyr brukt."* The bar now reads like a battery: energy you still HAVE is a filled bolt in
+  // the app's blue (`featHome`), what has been spent is an empty outline, and extra on top is
+  // `good` green. See the note above `pips` in `row()`.
+  const leftHue = theme.featHome;
+  const extraHue = theme.good;
   // Inside Hjem's ⤢ pane this card is its body and shows EVERY number (EnergyConfigPanel).
   const inPane = useIsPaneBody('homeEnergy');
   // Captured, not just subscribed: a non-empty `overrides` is the fingerprint of a user who
@@ -620,7 +623,9 @@ export default function EnergyMeter() {
   ) => {
     // ── The v2 Energibudsjett bar (2026-09-06) ──────────────────────────────────────────
     //
-    // ⚠️ **Filled means SPENT here, which is the inverse of what this row drew until today.**
+    // ⚠️ **REVERSED 2026-10-12: filled = LEFT (blue), outline = SPENT, green = extra.** The
+    // history below is why it once read the other way; the maintainer's ruling now wins.
+    // (Was:) **Filled means SPENT here, which is the inverse of what this row drew until today.**
     // The glossy `energyPipCount` token filled from `current / capacity`, so a full bar meant a
     // day still untouched. v2 states its reading outright — *"filled = brukt, empty = igjen"* —
     // and the arithmetic for it lives in `lib/energy.ts`'s `energyBudgetBar`, once, rather than
@@ -661,9 +666,11 @@ export default function EnergyMeter() {
         style={styles.pipRow}
         accessibilityLabel={t.energyMeter.budgetPeek(used, pipCount, gain)}
       >
-        {Array.from({ length: used }).map((_, i) => glyph('flash', spentHue, `u${i}`, true))}
-        {Array.from({ length: left }).map((_, i) => glyph('flash-outline', emptyGlyph, `l${i}`))}
-        {Array.from({ length: gain }).map((_, i) => glyph('flash', givenHue, `g${i}`, true))}
+        {/* Blue = still there, empty = spent, green = extra (2026-10-12). Filled run first, so
+            the bar drains from the right like a battery. */}
+        {Array.from({ length: left }).map((_, i) => glyph('flash', leftHue, `l${i}`, true))}
+        {Array.from({ length: used }).map((_, i) => glyph('flash-outline', emptyGlyph, `u${i}`))}
+        {Array.from({ length: gain }).map((_, i) => glyph('flash', extraHue, `g${i}`, true))}
       </View>
     );
     // The legend is the only thing that says which way the glyphs read, so all three words stay
@@ -770,7 +777,7 @@ export default function EnergyMeter() {
         <Card
           id="homeEnergy"
           peek={showTutorial ? t.energyMeter.tutorialPeek(activeCapacity) : t.energyMeter.budgetPeek(activeSplit.spent, activeCapacity, activeSplit.gained)}
-          // Empty-only, like every card hint: what Energy IS, said while the bolts are all outline.
+          // Empty-only, like every card hint: what Energy IS, said before anything has used a bolt.
           hint={showTutorial ? t.cardHint.homeEnergy : undefined}
         >
           {!showTutorial && showDay && showWeek && (
@@ -791,8 +798,10 @@ export default function EnergyMeter() {
               accessibilityElementsHidden
               importantForAccessibility="no-hide-descendants"
             >
+              {/* Nothing used yet, so every bolt is LEFT — filled blue, the bar's own `left` run
+                  (2026-10-12: blue = filled, empty = used). */}
               {Array.from({ length: MAX_PIPS }, (_, i) => (
-                <Ionicons key={i} name="flash-outline" size={BAR_ICON_SIZE} color={emptyGlyph} />
+                <Ionicons key={i} name="flash" size={BAR_ICON_SIZE} color={leftHue} />
               ))}
             </View>
           ) : scope === 'day' ? (

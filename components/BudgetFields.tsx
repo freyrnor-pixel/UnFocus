@@ -18,18 +18,23 @@
  * reverts to the stored one — no warning copy (DESIGN_RULES rule 23's spirit: nothing here
  * evaluates the number).
  *
+ * **Paid once or twice a month (2026-10-12).** A segmented "Monthly / Twice a month" under the
+ * payday; "twice" reveals a second payday field (settings.secondPayday, 0 = once). The card then
+ * paces over the half-month it is in — lib/budget.ts's `payPeriod`.
+ *
  * Connections:
- *   Imports → components/FormControls (Input), constants/theme (Spacing, FIELD_GLOW_CLEARANCE), lib/i18n, lib/reminders
+ *   Imports → components/FormControls (Input, SegmentedControl), lib/budget (hasSecondPayday), constants/theme (Spacing, FIELD_GLOW_CLEARANCE), lib/i18n, lib/reminders
  *             (syncReminders — payday moves the monthly reminder, the same re-sync app/settings.tsx
  *             does for `monthlyResetDate`), lib/useAppTheme, store/useMonthlyListStore,
  *             store/useSettingsStore
  *   Used by → app/(tabs)/shopping.tsx (the `shopBudget` card)
  *   Data    → writes monthly_lists.budget_nok via useMonthlyListStore.setBudget, and
- *             settings.monthlyResetDate via useSettingsStore.update
+ *             settings.monthlyResetDate / secondPayday via useSettingsStore.update
  */
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Input } from '@/components/FormControls';
+import { Input, SegmentedControl } from '@/components/FormControls';
+import { hasSecondPayday } from '@/lib/budget';
 import { FIELD_GLOW_CLEARANCE, Spacing } from '@/constants/theme';
 import { useT } from '@/lib/i18n';
 import { syncReminders } from '@/lib/reminders';
@@ -90,6 +95,8 @@ export default function BudgetFields() {
   const lists = useMonthlyListStore((s) => s.lists);
   const setBudget = useMonthlyListStore((s) => s.setBudget);
   const monthlyResetDate = useSettingsStore((s) => s.monthlyResetDate);
+  const secondPayday = useSettingsStore((s) => s.secondPayday);
+  const twice = hasSecondPayday(monthlyResetDate, secondPayday);
   const updateSettings = useSettingsStore((s) => s.update);
 
   const parseAmount = (raw: string) => {
@@ -131,6 +138,31 @@ export default function BudgetFields() {
         maxLength={2}
         placeholder="1–31"
       />
+      {/* Paid once or twice a month (2026-10-12). "Twice" seeds the second payday half a month
+          on, so the choice works the moment it is made; the field below adjusts it. */}
+      <SegmentedControl<'once' | 'twice'>
+        options={[
+          { value: 'once', label: t.budget.payOnce },
+          { value: 'twice', label: t.budget.payTwice },
+        ]}
+        value={twice ? 'twice' : 'once'}
+        onChange={(v) =>
+          updateSettings({ secondPayday: v === 'twice' ? ((monthlyResetDate + 14) % 31) + 1 : 0 })
+        }
+      />
+      {twice && (
+        <NumberField
+          label={t.budget.secondPaydayLabel}
+          stored={secondPayday}
+          parse={(raw) => {
+            const n = parsePayday(raw);
+            return n !== null && n !== monthlyResetDate ? n : null;
+          }}
+          onCommit={(n) => updateSettings({ secondPayday: n })}
+          maxLength={2}
+          placeholder="1–31"
+        />
+      )}
     </View>
   );
 }

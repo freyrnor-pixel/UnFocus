@@ -138,22 +138,9 @@ export const NAV_PAINTED_HEIGHT = BOTTOM_NAV_HEIGHT + BORDER_WIDTH.card * 2;
 // scroll-content clearance for it) so the two can never drift apart.
 export const NAV_FLOAT_GAP = Spacing.sm;
 
-/**
- * The centre slot's standing mark — a 4px dot under Home's label, drawn in every state.
- *
- * **Why a mark and not a colour (2026-09-01).** Maintainer: *"no visual distinction for Home vs
- * the others."* Colour cannot carry this on its own: `navTabHue` is dark-mode only, and in LIGHT
- * every active tab resolves to `theme.accent`, so Home and Shop light up identically. A mark
- * works in both themes and in both states, which is the whole requirement.
- *
- * **Why it is this small.** The 2026-08-18 ruling deleted the 56px centre FAB and the sliding
- * pill — *"do not use massive asymmetrical background circles for the active bottom nav icon"* —
- * and that stands. This is symmetric, unfilled by anything, inside the slot's own box, and does
- * not change the item's height or its 48px target: five equal slots, one of which is annotated.
- * It is NOT a selection cue (the filled glyph is), so it does not brighten when Home is active —
- * which until 2026-10-07 it did, contradicting this line; it is now always muted.
- */
-const HOME_MARK_SIZE = 4;
+// ⚠️ **No Home mark (2026-10-12).** The 4px dot under Home's label (2026-09-01) is gone —
+// maintainer: *"Den lille prikken må fjernes fra under Home."* All five slots are now drawn
+// identically; the filled glyph alone marks the active tab. Don't reinstate a per-slot mark.
 
 type Props = Partial<Pick<MaterialTopTabBarProps, 'state' | 'navigation'>>;
 
@@ -189,7 +176,6 @@ export default function BottomNav({ state, navigation }: Props = {}) {
           item={item}
           label={t.nav[item.key]}
           active={isActive(item)}
-          isHome={item.key === 'home'}
           onPress={() => handlePress(item)}
           styles={styles}
         />
@@ -218,13 +204,11 @@ type NavTabItemProps = {
   item: SiteItem;
   label: string;
   active: boolean;
-  /** The centre slot. Draws the standing mark — see HOME_MARK_SIZE. */
-  isHome: boolean;
   onPress: () => void;
   styles: typeof baseStyles;
 };
 
-function NavTabItem({ item, label, active, isHome, onPress, styles }: NavTabItemProps) {
+function NavTabItem({ item, label, active, onPress, styles }: NavTabItemProps) {
   const theme = useAppTheme();
   // The one difference between an active tab and an inactive one: a FILLED glyph in the
   // accent versus an outline glyph in muted ink. No plate, no ring, no fill, no
@@ -251,17 +235,6 @@ function NavTabItem({ item, label, active, isHome, onPress, styles }: NavTabItem
       >
         {label}
       </Text>
-      {isHome ? (
-        <View
-          // Decorative: the slot already announces itself by name, and a screen reader saying
-          // "Home, dot" is worse than nothing.
-          accessibilityElementsHidden
-          importantForAccessibility="no-hide-descendants"
-          // Always muted, active or not (2026-10-07): a dot that lit up with Home read as a
-          // second selection cue only Home had — the "blue dot" in the maintainer's report.
-          style={[styles.homeMark, { backgroundColor: theme.textMuted }]}
-        />
-      ) : null}
     </PressableScale>
   );
 }
@@ -313,21 +286,5 @@ const baseStyles = StyleSheet.create({
     // nav buttons are slightly too high"; invisible on web and to `npm run geometry` by
     // construction, which is why `lib/__tests__/designTokens.test.ts` scans for it instead.
     ...OpticalCenter,
-  },
-  // The centre slot's standing mark — see HOME_MARK_SIZE.
-  //
-  // ⚠️ **Absolutely positioned, and that is load-bearing.** As a flow child it added its own
-  // height plus the item's `gap` to Home's slot — 8px — and since the bar sizes to its tallest
-  // item, the whole bar grew and stopped matching `NAV_PAINTED_HEIGHT`. Caught immediately by
-  // `scripts/measure-geometry.mjs`, which reported Home's item at 5/5 where the other four sat
-  // at 9.5/9.5: four slots centred in a bar the fifth had stretched. Out of flow, it annotates
-  // the slot without resizing it, which is the whole idea of an equal five-slot bar.
-  homeMark: {
-    position: 'absolute',
-    bottom: 2,
-    alignSelf: 'center',
-    width: HOME_MARK_SIZE,
-    height: HOME_MARK_SIZE,
-    borderRadius: HOME_MARK_SIZE / 2,
   },
 });

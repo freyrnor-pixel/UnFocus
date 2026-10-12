@@ -1462,6 +1462,10 @@ export function initDb() {
     // 2026-08-22 lines above made when the card set moved. Not a literal array: writing the
     // answer into a migration freezes it for every install it ever runs on.
     "UPDATE settings SET card_order = '{}'",
+    // ── 2026-10-12: a second payday (Budget card) ──────────────────────────────────────────
+    // 0 = paid once a month (every existing install). Device-local like monthly_reset_date —
+    // the settings row is not in lib/liveSync.ts's TABLE_COLUMNS.
+    'ALTER TABLE settings ADD COLUMN second_payday INTEGER DEFAULT 0',
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

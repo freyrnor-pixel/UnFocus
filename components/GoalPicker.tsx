@@ -15,7 +15,7 @@
  * Connections:
  *   Imports → components/IconButton, components/PressableScale,
  *             components/GoalGlowDot, components/FormControls (Input), components/OptionalTag,
- *             constants/theme, lib/useAppTheme, lib/i18n, lib/haptics, lib/useKeyboardLift,
+ *             constants/theme, lib/useAppTheme, lib/rowList (the menu's neutral fill), lib/i18n, lib/haptics, lib/useKeyboardLift,
  *             store/useGoalStore, components/AppModal, @expo/vector-icons (the chevron)
  *   Used by → components/TaskCard.tsx (was components/TaskCard.tsx, retired 2026-07-23, UX audit
  *             B1 — see that file's header), app/habit-form.tsx
@@ -46,7 +46,8 @@ import { GoalGlowDot } from '@/components/GoalGlowDot';
 import { confirmDestructive } from '@/components/AppModal';
 import OptionalTag from '@/components/OptionalTag';
 import { Fonts, FontSize, IconSize, MIN_TAP_TARGET, Radius, Spacing } from '@/constants/theme';
-import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
+import { ROW_LIST_EDGE_DARK, ROW_LIST_EDGE_LIGHT, ROW_LIST_FILL_DARK, ROW_LIST_FILL_LIGHT } from '@/lib/rowList';
 import { useT } from '@/lib/i18n';
 import { selection, tap } from '@/lib/haptics';
 import { useGoalStore } from '@/store/useGoalStore';
@@ -61,7 +62,13 @@ export function GoalPicker({ value, onChange }: Props) {
   const router = useRouter();
   const t = useT();
   const theme = useAppTheme();
+  const isDark = useIsDark();
   const styles = useScaledStyles(baseStyles);
+  // ⚠️ **Not `surfaceMuted` (2026-10-12).** That is #121212 in dark — the menu read as a black
+  // hole. Maintainer: *"Bakgrunnen bør ikke være svart, men fortsatt ganske nøytral."* The row
+  // list's own neutral fill/edge (lib/rowList.ts) is one step off whatever surface hosts it.
+  const menuFill = isDark ? ROW_LIST_FILL_DARK : ROW_LIST_FILL_LIGHT;
+  const menuEdge = isDark ? ROW_LIST_EDGE_DARK : ROW_LIST_EDGE_LIGHT;
 
   const goals = useGoalStore((s) => s.goals);
   const addGoal = useGoalStore((s) => s.add);
@@ -113,7 +120,7 @@ export function GoalPicker({ value, onChange }: Props) {
           selected, so switching goals no longer means unlinking first. The "X" (when a goal
           IS selected) is a separate sibling target next to the box's main tap area rather
           than nested inside it, so the two touches never fight over the same responder. */}
-      <View style={[styles.box, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
+      <View style={[styles.box, { backgroundColor: menuFill, borderColor: menuEdge }]}>
         <PressableScale
           style={styles.boxMain}
           onPress={() => { tap(); setOpen((v) => !v); }}
@@ -148,7 +155,7 @@ export function GoalPicker({ value, onChange }: Props) {
       </View>
 
       {open && (
-        <View style={[styles.list, { backgroundColor: theme.surfaceMuted }]}>
+        <View style={[styles.list, { backgroundColor: menuFill, borderColor: menuEdge }]}>
           {goals.length === 0 ? (
             <Text style={[styles.hint, styles.emptyPad, { color: theme.textMuted }]}>
               {t.goals.emptyList}
@@ -214,8 +221,8 @@ export function GoalPicker({ value, onChange }: Props) {
               the bottom of the drop-down-menu when user presses 'Goal' in card."*
                 BELOW the inline new-goal row rather than instead of it: creating a goal you have
               already thought of should not cost a screen, and this is for everything the field
-              cannot do (deleting several, reading strength — not renaming, which stays impossible
-              because a goal's id is derived from its name).
+              cannot do (deleting several, reading strength, renaming — tap a goal there to edit
+              it, 2026-10-12).
                 It closes the dropdown on the way out, so returning from the pop-up does not land
               on a menu the user has finished with. */}
           <PressableScale
@@ -258,7 +265,7 @@ const baseStyles = StyleSheet.create({
   boxMain: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   chevron: { marginLeft: 2 },
   rowText: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.medium },
-  list: { borderRadius: Radius.md, marginTop: Spacing.xs, overflow: 'hidden' },
+  list: { borderRadius: Radius.md, borderWidth: 1, marginTop: Spacing.xs, overflow: 'hidden' },
   emptyPad: { padding: Spacing.md, marginTop: 0 },
   pickRow: { flexDirection: 'row', alignItems: 'center', paddingRight: Spacing.sm },
   pickRowMain: {

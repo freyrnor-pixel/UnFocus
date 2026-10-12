@@ -686,7 +686,8 @@ function HabitsWidget({ snap, p }: { snap: WidgetSnapshot; p: Palette }) {
  * filled in the good colour = given back.
  */
 function Pip({ kind, accent, p }: { kind: 'used' | 'left' | 'gain'; accent: Hex; p: Palette }) {
-  const fill = kind === 'used' ? accent : kind === 'gain' ? p.good : undefined;
+  // Filled = left, outline = spent, green = extra (2026-10-12) — the app's bar reads the same.
+  const fill = kind === 'left' ? accent : kind === 'gain' ? p.good : undefined;
   return (
     <FlexWidget
       style={{
@@ -727,11 +728,11 @@ function EnergyWidget({ snap, p }: { snap: WidgetSnapshot; p: Palette }) {
       ) : (
         <FlexWidget style={{ width: 'match_parent', flex: 1, justifyContent: 'center' }}>
           <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'center', marginTop: S.xs }}>
-            {Array.from({ length: s.used }, (_, i) => (
-              <Pip key={`u${i}`} kind="used" accent={accent} p={p} />
-            ))}
             {Array.from({ length: s.left }, (_, i) => (
               <Pip key={`l${i}`} kind="left" accent={accent} p={p} />
+            ))}
+            {Array.from({ length: s.used }, (_, i) => (
+              <Pip key={`u${i}`} kind="used" accent={accent} p={p} />
             ))}
             {/* The give-back run sits after a gap, the way the app's divided bar separates it —
                 it is extra ON TOP of the budget, never part of the spend. */}

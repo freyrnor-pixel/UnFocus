@@ -368,7 +368,7 @@ const en = {
     healthWeek: 'Log what you notice. Patterns show up over weeks, not days.',
     // Added 2026-09-06 for Home's Notes card — no existing key fit (see DECISIONS_OPEN.md).
     homeNotes: 'A stray thought written down is one less thing to carry in your head.',
-    homeEnergy: 'Energy is what a day can hold. Bolts light up as tasks and habits use it.',
+    homeEnergy: 'Energy is what a day can hold. Blue is what is left, empty is used, green is extra.',
   },
   peek: {
     todoToday: (left: number, done: number) =>
@@ -598,7 +598,7 @@ const en = {
     start: 'Edit',
     done: 'Done editing',
     /** Budget card, everyday view, before a budget exists. */
-    budgetUnset: 'No budget yet. Tap ✏️ at the top to set one.',
+    budgetUnset: 'No budget yet. Tap Adjust to set one.',
   },
   manageCards: {
     title: 'Cards on this screen',
@@ -1510,7 +1510,7 @@ const en = {
     pick: '+ Connect a goal',
     remove: 'Unlink goal',
     emptyList: 'No goals yet — tap here to add your first one.',
-    newPlaceholder: 'New goal name',
+    newPlaceholder: 'New goal',
     add: 'Add goal',
     deleteLabel: 'Delete goal',
     deleteConfirmTitle: (name: string) => `Delete "${name}"?`,
@@ -1898,6 +1898,12 @@ const en = {
     leftWithDays: (left: string, days: number) => `${left} kr left · ${days} ${days === 1 ? 'day' : 'days'} to payday`,
     aboveBy: (amount: string) => `${amount} kr above the budget`,
     paydayLabel: 'Payday',
+    /** Paid once or twice a month (2026-10-12) — the Budget card's payday picker. */
+    payOnce: 'Monthly',
+    payTwice: 'Twice a month',
+    secondPaydayLabel: 'Second payday',
+    adjust: 'Adjust',
+    adjustDone: 'Done',
     amountPerMonth: 'Amount per month',
     resetNote: 'Resets on payday. Shopping lists count against this when items are bought.',
     notSetUp: 'Not set up yet',
@@ -2603,7 +2609,7 @@ const no: typeof en = {
     habitsList: 'En vane du tar opp igjen er den samme vanen. Den husker ikke pausen.',
     healthWeek: 'Logg det du merker. Mønstre viser seg over uker, ikke dager.',
     homeNotes: 'En løs tanke skrevet ned er én ting mindre å bære på i hodet.',
-    homeEnergy: 'Energi er det en dag tåler. Lynene tennes når oppgaver og vaner bruker av den.',
+    homeEnergy: 'Energi er det en dag tåler. Blå er det som er igjen, tomt er brukt, grønt er ekstra.',
   },
   peek: {
     todoToday: (left: number, done: number) =>
@@ -2767,7 +2773,7 @@ const no: typeof en = {
   editMode: {
     start: 'Rediger',
     done: 'Ferdig med å redigere',
-    budgetUnset: 'Ikke noe budsjett ennå. Trykk ✏️ øverst for å sette et.',
+    budgetUnset: 'Ikke noe budsjett ennå. Trykk Juster for å sette et.',
   },
   manageCards: {
     title: 'Kort på denne skjermen',
@@ -3173,7 +3179,7 @@ const no: typeof en = {
     pick: '+ Koble til et mål',
     remove: 'Fjern kobling',
     emptyList: 'Ingen mål ennå — trykk her for å legge til det første.',
-    newPlaceholder: 'Navn på nytt mål',
+    newPlaceholder: 'Nytt mål',
     add: 'Legg til mål',
     deleteLabel: 'Slett mål',
     deleteConfirmTitle: (name: string) => `Slette «${name}»?`,
@@ -3809,6 +3815,11 @@ const no: typeof en = {
     leftWithDays: (left: string, days: number) => `${left} kr igjen · ${days} ${days === 1 ? 'dag' : 'dager'} til lønning`,
     aboveBy: (amount: string) => `${amount} kr over budsjettet`,
     paydayLabel: 'Lønningsdag',
+    payOnce: 'Månedlig',
+    payTwice: '2 ganger i måneden',
+    secondPaydayLabel: 'Andre lønningsdag',
+    adjust: 'Juster',
+    adjustDone: 'Ferdig',
     amountPerMonth: 'Beløp per måned',
     resetNote: 'Nullstilles på lønningsdag. Handlelistene trekker fra dette når varer kjøpes.',
     notSetUp: 'Ikke satt opp ennå',
@@ -4403,7 +4414,7 @@ const is: typeof en = {
     habitsList: 'Venja sem þú tekur upp aftur er sama venjan. Hún man ekki hléið.',
     healthWeek: 'Skráðu það sem þú tekur eftir. Mynstur birtast á vikum, ekki dögum.',
     homeNotes: 'Laus hugsun sem er skrifuð niður er einu minna að bera í höfðinu.',
-    homeEnergy: 'Orka er það sem dagurinn þolir. Eldingarnar kvikna þegar verkefni og venjur nota hana.',
+    homeEnergy: 'Orka er það sem dagurinn þolir. Blátt er það sem er eftir, tómt er notað, grænt er auka.',
   },
   peek: {
     todoToday: (left: number, done: number) =>
@@ -4568,7 +4579,7 @@ const is: typeof en = {
   editMode: {
     start: 'Breyta',
     done: 'Búið að breyta',
-    budgetUnset: 'Enginn fjárhagur enn. Ýttu á ✏️ efst til að setja hann.',
+    budgetUnset: 'Enginn fjárhagur enn. Ýttu á Stilla til að setja hann.',
   },
   manageCards: {
     title: 'Spjöld á þessum skjá',
@@ -4969,7 +4980,7 @@ const is: typeof en = {
     pick: '+ Tengja við markmið',
     remove: 'Fjarlægja tengingu',
     emptyList: 'Engin markmið enn — ýttu hér til að bæta því fyrsta við.',
-    newPlaceholder: 'Heiti á nýju markmiði',
+    newPlaceholder: 'Nýtt markmið',
     add: 'Bæta við markmiði',
     deleteLabel: 'Eyða markmiði',
     deleteConfirmTitle: (name: string) => `Eyða „${name}“?`,
@@ -5603,6 +5614,11 @@ const is: typeof en = {
     leftWithDays: (left: string, days: number) => `${left} kr eftir · ${days} ${isCount(days, 'dagur', 'dagar')} í útborgun`,
     aboveBy: (amount: string) => `${amount} kr yfir fjárhagsáætlun`,
     paydayLabel: 'Útborgunardagur',
+    payOnce: 'Mánaðarlega',
+    payTwice: 'Tvisvar í mánuði',
+    secondPaydayLabel: 'Seinni útborgunardagur',
+    adjust: 'Stilla',
+    adjustDone: 'Lokið',
     amountPerMonth: 'Upphæð á mánuði',
     resetNote: 'Núllstillist á útborgunardegi. Innkaupalistar dragast frá þessu þegar vörur eru keyptar.',
     notSetUp: 'Ekki sett upp enn',
