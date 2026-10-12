@@ -86,7 +86,7 @@
  *     maintainer asked for. Keep this in step with `ScreenScaffold`'s header radii.
  */
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { MaterialTopTabBarProps } from 'expo-router/js-top-tabs';
