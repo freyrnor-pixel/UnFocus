@@ -840,6 +840,7 @@ export default function ShoppingScreen() {
   const reorderItem = useShoppingStore((s) => s.reorder);
   const mergeItems = useShoppingStore((s) => s.mergeItems);
   const monthlyResetDate = useSettingsStore((s) => s.monthlyResetDate);
+  const secondPayday = useSettingsStore((s) => s.secondPayday);
   const weeklyResetDay = useSettingsStore((s) => s.weeklyResetDay);
   const receipts = useReceiptStore((s) => s.receipts);
   const language = useSettingsStore((s) => s.language);
@@ -857,13 +858,20 @@ export default function ShoppingScreen() {
     const listIds = new Set(monthlyLists.map((l) => l.id));
     const tagged = receipts.filter((r) => r.monthlyListId && listIds.has(r.monthlyListId));
     const latestReset = monthlyLists.map((l) => l.lastReset).filter(Boolean).sort().pop() ?? '';
+    const pace = computeSpendPace(tagged, totalBudget, monthlyResetDate, latestReset, undefined, secondPayday);
     return {
-      pace: computeSpendPace(tagged, totalBudget, monthlyResetDate, latestReset),
-      totalBudget,
-      spent: tagged.filter((r) => r.date >= latestReset).reduce((sum, r) => sum + r.total, 0),
+      pace,
+      // The PERIOD's budget and spend (2026-10-12): the whole month with one payday, the
+      // half-month you are in with two — lib/budget.ts's `payPeriod`.
+      totalBudget: pace ? pace.periodBudget : totalBudget,
+      spent: pace ? pace.periodSpent : tagged.filter((r) => r.date >= latestReset).reduce((sum, r) => sum + r.total, 0),
       latestReset,
     };
-  }, [receipts, monthlyLists, monthlyResetDate]);
+  }, [receipts, monthlyLists, monthlyResetDate, secondPayday]);
+  // "Juster" on the Budget card itself (2026-10-12, maintainer: *"Justere fra selve kortet"*) —
+  // opens the card's own fields without switching the whole tab into edit mode.
+  const [budgetAdjustOpen, setBudgetAdjustOpen] = useState(false);
+  useFocusEffect(useCallback(() => () => setBudgetAdjustOpen(false), []));
 
   const addMonthlyList = useMonthlyListStore((s) => s.add);
   const renameMonthlyList = useMonthlyListStore((s) => s.rename);
@@ -1032,10 +1040,10 @@ export default function ShoppingScreen() {
         }))
         .filter((g) => g.tripItems.length > 0);
       const listReceipts = receipts.filter((r) => r.monthlyListId === list.id);
-      const pace = computeSpendPace(listReceipts, list.budgetNok, monthlyResetDate, list.lastReset);
+      const pace = computeSpendPace(listReceipts, list.budgetNok, monthlyResetDate, list.lastReset, undefined, secondPayday);
       return { list, catalogItems, filteredCatalogItems, catalogDishGroups, ungroupedRestItems, ungroupedCategoryGroups, monthlyTotal, purchasedByTrip, pace };
     });
-  }, [monthlyLists, items, trips, receipts, monthlyTabSearch, monthlyTabCategory, monthlyResetDate]);
+  }, [monthlyLists, items, trips, receipts, monthlyTabSearch, monthlyTabCategory, monthlyResetDate, secondPayday]);
   // Whether ANY list currently has an item — gates showing the shared search/category bar,
   // mirroring the old single-list `catalogItems.length > 0` gate.
   const anyMonthlyItems = useMemo(() => monthlyListViews.some((v) => v.catalogItems.length > 0), [monthlyListViews]);
@@ -2811,8 +2819,9 @@ export default function ShoppingScreen() {
             rows pointing elsewhere — see components/BudgetFields.tsx. Shown in BOTH branches so an
             empty card leads with its own input rather than a sentence about where to go. */}
         {/* Fields in edit mode only (2026-10-12); the everyday card is the pace below. */}
-        {editing && monthlyLists.length > 0 && <BudgetFields />}
-        {!editing && monthlyLists.length > 0 && budgetPace.totalBudget <= 0 && (
+        {/* …and from the card itself via "Juster" (2026-10-12) — no trip through edit mode. */}
+        {(editing || budgetAdjustOpen) && monthlyLists.length > 0 && <BudgetFields />}
+        {!editing && !budgetAdjustOpen && monthlyLists.length > 0 && budgetPace.totalBudget <= 0 && (
           <Text style={[styles.budgetNote, { color: theme.textMuted }]}>{t.editMode.budgetUnset}</Text>
         )}
         {budgetPace.pace ? (
@@ -2856,6 +2865,20 @@ export default function ShoppingScreen() {
           monthlyLists.length === 0 && (
             <Text style={[styles.budgetNote, { color: theme.textMuted }]}>{t.budget.noMonthlyListForBudget}</Text>
           )
+        )}
+        {!editing && monthlyLists.length > 0 && (
+          <PressableScale
+            style={styles.budgetAdjust}
+            onPress={() => { selection(); setBudgetAdjustOpen((v) => !v); }}
+            scaleTo={0.97}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: budgetAdjustOpen }}
+          >
+            <Ionicons name={budgetAdjustOpen ? 'checkmark' : 'create-outline'} size={16} color={screenHue} />
+            <Text style={[styles.budgetAdjustText, { color: screenHue }]}>
+              {budgetAdjustOpen ? t.budget.adjustDone : t.budget.adjust}
+            </Text>
+          </PressableScale>
         )}
       </Card>
     </View>
@@ -3237,6 +3260,9 @@ const styles = StyleSheet.create({
   budgetCellKey: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   budgetCellValue: { fontSize: FontSize.lg, fontFamily: Fonts.bold },
   budgetNote: { fontSize: FontSize.xs, fontFamily: Fonts.medium, lineHeight: 18 },
+  // The card's own "Juster" link (2026-10-12) — floored at the tap target, hugging the left edge.
+  budgetAdjust: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: Spacing.xs, minHeight: MIN_TAP_TARGET },
+  budgetAdjustText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   /** Breathing room under Catalogue's Items/Dishes switch, matching the card's own body gap. */
   catalogueTabs: { marginBottom: Spacing.sm },
   newListTriggerLabel: { fontSize: FontSize.md, fontFamily: Fonts.semibold },

@@ -320,9 +320,12 @@ describe('EnergyMeter — the strip names itself, and is set from a pop-up', () 
     // and a green one for `gitt tilbake`, which is a key to the bar, not a reading of it.
     // `tutorialPips` since 2026-09-08 — see the note where the card renders it: `pipRow` is a
     // flex child of the bar's LINE and collapses to nothing as a column child.
+    // ⚠️ **Inverted 2026-10-12** (maintainer: *"Blå betyr fylt, grønn betyr ekstra, tomt betyr
+    // brukt"*). An OUTLINE bolt now means USED, so the rule in the new reading is: no outline in
+    // this state — nothing can have used a bolt yet. Every bolt is the bar's filled `left` run.
     const pipRow = emptyBranch.slice(emptyBranch.indexOf('styles.tutorialPips'));
-    expect(pipRow).toMatch(/name="flash-outline"/);
-    expect(pipRow).not.toMatch(/name="flash"/);
+    expect(pipRow).toMatch(/name="flash"/);
+    expect(pipRow).not.toMatch(/name="flash-outline"/);
     // The way in is the card's one control row (the day's amount + "Fast hver dag"), the same
     // row the live card draws — not a second control shape for the empty state.
     expect(src).not.toMatch(/<StarterCard/);
@@ -345,10 +348,11 @@ describe('EnergyMeter — the strip names itself, and is set from a pop-up', () 
     // and the same size as the bar's own unspent run in `row()`. A name can go stale silently; a
     // mismatch between these two cannot.
     expect(src).toMatch(/length: MAX_PIPS/);
+    // Since 2026-10-12 the tutorial row matches the bar's `left` run (filled, nothing used).
     const barLeftRun = src.match(/Array\.from\(\{ length: left \}\)\.map\(\(_, i\) => glyph\('([\w-]+)', ([\w.]+),/);
     expect(barLeftRun).toBeTruthy();
     const [, barGlyph, barColor] = barLeftRun!;
-    expect(barGlyph).toBe('flash-outline');
+    expect(barGlyph).toBe('flash');
     // The tutorial row draws that same glyph, at the bar's icon size, in the bar's own colour.
     // ⚠️ It is `styles.pipRow` since 2026-09-08, not `styles.tutorialPips`: the empty state is
     // the same v2 card as the live one now, so it uses the bar's own row style rather than a

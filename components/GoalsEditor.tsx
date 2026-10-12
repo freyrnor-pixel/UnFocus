@@ -17,14 +17,15 @@
  *             components/StarterExampleRow (2026-08-13 — the four goal suggestions are
  *             full-width dashed ROWS now, not the pill cloud that wrapped into a staircase;
  *             components/StarterSuggestionChip is no longer imported here),
- *             components/GoalGlowDot, components/PressableScale, components/AppModal
+ *             components/GoalGlowDot, components/FormControls (Input — the tap-to-edit field),
+ *             components/PressableScale, components/AppModal
  *             (showAppModal), constants/theme, constants/motion (Travel), lib/goalStarters,
  *             lib/goalStrength (decayedStrength), lib/haptics, lib/i18n, lib/useAppTheme,
  *             store/useGoalStore, store/useTaskStore, store/useHabitStore (linked counts only)
  *   Used by → app/(tabs)/plans.tsx, app/(tabs)/habits.tsx — both inside a
  *             components/Card.tsx "Goals" drawer, with no `onTitlePress`. Habits
  *             additionally passes `prefill` (a note sent to Goals lands there — lib/prefill.ts)
- *   Data    → reads/writes useGoalStore (goals table) via add/remove; reads
+ *   Data    → reads/writes useGoalStore (goals table) via add/rename/remove; reads
  *             useTaskStore/useHabitStore only to COUNT what points at each goal. Schedules
  *             nothing.
  *
@@ -56,6 +57,9 @@
  *     them in sync" — there is nothing left to keep in sync, which is why that screen went.
  *   - Strength shown is always `decayedStrength(...)`, never the raw stored value — see
  *     lib/goalStrength.ts.
+ *   - **Tap a goal to rename it (2026-10-12).** The row becomes its own field, commits on
+ *     blur/submit; an emptied field reverts. Goal ids are generated, not derived from the title,
+ *     so a rename keeps every link.
  *   - Delete is the row's ⋯ action (PadRow's `onAction`), going straight to the confirm
  *     dialog — same pattern HomeShoppingCard's remove and PlanTaskCard's delete-task use,
  *     not a menu with a second step.
@@ -69,6 +73,7 @@ import StarterCard from '@/components/StarterCard';
 import StarterExampleRow from '@/components/StarterExampleRow';
 import { GoalGlowDot } from '@/components/GoalGlowDot';
 import { confirmDestructive } from '@/components/AppModal';
+import { Input } from '@/components/FormControls';
 import { FontSize, Spacing, TabularNums, Fonts } from '@/constants/theme';
 import { GOAL_STARTERS } from '@/lib/goalStarters';
 import { decayedStrength } from '@/lib/goalStrength';
@@ -87,9 +92,14 @@ export default function GoalsEditor({ accent, prefill }: { accent: string; prefi
   const goals = useGoalStore((s) => s.goals);
   const addGoal = useGoalStore((s) => s.add);
   const removeGoal = useGoalStore((s) => s.remove);
+  const renameGoal = useGoalStore((s) => s.rename);
   const tasks = useTaskStore((s) => s.tasks);
   const habits = useHabitStore((s) => s.habits);
   const [draft, setDraft] = useState('');
+  // Tap a goal to edit it (2026-10-12, maintainer: *"Redigering er ved å trykke på et mål i
+  // menyen"*). One row at a time; the row turns into its own field and commits on blur/submit.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState('');
 
   // A note sent here from another screen's ⋯ → Send it to… → Goals (lib/prefill.ts): seed the
   // add row with its text rather than making the user retype what they just wrote. The caller
@@ -123,6 +133,20 @@ export default function GoalsEditor({ accent, prefill }: { accent: string; prefi
   function addStarter(title: string) {
     success();
     addGoal(title);
+  }
+
+  function startEdit(id: string, title: string) {
+    setEditingId(id);
+    setEditDraft(title);
+  }
+
+  function commitEdit() {
+    const id = editingId;
+    if (!id) return;
+    const title = editDraft.trim();
+    // An emptied field reverts rather than deleting — delete stays the row's ⋯ action.
+    if (title && title !== goals.find((g) => g.id === id)?.title) renameGoal(id, title);
+    setEditingId(null);
   }
 
   function confirmDelete(id: string, title: string) {
@@ -193,10 +217,26 @@ export default function GoalsEditor({ accent, prefill }: { accent: string; prefi
             const metaText =
               (hasLinks ? t.goals.linkedCount(counts.tasks, counts.habits) : t.goals.neverWorked) +
               (days !== null ? ` · ${t.goals.lastWorked(days)}` : '');
+            if (editingId === goal.id) {
+              return (
+                <View key={goal.id} style={styles.editRow}>
+                  <Input
+                    value={editDraft}
+                    onChangeText={setEditDraft}
+                    onSubmitEditing={commitEdit}
+                    onBlur={commitEdit}
+                    autoFocus
+                    returnKeyType="done"
+                    accessibilityLabel={t.goals.editGoals}
+                  />
+                </View>
+              );
+            }
             return (
               <PadRow
                 key={goal.id}
                 title={goal.title}
+                onPress={() => startEdit(goal.id, goal.title)}
                 accent={accent}
                 rightValue={band}
                 meta={
@@ -238,6 +278,7 @@ const styles = StyleSheet.create({
   // The bulb row's own styles are gone with the hand-copy — components/StarterCard.tsx's
   // `embedded` mode draws it now. Don't reintroduce a local copy.
   meta: { fontSize: FontSize.xs, fontFamily: Fonts.regular },
+  editRow: { paddingVertical: Spacing.xs },
   // `starterChips` (the wrapping pill cloud) is gone with the chips themselves — the
   // suggestions are StarterExampleRows in StarterCard's own `example` slot now, which owns
   // their stacking gap. Don't reintroduce a local cloud style here.

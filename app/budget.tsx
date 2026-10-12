@@ -77,6 +77,7 @@ export default function BudgetScreen() {
 
   const lang = useSettingsStore((s) => s.language);
   const monthlyResetDate = useSettingsStore((s) => s.monthlyResetDate);
+  const secondPayday = useSettingsStore((s) => s.secondPayday);
   const monthlyLists = useMonthlyListStore((s) => s.lists);
   const setListBudget = useMonthlyListStore((s) => s.setBudget);
   const receiptsAll = useReceiptStore((s) => s.receipts);
@@ -112,7 +113,7 @@ export default function BudgetScreen() {
   // Daily spend vs. daily budget pace (Decision 026), shared with app/(tabs)/shopping.tsx
   // and (until 2026-08-19) the Home shopping preview, via lib/budget.ts's computeSpendPace(). Only
   // shown when a budget is set and this list has a reset boundary (see that function's header).
-  const pace = computeSpendPace(listReceipts, monthlyBudgetNok, monthlyResetDate, list?.lastReset ?? '');
+  const pace = computeSpendPace(listReceipts, monthlyBudgetNok, monthlyResetDate, list?.lastReset ?? '', undefined, secondPayday);
 
   function saveBudget() {
     if (!list) return;
