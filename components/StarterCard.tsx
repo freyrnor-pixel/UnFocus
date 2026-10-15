@@ -196,7 +196,7 @@ import { LayoutAnimation, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
-import { Fonts, FontSize, HitSlop, MIN_TAP_TARGET, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, HitSlop, MIN_TAP_TARGET, Radius, Spacing } from '@/constants/theme';
 import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { tap } from '@/lib/haptics';
@@ -350,6 +350,10 @@ export default function StarterCard({
               stranded at the far edge — it was `justifyContent: 'space-between'` until
               2026-08-19. The ROW is still full width and MIN_TAP_TARGET tall, so the target is
               generous even though the mark is small (rule 17). */}
+          {/* ⚠️ **Framed again (2026-10-15)** — maintainer: *"the suggestions … [are] not framed
+              in any way and just hang there."* The bare word read as stray text, not a control,
+              so it is a hairline pill now (sparkles · word · chevron). The ROW still owns the full
+              MIN_TAP_TARGET height; the pill inside it is only the visible mark. */}
           <PressableScale
             onPress={toggleExpanded}
             style={styles.triggerRow}
@@ -357,10 +361,13 @@ export default function StarterCard({
             accessibilityLabel={isExpanded ? t.starters.collapseExamples : t.starters.expandExamples}
             accessibilityState={{ expanded: isExpanded }}
           >
-            <Text style={[styles.triggerLabel, { color: theme.textMuted }]} numberOfLines={1}>
-              {t.starters.suggestionsLabel}
-            </Text>
-            <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={16} color={theme.textMuted} />
+            <View style={[styles.triggerPill, { borderColor: theme.border }]}>
+              <Ionicons name="sparkles-outline" size={14} color={theme.textMuted} />
+              <Text style={[styles.triggerLabel, { color: theme.text }]} numberOfLines={1}>
+                {t.starters.suggestionsLabel}
+              </Text>
+              <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={14} color={theme.textMuted} />
+            </View>
           </PressableScale>
           {/* Nothing but the suggestions themselves goes in here — no lead-in sentence, no
               caption, no "tap one to…" line (2026-08-19: *"Rely entirely on the `+` icon inside
@@ -438,6 +445,15 @@ const baseStyles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.xs,
     minHeight: MIN_TAP_TARGET,
+  },
+  triggerPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs + 2,
+    borderRadius: Radius.full,
+    borderWidth: 1,
   },
   // The revealed body. Separated from the trigger by padding alone — the hairline that used to
   // split them was a `<Divider/>` line inside a card by another name.

@@ -382,8 +382,8 @@ const en = {
     todoRecurring: (n: number) => (n === 0 ? 'No repeats set up' : `${n} repeating`),
     /* Both sections at once — a peek naming only one half would under-report the card.
        The range comes first because it is what the card opens on. */
-    todoPlanner: (dated: number, repeating: number, range: string) =>
-      dated === 0 && repeating === 0 ? range : `${dated} · ${range} · ${repeating} repeating`,
+    todoPlanner: (dated: number, repeating: number) =>
+      dated === 0 && repeating === 0 ? 'Nothing planned' : `${dated} planned · ${repeating} repeating`,
     shopLists: (n: number) => (n === 0 ? 'No lists yet' : `${n} lists`),
     shopMonthly: (n: number) => (n === 0 ? 'No monthly lists yet' : `${n} lists`),
     shopDishes: (n: number) => (n === 0 ? 'No dishes saved' : `${n} dishes`),
@@ -402,7 +402,10 @@ const en = {
           ? `${items} items`
           : `${items} · ${dishes} dishes`,
     habitsList: (going: number, untouched: number) =>
-      going === 0 && untouched === 0 ? 'Nothing to repeat yet' : `${going} going · ${untouched} untouched`,
+      // Just the count (2026-10-15, maintainer: *"0 started 1 untouched … is unusual
+      // information"*; *"nothing to repeat yet … unnecessary. You can obviously see if there is
+      // anything or not"*). Empty says nothing at all.
+      going + untouched === 0 ? '' : `${going + untouched} ${going + untouched === 1 ? 'habit' : 'habits'}`,
     healthWeek: (n: number) => (n === 0 ? 'A quiet week' : `${n} logged this week`),
     healthIssues: (n: number) => (n === 0 ? 'None being tracked' : `${n} tracked`),
     healthMedicine: (n: number) => (n === 0 ? 'Nothing set up' : `${n} daily`),
@@ -854,6 +857,8 @@ const en = {
   midlertidigToggleLabel: 'Temporary',
   saveBtn: 'Save',
   cancelBtn: 'Cancel',
+  /** InlineAddItem's close once something was added this round — nothing is discarded. */
+  doneAddingBtn: 'Done',
   deleteFromCatalogBtn: 'Delete from catalog',
   deleteConfirmText: 'Are you sure?',
   doneShoppingBtn: 'Shopping complete 🛍️',
@@ -1899,7 +1904,8 @@ const en = {
     aboveBy: (amount: string) => `${amount} kr above the budget`,
     paydayLabel: 'Payday',
     /** Paid once or twice a month (2026-10-12) — the Budget card's payday picker. */
-    payOnce: 'Monthly',
+    payOnce: 'Once a month',
+    firstPaydayLabel: 'First payday',
     payTwice: 'Twice a month',
     secondPaydayLabel: 'Second payday',
     adjust: 'Adjust',
@@ -2619,8 +2625,8 @@ const no: typeof en = {
     todoCalendar: (n: number, range: string) => (n === 0 ? range : `${n} · ${range}`),
     todoWhenever: (n: number) => (n === 0 ? 'Ingenting venter' : `${n} venter`),
     todoRecurring: (n: number) => (n === 0 ? 'Ingen gjentakelser' : `${n} gjentakelser`),
-    todoPlanner: (dated: number, repeating: number, range: string) =>
-      dated === 0 && repeating === 0 ? range : `${dated} · ${range} · ${repeating} gjentakelser`,
+    todoPlanner: (dated: number, repeating: number) =>
+      dated === 0 && repeating === 0 ? 'Ingenting planlagt' : `${dated} planlagt · ${repeating} gjentakelser`,
     shopLists: (n: number) => (n === 0 ? 'Ingen lister ennå' : `${n} lister`),
     shopMonthly: (n: number) => (n === 0 ? 'Ingen faste lister ennå' : `${n} lister`),
     shopDishes: (n: number) => (n === 0 ? 'Ingen retter lagret' : `${n} retter`),
@@ -2632,7 +2638,7 @@ const no: typeof en = {
           ? `${items} varer`
           : `${items} · ${dishes} retter`,
     habitsList: (going: number, untouched: number) =>
-      going === 0 && untouched === 0 ? 'Ingenting å gjenta ennå' : `${going} i gang · ${untouched} urørt`,
+      going + untouched === 0 ? '' : `${going + untouched} ${going + untouched === 1 ? 'vane' : 'vaner'}`,
     healthWeek: (n: number) => (n === 0 ? 'En rolig uke' : `${n} logget denne uken`),
     healthIssues: (n: number) => (n === 0 ? 'Ingen følges opp' : `${n} følges opp`),
     healthMedicine: (n: number) => (n === 0 ? 'Ingenting satt opp' : `${n} daglige`),
@@ -2967,6 +2973,7 @@ const no: typeof en = {
   midlertidigToggleLabel: 'Midlertidig',
   saveBtn: 'Lagre',
   cancelBtn: 'Avbryt',
+  doneAddingBtn: 'Ferdig',
   deleteFromCatalogBtn: 'Slett fra katalog',
   deleteConfirmText: 'Er du sikker?',
   doneShoppingBtn: 'Handlingen fullført 🛍️',
@@ -3815,8 +3822,9 @@ const no: typeof en = {
     leftWithDays: (left: string, days: number) => `${left} kr igjen · ${days} ${days === 1 ? 'dag' : 'dager'} til lønning`,
     aboveBy: (amount: string) => `${amount} kr over budsjettet`,
     paydayLabel: 'Lønningsdag',
-    payOnce: 'Månedlig',
-    payTwice: '2 ganger i måneden',
+    payOnce: 'En gang i måneden',
+    firstPaydayLabel: 'Første lønningsdag',
+    payTwice: 'To ganger i måneden',
     secondPaydayLabel: 'Andre lønningsdag',
     adjust: 'Juster',
     adjustDone: 'Ferdig',
@@ -4424,10 +4432,10 @@ const is: typeof en = {
     todoCalendar: (n: number, range: string) => (n === 0 ? range : `${n} · ${range}`),
     todoWhenever: (n: number) => (n === 0 ? 'Ekkert bíður' : isCount(n, `${n} bíður`, `${n} bíða`)),
     todoRecurring: (n: number) => (n === 0 ? 'Engar endurtekningar' : `${n} endurtekningar`),
-    todoPlanner: (dated: number, repeating: number, range: string) =>
+    todoPlanner: (dated: number, repeating: number) =>
       dated === 0 && repeating === 0
-        ? range
-        : `${dated} · ${range} · ${isCount(repeating, `${repeating} endurtekning`, `${repeating} endurtekningar`)}`,
+        ? 'Ekkert skipulagt'
+        : `${dated} skipulagt · ${isCount(repeating, `${repeating} endurtekning`, `${repeating} endurtekningar`)}`,
     shopLists: (n: number) => (n === 0 ? 'Engir listar enn' : isCount(n, `${n} listi`, `${n} listar`)),
     shopMonthly: (n: number) => (n === 0 ? 'Engir fastir listar enn' : isCount(n, `${n} listi`, `${n} listar`)),
     shopDishes: (n: number) => (n === 0 ? 'Engir réttir vistaðir' : isCount(n, `${n} réttur`, `${n} réttir`)),
@@ -4439,7 +4447,7 @@ const is: typeof en = {
           ? isCount(items, `${items} vara`, `${items} vörur`)
           : `${items} · ${isCount(dishes, `${dishes} réttur`, `${dishes} réttir`)}`,
     habitsList: (going: number, untouched: number) =>
-      going === 0 && untouched === 0 ? 'Ekkert að endurtaka enn' : `${going} í gangi · ${untouched} ósnert`,
+      going + untouched === 0 ? '' : isCount(going + untouched, `${going + untouched} venja`, `${going + untouched} venjur`),
     healthWeek: (n: number) => (n === 0 ? 'Róleg vika' : `${n} skráð í vikunni`),
     healthIssues: (n: number) => (n === 0 ? 'Ekkert fylgst með' : `${n} fylgst með`),
     healthMedicine: (n: number) => (n === 0 ? 'Ekkert sett upp' : `${n} daglega`),
@@ -4775,6 +4783,7 @@ const is: typeof en = {
   midlertidigToggleLabel: 'Tímabundið',
   saveBtn: 'Vista',
   cancelBtn: 'Hætta við',
+  doneAddingBtn: 'Búið',
   deleteFromCatalogBtn: 'Eyða úr vöruskrá',
   deleteConfirmText: 'Ertu viss?',
   /* Impersonal, so the button does not have to guess the reader's gender the way
@@ -5614,7 +5623,8 @@ const is: typeof en = {
     leftWithDays: (left: string, days: number) => `${left} kr eftir · ${days} ${isCount(days, 'dagur', 'dagar')} í útborgun`,
     aboveBy: (amount: string) => `${amount} kr yfir fjárhagsáætlun`,
     paydayLabel: 'Útborgunardagur',
-    payOnce: 'Mánaðarlega',
+    payOnce: 'Einu sinni í mánuði',
+    firstPaydayLabel: 'Fyrri útborgunardagur',
     payTwice: 'Tvisvar í mánuði',
     secondPaydayLabel: 'Seinni útborgunardagur',
     adjust: 'Stilla',

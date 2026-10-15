@@ -42,6 +42,7 @@
  *     silently broken control is worse than an unchanged one. Every OTHER variant of that
  *     knob (`segments`, `text`) is still unbuilt and still resolves to the stepper.
  */
+import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Fonts, FontSize, OpticalCenter, Radius, Spacing, HitSlop, TabularNums } from '@/constants/theme';
@@ -113,7 +114,7 @@ export default function Stepper({ value, onChange, min, max, step = 1, suffix, s
         accessibilityRole="button"
         style={[styles.btn, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }, atMin && styles.disabled]}
       >
-        <Text style={[styles.btnText, { color: theme.text }]}>−</Text>
+        <Ionicons name="remove" size={16} color={theme.text} />
       </PressableScale>
       <Text style={[styles.value, { color: theme.text }]}>
         {signed && value > 0 ? `+${value}` : value}{suffix ? ` ${suffix}` : ''}
@@ -126,7 +127,7 @@ export default function Stepper({ value, onChange, min, max, step = 1, suffix, s
         accessibilityRole="button"
         style={[styles.btn, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }, atMax && styles.disabled]}
       >
-        <Text style={[styles.btnText, { color: theme.text }]}>+</Text>
+        <Ionicons name="add" size={16} color={theme.text} />
       </PressableScale>
     </View>
   );
@@ -140,6 +141,9 @@ const styles = StyleSheet.create({
   // 2026-08-01 accent pass only the "−" needed it — the "+" defined its own edge with an
   // accent fill. See the edit note above for why that fill is gone.
   btn: { width: 28, height: 28, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'transparent' },
+  // ⚠️ Unused by the buttons since 2026-10-15: the −/+ are Ionicons `remove`/`add` now
+  // (maintainer: *"the minus and plus sign is not centered in the circle"*). A font glyph's
+  // ink sits wherever the face's metrics put it; a vector icon is centred in its own box.
   // `OpticalCenter` (2026-08-21): the box is a 28px circle, so its height is NOT set by the
   // text — the condition under which Android's asymmetric font padding rides the − / + high
   // inside it. See the token's own doc in constants/theme.ts.

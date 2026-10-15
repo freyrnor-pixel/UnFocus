@@ -27,7 +27,8 @@
  *             store/useSettingsStore, store/useSharedStore
  *   Used by → Expo Router route "/" — one of 3 co-mounted pager tabs under app/(tabs)/_layout.tsx
  *   Data    → reads useSharedStore (incoming shared tasks/shopping, for the self-hide check) and
- *             a handful of useSettingsStore fields; writes nothing
+ *             a handful of useSettingsStore fields; writes only settings.collapsedCards (unfolds
+ *             Whenever when a quick-add's "More options" sends a new task there)
  *             else. The three preview cards own all their own reads and writes — nothing is
  *             threaded down as props any more.
  *
@@ -116,6 +117,7 @@ import { Task, Recurring, useTaskStore } from '@/store/useTaskStore';
 import { SharedShoppingItem, SharedTask, useSharedStore } from '@/store/useSharedStore';
 import { useMomentsStore } from '@/store/useMomentsStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
+import { isCollapsed, withCollapsed } from '@/lib/collapsedCards';
 import { SHARING_VISIBLE } from '@/lib/sharingVisibility';
 import type { CardKey } from '@/lib/cardRegistry';
 import { useOrderedCards } from '@/lib/useCardOrder';
@@ -302,6 +304,14 @@ export default function HomeScreen() {
         return;
       }
       const task = addTask(buildQuickAddTaskInput(title, extra));
+      // Open the card the editor lives in (2026-10-15). Whenever rests FOLDED, so "More
+      // options" used to land on a closed card and the new task's editor opened out of sight —
+      // which read as the task simply closing. The user asked for this card's content, so
+      // unfolding it is their tap, not a surface moving on its own.
+      const s = useSettingsStore.getState();
+      if (isCollapsed(s.collapsedCards, 'todoWhenever')) {
+        s.update({ collapsedCards: withCollapsed(s.collapsedCards, 'todoWhenever', false) });
+      }
       router.navigate({ pathname: '/plans', params: { expandTaskId: task.id } });
     },
     [addTask, buildQuickAddTaskInput, router]

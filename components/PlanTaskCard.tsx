@@ -327,12 +327,12 @@ import { showAppModal } from '@/components/AppModal';
 import PadFooterToggle from '@/components/PadFooterToggle';
 import QuickAddOptionsPanel from '@/components/QuickAddOptionsPanel';
 import QuickAddOptionRow from '@/components/QuickAddOptionRow';
-import { Switch as FormSwitch } from '@/components/FormControls';
+import { SegmentedControl } from '@/components/FormControls';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import TimeBoxInput from '@/components/TimeBoxInput';
 import { Task, Recurring } from '@/store/useTaskStore';
-import { DONE_ROW_OPACITY, FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, OpticalCenter, PAD_GUTTER, PAD_ROW_HEIGHT, Radius, RowTrailing, Spacing, TabularNums, rgba, HitSlop, Type } from '@/constants/theme';
+import { DONE_ROW_OPACITY, FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, OpticalCenter, PAD_ROW_HEIGHT, Radius, RowTrailing, Spacing, TabularNums, rgba, HitSlop, Type } from '@/constants/theme';
 import type { LayoutSpec } from '@/lib/cardLayout';
 import { isCompletable, visibleStepNumber } from '@/lib/cardType';
 import { PadState, padVisibleRows } from '@/lib/padState';
@@ -1500,14 +1500,22 @@ export default function PlanTaskCard({
               so those two rows come off the panel in moment mode rather than sitting there
               inert. Rows redesigned 2026-08-04 (labeled, not icon-only — user report). */}
           {onCaptureMoment ? (
+            // ⚠️ **Named choice, not a switch (2026-10-15)** — maintainer: *"press the switch,
+            // it bugs up and I do not know what it does."* A bare on/off said neither which
+            // side was which nor what "on" would add. Two worded segments say both.
             <QuickAddOptionRow
+              wide
               icon={captureAsMoment ? 'time-outline' : 'checkbox-outline'}
               label={t.pad.captureTarget.label}
               value={
-                <FormSwitch
-                  checked={captureAsMoment}
-                  onChange={(v) => { tap(); setCaptureAsMoment(v); }}
-                  accessibilityLabel={t.dayLog.capturePrompt}
+                <SegmentedControl<'task' | 'moment'>
+                  style={styles.captureSegment}
+                  options={[
+                    { label: t.pad.captureTarget.task, value: 'task' },
+                    { label: t.pad.captureTarget.moment, value: 'moment' },
+                  ]}
+                  value={captureAsMoment ? 'moment' : 'task'}
+                  onChange={(v) => { tap(); setCaptureAsMoment(v === 'moment'); }}
                 />
               }
               accent={screenColor.base}
@@ -1906,6 +1914,7 @@ const baseStyles = StyleSheet.create({
   // a screen backdrop, never the content. `position: relative` stays — the timeline's now-line
   // and its flight overlays are absolutely positioned against this box.
   embeddedContent: { position: 'relative' },
+  captureSegment: { flex: 1 },
   // No vertical margin (2026-08-08): the list that stacks these owns the gap
   // (`SCREEN_GAP`, constants/theme.ts). Was `marginBottom: Spacing.sm`.
   card: { borderRadius: Radius.md },
@@ -1917,7 +1926,11 @@ const baseStyles = StyleSheet.create({
   cardCollapsed: { minHeight: HOME_PREVIEW_CARD_MIN_HEIGHT },
   // ONE horizontal inset for the whole card (PAD_GUTTER). The old paddingLeft:52 title inset
   // that dodged an absolutely-pinned badge is gone with the badge.
-  cardContent: { paddingHorizontal: PAD_GUTTER, paddingTop: PAD_GUTTER, paddingBottom: PAD_GUTTER, position: 'relative' },
+  // ⚠️ **No inset of its own since 2026-10-15** — maintainer: *"Today, nothing today and the
+  // blank space together … makes no sense."* `components/Card.tsx` already pads its body, so this
+  // PAD_GUTTER on every side was a SECOND inset: 16px of empty band under the hint and the
+  // composer sat 16px narrower than Notes' directly below it.
+  cardContent: { position: 'relative' },
   emptyText: { fontSize: FontSize.sm, textAlign: 'center', paddingVertical: Spacing.sm, fontFamily: Fonts.regular },
   // The suggestion row (in its StarterCard trigger wrapper since 2026-08-12) + the ghost add
   // row. The bulb/italic explainer that used to lead this block moved to the foot (2026-07-30),

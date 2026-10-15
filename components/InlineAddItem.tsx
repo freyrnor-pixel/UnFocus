@@ -7,8 +7,10 @@
  * dropdown), Estimert pris (optional, auto-filled when a suggestion is picked), an optional
  * category chip row (only rendered when the `categories` prop is passed), Ønsket antall
  * (stepper, default 1), and an optional "Midlertidig" toggle (gated by `showTemporaryToggle`).
- * Two explicit actions close it: **Add** (Save) commits via onAdd and collapses back to the "+"
- * bar; **Discard** drops the in-progress row and collapses. Blurring the name field while
+ * **Add** commits via onAdd and KEEPS the form open with the name field refocused (2026-10-15,
+ * maintainer: *"I can't seem to add more than one thing at a time"* — it used to collapse after
+ * every item). **Cancel** — labelled **Done** once something was added this round — drops any
+ * in-progress row and collapses. Blurring the name field while
  * everything is still empty also collapses.
  *
  * Extracted from components/AddItemSheet.tsx (deleted) so the monthly-catalog add and the
@@ -81,7 +83,7 @@
  *     Android, same class of bug AddRow.tsx already handles for the simpler single-field case.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { LayoutAnimation, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { LayoutAnimation, StyleProp, StyleSheet, Text, TextInput, View, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import {
   contrastOn,
@@ -154,6 +156,12 @@ export default function InlineAddItem({
   const [temporary, setTemporary] = useState(false);
   const [category, setCategory] = useState<string | undefined>(undefined);
   const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
+  // How many rows this open form has added — flips the close button from Cancel to Done.
+  const [addedCount, setAddedCount] = useState(0);
+  const nameInputRef = useRef<TextInput>(null);
+  // Set by an add, cleared on the next focus: the blur an Enter-submit can cause must not read
+  // the freshly-reset empty form as "tapped away with nothing typed" and collapse it.
+  const justAddedRef = useRef(false);
 
   const nameLift = useKeyboardLift<View>();
   const priceLift = useKeyboardLift<View>();
@@ -187,6 +195,7 @@ export default function InlineAddItem({
 
   function collapse() {
     reset();
+    setAddedCount(0);
     if (!reducedMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpanded(false);
   }
@@ -208,7 +217,11 @@ export default function InlineAddItem({
       category,
     });
     hapticConfirm();
-    collapse(); // discrete: back to the "+" bar after each save
+    // Stay open for the next one — see the header.
+    justAddedRef.current = true;
+    reset();
+    setAddedCount((n) => n + 1);
+    nameInputRef.current?.focus();
   }
 
   // ── Collapsed: "+ <label>" bar ──
@@ -253,6 +266,7 @@ export default function InlineAddItem({
     >
       <View ref={nameLift.ref}>
         <Input
+          ref={nameInputRef}
           label={t.varenavnLabel}
           recessed
           value={name}
@@ -261,12 +275,19 @@ export default function InlineAddItem({
             setSuggestionsDismissed(false);
           }}
           placeholder={t.shoppingItemPlaceholder}
-          returnKeyType="done"
+          returnKeyType="next"
           autoFocus
+          // Keep the keyboard up on Enter so the next item can be typed straight away.
+          submitBehavior="submit"
+          blurOnSubmit={false}
           onSubmitEditing={handleAdd}
-          onFocus={nameLift.onFocus}
+          onFocus={() => {
+            justAddedRef.current = false;
+            nameLift.onFocus();
+          }}
           onBlur={() => {
             nameLift.onBlur();
+            if (justAddedRef.current) return;
             if (name.trim() || price || targetQty !== 1 || temporary || category) return;
             if (!reducedMotion)
               LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -358,7 +379,7 @@ export default function InlineAddItem({
           hitSlop={HitSlop.snug}
           scaleTo={0.9}
         >
-          <Text style={[styles.stepText, { color: theme.text }]}>−</Text>
+          <Ionicons name="remove" size={16} color={theme.text} />
         </PressableScale>
         <Text style={[styles.qtyText, { color: theme.text }]}>{targetQty}</Text>
         <PressableScale
@@ -370,7 +391,7 @@ export default function InlineAddItem({
           hitSlop={HitSlop.snug}
           scaleTo={0.9}
         >
-          <Text style={[styles.stepText, { color: theme.text }]}>+</Text>
+          <Ionicons name="add" size={16} color={theme.text} />
         </PressableScale>
       </View>
 
@@ -391,7 +412,9 @@ export default function InlineAddItem({
           accessibilityRole="button"
           accessibilityLabel={t.a11yDiscardRow}
         >
-          <Text style={[styles.ghostBtnText, { color: theme.textMuted }]}>{t.cancelBtn}</Text>
+          <Text style={[styles.ghostBtnText, { color: theme.textMuted }]}>
+            {addedCount > 0 && !canAdd ? t.doneAddingBtn : t.cancelBtn}
+          </Text>
         </PressableScale>
         <PressableScale
           style={[styles.primaryBtn, { backgroundColor: canAdd ? fill : theme.surfaceMuted }]}

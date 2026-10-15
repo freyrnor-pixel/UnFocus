@@ -119,7 +119,8 @@ export default function QuickAddOptionRow({
     <View
       style={[
         styles.cell,
-        onPress ? null : growth,
+        // Inside a Pressable the cell fills it, so a pressable cell is as tall as its row-mate.
+        onPress ? styles.fill : growth,
         {
           // ⚠️ **A recessed FILL, not a border, since 2026-10-07.** Maintainer, on Energy's
           // "Sett dagens energi" cell: a bordered box inside a bordered card is a card in a
@@ -169,9 +170,18 @@ export default function QuickAddOptionRow({
   );
 }
 
+/**
+ * ⚠️ **One cell height (2026-10-15)** — maintainer: *"the boxes … where I can enter the settings
+ * are differently spaced and differently sized."* A text cell ("Daily ›") was 48 tall and a
+ * stepper cell ~62 beside it, and a pressable cell hugged its content inside a stretched
+ * Pressable. Every cell now starts at the stepper cell's height and fills its slot.
+ */
+const CELL_MIN_HEIGHT = MIN_TAP_TARGET + Spacing.md;
+
 const styles = StyleSheet.create({
+  fill: { flexGrow: 1 },
   cell: {
-    minHeight: MIN_TAP_TARGET,
+    minHeight: CELL_MIN_HEIGHT,
     justifyContent: 'center',
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,

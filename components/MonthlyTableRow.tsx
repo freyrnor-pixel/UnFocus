@@ -90,11 +90,11 @@ function MonthlyTableRow({ item, onCheckboxPress, onPress, temporaryLabel, onInc
           {hasStepper ? (
             <View style={styles.stepperRow}>
               <PressableScale style={[styles.stepBtn, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]} onPress={onDecrement} hitSlop={HitSlop.snug} scaleTo={0.9}>
-                <Text style={[styles.stepText, { color: theme.text }]}>−</Text>
+                <Ionicons name="remove" size={14} color={theme.text} />
               </PressableScale>
               <Text style={[styles.qtyMeta, { color: theme.text }]}>×{item.targetQuantity}</Text>
               <PressableScale style={[styles.stepBtn, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]} onPress={onIncrement} hitSlop={HitSlop.snug} scaleTo={0.9}>
-                <Text style={[styles.stepText, { color: theme.text }]}>+</Text>
+                <Ionicons name="add" size={14} color={theme.text} />
               </PressableScale>
             </View>
           ) : (

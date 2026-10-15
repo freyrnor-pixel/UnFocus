@@ -46,7 +46,7 @@ import React, { useMemo } from 'react';
 import { StyleSheet, Text } from 'react-native';
 import PadSheet from '@/components/PadSheet';
 import PadRow from '@/components/PadRow';
-import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
+import { FontSize, Fonts, Spacing } from '@/constants/theme';
 import { parseDateStr, todayStr } from '@/lib/date';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
@@ -107,10 +107,10 @@ export default function HealthIssuesPreviewList({
   if (tracked.length === 0) {
     return (
       <Text
-        style={[
-          styles.empty,
-          { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border },
-        ]}
+        // Plain text, no box (2026-10-15): boxed and filled, it read as a text field you could
+        // type into — maintainer: *"I can't add things there."* The card's own composer is the
+        // field now.
+        style={[styles.empty, { color: theme.textMuted }]}
       >
         {t.healthIssues.emptyList}
       </Text>
@@ -154,10 +154,7 @@ const styles = StyleSheet.create({
   empty: {
     fontSize: FontSize.sm,
     fontFamily: Fonts.regular,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.sm,
-    borderRadius: Radius.sm,
-    borderWidth: 1,
+    paddingVertical: Spacing.xs,
   },
   meta: { fontSize: FontSize.xs, fontFamily: Fonts.regular },
 });

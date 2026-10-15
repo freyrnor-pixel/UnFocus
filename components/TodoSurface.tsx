@@ -11,7 +11,7 @@
  * mechanism every other card in the app now offers, replacing what used to be a tab switch.
  *
  * Connections:
- *   Imports → components/SectionCard, components/Card.tsx, components/TaskCard, lib/reorder (projectOrder), lib/longList (longListVisible/longListHidden),
+ *   Imports → components/SectionCard, components/CalendarGrid (the Planner's calendar, 2026-10-15), components/Card.tsx, components/TaskCard, lib/reorder (projectOrder), lib/longList (longListVisible/longListHidden),
  *             components/PlanTaskCard, components/DraggableTaskRow, components/CardExpandButton,
  *             lib/useCardExpand, lib/useSurfaceLayout, lib/useDayLog, lib/useCalendarEvents,
  *             lib/useNowMinutes, lib/taskReset, lib/useEnergyPause, lib/useDragReorder,
@@ -83,6 +83,7 @@ import SharedTasksSection from '@/components/SharedTasksSection';
 import SectionRail from '@/components/SectionRail';
 import Card from '@/components/Card';
 import SectionCard from '@/components/SectionCard';
+import CalendarGrid from '@/components/CalendarGrid';
 import { triagePatch, triageTargetAt, type TriageTarget, type TriageZone } from '@/lib/todoTriage';
 import IconButton from '@/components/IconButton';
 import { SegmentedControl } from '@/components/FormControls';
@@ -948,9 +949,8 @@ export default function TodoSurface({ section, onDayReset }: Props) {
     // *"the days are just for an overview"* — seven rows read as a week, and an empty Thursday is
     // information. Thirty rows do not read as anything, and twenty-six empty ones are noise.
     return calDates
-      .map((date) => ({ date, tasks: byDate.get(date)!.sort(byTime) }))
-      .filter((g) => calRange === 'week' || g.tasks.length > 0);
-  }, [calDates, calDateSet, tasks, matchFilters, calRange]);
+      .map((date) => ({ date, tasks: byDate.get(date)!.sort(byTime) }));
+  }, [calDates, calDateSet, tasks, matchFilters]);
 
   const calTaskCount = useMemo(
     () => calGroups.reduce((n, g) => n + g.tasks.length, 0),
@@ -970,18 +970,15 @@ export default function TodoSurface({ section, onDayReset }: Props) {
     [calDates, calRange, t]
   );
 
-  /**
-   * A date's own row label. A week names the weekday (seven rows read as a week); a month names
-   * the day and weekday, because "12" alone in a list of dates says nothing about which day it
-   * lands on and that is usually what the question is.
-   */
+  /** The selected day's heading under the calendar grid — weekday, day and month. */
   const calDateLabel = useCallback(
-    (date: string) =>
-      calRange === 'week'
-        ? t.dayFull[dayOfWeekMon0(parseDateStr(date))]
-        : `${Number(date.slice(8, 10))}. ${t.dayLabels[dayOfWeekMon0(parseDateStr(date))]}`,
-    [calRange, t]
+    (date: string) => {
+      const d = parseDateStr(date);
+      return `${t.dayFull[dayOfWeekMon0(d)]} ${d.getDate()}. ${t.monthsShort[d.getMonth()]}`;
+    },
+    [t]
   );
+
 
   // Committing on the line alone must always produce a row this card draws (tier 1's rule), so
   // the default is today when today is in range and the range's first day otherwise.
@@ -998,24 +995,20 @@ export default function TodoSurface({ section, onDayReset }: Props) {
     return `${t.months[d.getMonth()]} ${d.getFullYear()}`;
   }, [calRange, calDates, today, t, language]);
 
-  // Per-date fold state. Local and NOT persisted: these sections are data-generated (one per date
-  // in whatever range is showing), and lib/collapsedCards.ts's singleton rule is exactly why a
-  // per-date id cannot take a `collapseKey` — a bag keyed by date grows forever.
-  //
-  // **EVERY date starts folded, today's included** (2026-08-19, maintainer: *"the current day
-  // does not need to be open. The days are just for an overview, while 'Today' and 'Whenever' at
-  // the top is for use."*). The card above this one is already today, in full, with its own
-  // composer. Keyed off the RANGE so changing week or granularity opens nothing by surprise.
-  const [openDates, setOpenDates] = useState<Set<string>>(() => new Set());
-  useEffect(() => { setOpenDates(new Set()); }, [calRange, calOffset]);
-  const toggleCalDate = useCallback((date: string) => {
-    setOpenDates((prev) => {
-      const next = new Set(prev);
-      if (next.has(date)) next.delete(date);
-      else next.add(date);
-      return next;
-    });
-  }, []);
+  // The selected day under the calendar grid (2026-10-15, replacing the per-date folds — see
+  // components/CalendarGrid.tsx). Today when today is in range, else the range's first day;
+  // reset whenever the range moves so a new week never opens on a day outside it.
+  const [calSelected, setCalSelected] = useState<string>(calDefaultDate);
+  useEffect(() => { setCalSelected(calDefaultDate); }, [calRange, calOffset, calDefaultDate]);
+  const calCounts = useMemo(() => {
+    const out: Record<string, number> = {};
+    for (const g of calGroups) out[g.date] = g.tasks.length;
+    return out;
+  }, [calGroups]);
+  const calSelectedTasks = useMemo(
+    () => calGroups.find((g) => g.date === calSelected)?.tasks ?? [],
+    [calGroups, calSelected]
+  );
 
   // Goals/Earlier days (inside Today) and Washed away (inside Whenever) are SECTIONS now, not
   // registry cards — see lib/cardRegistry.ts's note at their old position. A section's fold is
@@ -1566,33 +1559,32 @@ export default function TodoSurface({ section, onDayReset }: Props) {
           </View>
         </View>
 
+        <CalendarGrid
+          dates={calDates}
+          counts={calCounts}
+          today={today}
+          selected={calSelected}
+          onSelect={(d) => { selection(); setCalSelected(d); }}
+          dayLabels={t.dayLabels}
+          dayFull={t.dayFull}
+          hue={screenHue}
+        />
+        {/* The selected day's tasks and its composer — one day at a time, under the grid. */}
         <View style={styles.weekDays}>
-          {calGroups.map((group) => (
-            <SectionCard
-              key={group.date}
-              embedded
-              hue={screenHue}
-              label={calDateLabel(group.date)}
-              count={group.tasks.length}
-              collapsed={!openDates.has(group.date)}
-              onToggleCollapse={() => toggleCalDate(group.date)}
-            >
-              <DoneSplitList
-                tasks={group.tasks}
-                focusMode={layoutSpec.focusMode}
-                footer={<InlineTaskAdd date={group.date} accent={theme.accent} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped compose="calendar" dateChoices={calDateChoices} />}
-                renderCard={(tk) => (
-                  <TaskCard key={tk.id + group.date} task={tk} variant="steps" tinted={tk.sharedOut} spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} newFields={newFields} onToggleDone={handleToggleDone} />
-                )}
-              />
-            </SectionCard>
-          ))}
-          {/* A month with nothing dated in it draws no sections at all, so it needs a composer of
-              its own or the card would be a header with no way to add to it. A week always has
-              seven, each with its own. */}
-          {calGroups.length === 0 && (
-            <InlineTaskAdd date={calDefaultDate} accent={theme.accent} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped compose="calendar" dateChoices={calDateChoices} />
-          )}
+          <SectionRail
+            tier="sub"
+            hue={screenHue}
+            label={calDateLabel(calSelected)}
+            count={calSelectedTasks.length}
+          />
+          <DoneSplitList
+            tasks={calSelectedTasks}
+            focusMode={layoutSpec.focusMode}
+            footer={<InlineTaskAdd date={calSelected} accent={theme.accent} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped compose="calendar" dateChoices={calDateChoices} />}
+            renderCard={(tk) => (
+              <TaskCard key={tk.id + calSelected} task={tk} variant="steps" tinted={tk.sharedOut} spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} newFields={newFields} onToggleDone={handleToggleDone} />
+            )}
+          />
         </View>
     </View>
   );
@@ -1711,7 +1703,9 @@ export default function TodoSurface({ section, onDayReset }: Props) {
       <Card
         id="todoPlanner"
         count={calTaskCount + recurringAll.length}
-        peek={t.peek.todoPlanner(calTaskCount, recurringAll.length, calRangeLabel)}
+        // No range in the peek (2026-10-15, maintainer: *"I can also see the date twice"*) — the
+        // range lives once, between the calendar's arrows.
+        peek={t.peek.todoPlanner(calTaskCount, recurringAll.length)}
         // Empty-only, per the 2026-09-06 hint ruling — and it takes BOTH sections being empty,
         // since a card with repeats in it is not an empty card.
         hint={calTaskCount === 0 && recurringAll.length === 0 ? t.cardHint.todoCalendar : undefined}

@@ -401,7 +401,7 @@ function HabitCard({
                 accessibilityRole="button"
                 accessibilityLabel={`${t.decreaseQty} ${habit.title}`}
               >
-                <Text style={[styles.adjBtnText, { color: flash === 'minus' ? theme.accent : theme.textMuted }]}>−</Text>
+                <Ionicons name="remove" size={18} color={flash === 'minus' ? theme.accent : theme.textMuted} />
               </PressableScale>
               <PressableScale
                 style={[
@@ -415,7 +415,7 @@ function HabitCard({
                 accessibilityRole="button"
                 accessibilityLabel={`${t.increaseQty} ${habit.title}`}
               >
-                <Text style={[styles.adjBtnPlusText, { color: flash === 'plus' ? contrastOn(theme.good) : theme.text }]}>+</Text>
+                <Ionicons name="add" size={18} color={flash === 'plus' ? contrastOn(theme.good) : theme.text} />
               </PressableScale>
             </View>
           }
@@ -896,7 +896,10 @@ export default function HabitsSurface() {
                       list's own slot, above the composer that would create the real thing. See
                       components/StarterCard.tsx's `embedded` note. */}
                   {!allStartersAdded && (
-                    <StarterCard embedded collapsible text={t.hints.habits.text}>
+                    <StarterCard embedded collapsible>
+                      {/* No `text` (2026-10-15) — maintainer: *"Press to count, set gear icon to set
+                          up. Not exactly sure what that is."* A how-to line about controls not yet
+                          on screen taught nothing; each row's −/+ and ⚙ say it themselves. */}
                       {/* Two chips, not four (2026-07-30) — the same measured call
                           components/HomeHabitsCard.tsx already made. `npm run wraps --lang=no`
                           had this row wrapping at every width tested: 4 chips on 2 lines at

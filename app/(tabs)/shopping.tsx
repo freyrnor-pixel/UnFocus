@@ -509,7 +509,7 @@
  *     original ⓘ complaint was about.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, LayoutAnimation, Modal, NativeScrollEvent, NativeSyntheticEvent, StyleSheet, Text, TextInput, View } from 'react-native';
+import { AppState, Keyboard, LayoutAnimation, Modal, NativeScrollEvent, NativeSyntheticEvent, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { Ionicons } from '@expo/vector-icons';
@@ -2417,7 +2417,6 @@ export default function ShoppingScreen() {
           )}
 
           {(nonTemplateLists.length > 0 || templateLists.length > 0) && [1, 2, 3, 4].map((week) => {
-            const weekRange = dateRangeForCycleWeek(todayStr(), monthlyResetDate, week, weeklyResetDay);
             // With a list on the pager, only its week and only it are drawn. With none (saved
             // lists only), all four weeks stay as drop targets for a saved list.
             if (pagerList && !(listsByWeek[week] ?? []).some((l) => l.id === pagerList.id)) return null;
@@ -2454,12 +2453,9 @@ export default function ShoppingScreen() {
                   hue={screenHue}
                   tier="sub"
                   divider={false}
+                  // Week number only (2026-10-15, maintainer: *"I only need to know week 1, 2,
+                  // 3 or 4"*) — the date span beside it was a second answer to the same question.
                   label={t.weekNumberChip(week)}
-                  right={
-                    <Text style={[styles.weekSectionRange, { color: theme.textMuted }]}>
-                      {formatDateRange(weekRange.startDate, weekRange.endDate, t.monthsShort, language)}
-                    </Text>
-                  }
                 />
 
                 {weekLists.length === 0 ? (
@@ -2659,7 +2655,11 @@ export default function ShoppingScreen() {
                   : handleCreateNewWeeklyList,
               }}
             />
-          ) : editing ? (
+          ) : (
+            // ⚠️ **Always shown, not only in edit mode (2026-10-15)** — maintainer: *"I can't
+            // seem to make more than one list after I made the first one."* The trigger lived
+            // behind the header's ✏️, so once one list existed there was no visible way to a
+            // second. A primary add is never an edit-mode extra.
             <PressableScale
               // SECONDARY — accent-tinted, the same weight as "Add dish" and the Monthly
               // tab's NewMonthlyListRow twin (2026-08-09). See that file for the reasoning;
@@ -2681,7 +2681,7 @@ export default function ShoppingScreen() {
                 {t.newWeeklyListTitle}
               </Text>
             </PressableScale>
-          ) : null}
+          )}
 
           {/* Archive (2026-08-26) — a past weekly list put away without deleting it, a
               DIFFERENT drawer from Saved lists (that's `isTemplate`, a reusable blueprint).
@@ -2866,7 +2866,21 @@ export default function ShoppingScreen() {
             <Text style={[styles.budgetNote, { color: theme.textMuted }]}>{t.budget.noMonthlyListForBudget}</Text>
           )
         )}
-        {!editing && monthlyLists.length > 0 && (
+        {/* Open: a real Save, bottom-RIGHT like every other form's (2026-10-15, maintainer:
+            *"I don't agree with a finished button … in the lower left corner, not the lower
+            right … there's no match anywhere else in the app"*). The fields already commit on
+            blur, so Save is the close that blurs them. Closed: the "Adjust" link stays. */}
+        {!editing && monthlyLists.length > 0 && budgetAdjustOpen && (
+          <View style={styles.budgetSaveRow}>
+            <Button
+              label={t.save}
+              icon="checkmark"
+              size="sm"
+              onPress={() => { Keyboard.dismiss(); selection(); setBudgetAdjustOpen(false); }}
+            />
+          </View>
+        )}
+        {!editing && monthlyLists.length > 0 && !budgetAdjustOpen && (
           <PressableScale
             style={styles.budgetAdjust}
             onPress={() => { selection(); setBudgetAdjustOpen((v) => !v); }}
@@ -3237,7 +3251,6 @@ const styles = StyleSheet.create({
   },
   // `weekSectionHeaderRow` and `weekSectionLabel` moved into components/SectionRail.tsx's `sub`
   // tier on 2026-08-21 — see the call site. The date range survives as that rail's `right` slot.
-  weekSectionRange: { fontSize: FontSize.xs, fontFamily: Fonts.regular },
   weekSectionEmptyText: { fontSize: FontSize.sm, paddingHorizontal: Spacing.xs, paddingVertical: Spacing.xs, fontFamily: Fonts.regular },
   // Big-ish plain white/surface "+ Create a new list" button — primary action on the Weekly
   // tab. Icon-only from 2026-07-23 until 2026-08-03; see the comment at the trigger.
@@ -3263,6 +3276,7 @@ const styles = StyleSheet.create({
   // The card's own "Juster" link (2026-10-12) — floored at the tap target, hugging the left edge.
   budgetAdjust: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: Spacing.xs, minHeight: MIN_TAP_TARGET },
   budgetAdjustText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  budgetSaveRow: { flexDirection: 'row', justifyContent: 'flex-end', paddingTop: Spacing.xs },
   /** Breathing room under Catalogue's Items/Dishes switch, matching the card's own body gap. */
   catalogueTabs: { marginBottom: Spacing.sm },
   newListTriggerLabel: { fontSize: FontSize.md, fontFamily: Fonts.semibold },

@@ -226,18 +226,14 @@ describe('EnergyMeter — the strip names itself, and is set from a pop-up', () 
     expect(src).toMatch(/row\('week', t\.energyMeter\.thisWeek,/);
   });
 
-  it('has exactly ONE stepper of its own — the everyday amount, labelled "Hver dag"', () => {
-    // 2026-10-11 (later the same day): the "Fast hver dag" SWITCH beside it is gone — the amount
-    // is always the everyday amount (maintainer: *"Naturligvis er det fast hver dag"*).
-    // ⚠️ **Reversed 2026-10-11 (V2, maintainer-approved mockup).** Until then the card had no
-    // stepper: a bare ± could not say whether it moved the capacity or the spend. The V2 card
-    // answers that with a LABEL and a neighbour: one row reading "Fast hver dag", the day's
-    // amount, and the switch that saves it as the everyday default (*"Lacks a way to save
-    // Energy and make it a 'permanent' Daily"*). Every other number — the week, the boost —
-    // still lives in EnergyConfigPanel, now the card's ⤢ pane.
-    expect([...src.matchAll(/<Stepper\b/g)]).toHaveLength(1);
-    expect(src).toMatch(/t\.energyMeter\.fixedDaily/);
-    expect(src).toMatch(/accessibilityLabel=\{t\.energyMeter\.todayCapacity\}/);
+  it('has NO stepper of its own — every number is in the folded panel', () => {
+    // ⚠️ **Back to zero 2026-10-15** (maintainer: *"the energy budget should not be an
+    // expandable card. It should be just a card."*). The 2026-10-11 V2 card carried ONE stepper
+    // ("Hver dag") because its ⤢ pane held the rest; with the pane gone, the day's amount, the
+    // week's and the boost all sit in EnergyConfigPanel behind the one adjust row, and a second
+    // copy of the day stepper on the card would be two controls for one number.
+    expect([...src.matchAll(/<Stepper\b/g)]).toHaveLength(0);
+    expect(src).toMatch(/label=\{t\.energyMeter\.budgetAdjust\}/);
     expect(src).not.toMatch(/EnergyConfigSheet/);
     expect(src).not.toMatch(/<Switch\b/);
   });
@@ -248,7 +244,8 @@ describe('EnergyMeter — the strip names itself, and is set from a pop-up', () 
     // Since 2026-10-11 (V2) the panel has two homes: folded in the card behind the week adjust
     // row, and OPEN in the card's ⤢ pane (`inPane`), which is the "everything" view.
     expect(src).toMatch(/const \[configOpen, setConfigOpen\] = useState\(false\)/);
-    expect(src).toMatch(/\{inPane \? configPanel : \(/);
+    // No pane since 2026-10-15 — the fold is the panel's only home.
+    expect(src).not.toMatch(/inPane/);
     const folded = [...src.matchAll(/<Collapsible open=\{configOpen[^}]*\}>\s*\{configPanel\}\s*<\/Collapsible>/g)];
     expect(folded).toHaveLength(1);
   });
