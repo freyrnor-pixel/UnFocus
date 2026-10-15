@@ -440,9 +440,15 @@ export const CARDS = {
     icon: 'flash',
     badgeHue: true,
     title: (t) => t.energyMeter.budgetTitle,
-    fold: 'persisted',
-    expand: 'surface',
-    openAtRest: true,
+    // ⚠️ **Just a card (2026-10-15, maintainer: *"the energy budget should not be an expandable
+    // card. It should be just a card."*).** No ⌄, no ⤢: the body is one bar and one adjust row,
+    // and the adjust row's own inline fold already holds every number the pane used to.
+    fold: 'none',
+    foldDeclined:
+      'Energy is one bar and one adjust row — folding it hides the only thing it says. Maintainer, 2026-10-15: "should not be an expandable card. It should be just a card."',
+    expand: 'none',
+    expandDeclined:
+      'Every energy number already sits in the adjust row\'s inline fold (components/EnergyConfigPanel.tsx), so a pane would be a second rendering of one panel. Maintainer, 2026-10-15: "just a card".',
   },
   homeToday: {
     screen: 'home',

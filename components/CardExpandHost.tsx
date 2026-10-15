@@ -107,7 +107,6 @@ import Animated, {
 import Surface from '@/components/Surface';
 import KeyboardAwareScrollView from '@/components/KeyboardAwareScrollView';
 import IconButton from '@/components/IconButton';
-import EnergyMeter from '@/components/EnergyMeter';
 import { FrostContext } from '@/lib/frost';
 import TodoSurface from '@/components/TodoSurface';
 import TabSlider from '@/components/TabSlider';
@@ -282,9 +281,7 @@ const CARD_BODIES: Record<ExpandableCardId, CardBodyEntry> = {
   // `card: 'todoToday'` because that is what this body actually draws — see CardBodyEntry's
   // `card` note. Without it the pane would paint "Today" and then let TodoSurface paint a whole
   // second Today card inside it.
-  // Energy (2026-10-11, V2): the same component the card mounts; inside the pane it draws its
-  // body plus EnergyConfigPanel — every energy number — open.
-  homeEnergy: { title: (t) => t.energyMeter.budgetTitle, Body: () => <EnergyMeter /> },
+  // Energy had a pane here 2026-10-11 → 2026-10-15; it is "just a card" now (lib/cardRegistry.ts).
   homeToday: { title: (t) => t.tasksTabToday, Body: () => <TodoSurface section="today" />, card: 'todoToday' },
   // The pane draws its own title bar, so this entry supplies the one header control the card
   // shell has that the pane would otherwise lose: the reminder bell, which IS the reminders

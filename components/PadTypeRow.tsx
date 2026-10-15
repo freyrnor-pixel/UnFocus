@@ -160,7 +160,7 @@
  *     Pinned by lib/__tests__/exampleRows.test.ts.
  */
 import React, { useContext, useEffect, useRef, useState } from 'react';
-import { Keyboard, StyleProp, StyleSheet, TextInput, View, ViewStyle } from 'react-native';
+import { Keyboard, Platform, StyleProp, StyleSheet, TextInput, View, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Button from '@/components/Button';
 import PressableScale from '@/components/PressableScale';
@@ -397,6 +397,8 @@ export default function PadTypeRow({
     </View>
   ) : null;
 
+  // Android draws no halo — see the note at the wrapper below.
+  const haloFocused = focused && Platform.OS !== 'android';
   const fieldAndPrompt = (
     // The halo lives on this WRAPPER rather than on the TextInput. A `boxShadow` on a TextInput
     // renders unreliably on Android, and a halo that silently doesn't paint would take half the
@@ -432,7 +434,12 @@ export default function PadTypeRow({
     <View
       style={[
         styles.field,
-        focused ? getFieldGlow(accent, 'strong') : { borderRadius: FIELD_RADIUS },
+        // ⚠️ **No halo on Android (2026-10-15)** — maintainer: *"the yellow line is both around
+        // the box, the rounded one and also as a straight square."* The focus BORDER on the
+        // input is the rounded line; the square one is this wrapper's `boxShadow`, which
+        // Android drew to the view's rectangle rather than its radius. The border alone
+        // carries rule 18's focus cue (see above), so Android keeps that and drops the light.
+        haloFocused ? getFieldGlow(accent, 'strong') : { borderRadius: FIELD_RADIUS },
       ]}
     >
       <TextInput
@@ -528,9 +535,23 @@ export default function PadTypeRow({
             {panel}
           </View>
         ) : null}
-        {showControls && moreButton ? (
+        {/* ⚠️ **A worded Save, bottom-right (2026-10-15)** — maintainer: *"there is no obvious
+            Save button, not here or anywhere else."* The arrow inside the field is the same
+            commit, but at 26px it reads as decoration once the options panel has opened under
+            it. "More options" stays to its left; Save is the primary, so it sits last. */}
+        {showControls ? (
           <View style={styles.panelButtonRow} {...controlsResponderProps}>
             {moreButton}
+            {/* Not gated on `noGhostCheck`: that prop hides the in-field ARROW (Habits' rows
+                end in −/+, never a check), not the line's ability to be saved. */}
+            <Button
+              label={t.save}
+              onPress={commit}
+              disabled={!active}
+              variant="primary"
+              size="sm"
+              icon="checkmark"
+            />
           </View>
         ) : null}
       </View>

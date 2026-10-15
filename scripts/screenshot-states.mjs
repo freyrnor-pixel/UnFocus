@@ -758,9 +758,9 @@ async function main() {
     if (FULL) {
       console.log('> sheets and overlays');
       await tab(page, 'Home');
-      // ⚠️ **The panel is the Energy card's ⤢ pane since 2026-10-11 (V2).** The card itself holds
-      // only the bar and the "Same every day" row; every number is in its full-screen view.
-      const energyExpand = page.getByRole('button', { name: 'Energy budget: Expand card', exact: true }).first();
+      // ⚠️ **The panel is the adjust row's inline fold again since 2026-10-15** ("just a card" —
+      // no ⤢ pane). It was the Energy card's ⤢ pane 2026-10-11 → 2026-10-15.
+      const energyExpand = page.getByRole('button', { name: 'Adjust budget', exact: true }).first();
       if (await energyExpand.isVisible({ timeout: 3000 }).catch(() => false)) {
         await energyExpand.click({ timeout: 8000 }).catch(() => {});
         await page.waitForTimeout(1200);
@@ -781,16 +781,14 @@ async function main() {
         //   The `+` keys carry no accessible name of their own (components/Stepper.tsx), so they
         // are reached through the row's label — the last button in the row labelled with
         // `energyMeter.todayCapacity`.
-        // `.last()`: the Hjem card behind the pane carries a stepper with the same name (its
-        // "Same every day" row); the pane's own is later in the document.
         const capRow = page.getByLabel("Today's energy").last();
         if (await capRow.isVisible({ timeout: 3000 }).catch(() => false)) {
           const plus = capRow.getByRole('button').last();
           for (let i = 0; i < 8; i++) await plus.click({ timeout: 4000 }).catch(() => {});
           await page.waitForTimeout(500);
         }
-        // Leave the pane by its own ‹ (top-left since 2026-10-11).
-        await page.getByRole('button', { name: 'Collapse card', exact: true }).first().click({ timeout: 6000 }).catch(() => {});
+        // Fold the panel away again by the same row.
+        await energyExpand.click({ timeout: 6000 }).catch(() => {});
         await closeOverlays(page);
         await page.waitForTimeout(900);
         // Re-settle the pager (2026-09-26) — a WEB-ONLY artefact, not an app bug. Since the config

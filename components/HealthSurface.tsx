@@ -168,7 +168,7 @@ function IssueRow({
             accessibilityRole="button"
             accessibilityLabel={t.healthIssues.logAgain(issue.name)}
           >
-            <Text style={[styles.logAgainText, { color: theme.text }]}>+</Text>
+            <Ionicons name="add" size={16} color={theme.text} />
           </PressableScale>
         }
       />
@@ -556,6 +556,17 @@ export default function HealthSurface({ embedded = false, section }: Props) {
     healthIssues: (
       <Card id="healthIssues" count={trackedCount} peek={t.peek.healthIssues(trackedCount)}>
         <HealthIssuesPreviewList accent={screenHue} onOpenIssue={openDetail} />
+        {/* Add right here (2026-10-15) — maintainer: *"health issues … I can't add things there
+            like I do other places."* Adding lived only in the ⤢ pane. Same write the pane's
+            own AddRow makes (`ensureSymptom`, which also re-tracks an untracked one). */}
+        <DraftComposer
+          prompt={t.healthIssues.newPlaceholder}
+          accent={screenHue}
+          onSubmit={(name) => {
+            success();
+            ensureSymptom(name);
+          }}
+        />
         <PressableScale
           onPress={() => router.push('/health-log')}
           accessibilityRole="button"

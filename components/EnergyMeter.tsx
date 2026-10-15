@@ -244,7 +244,6 @@ import Animated, { useSharedValue, useAnimatedStyle, withSequence, withTiming } 
 import { Badge } from '@/components/Badge';
 import PressableScale from '@/components/PressableScale';
 import Card from '@/components/Card';
-import Stepper from '@/components/Stepper';
 import QuickAddOptionRow from '@/components/QuickAddOptionRow';
 import { SegmentedControl } from '@/components/FormControls';
 import EnergyConfigPanel from '@/components/EnergyConfigPanel';
@@ -255,7 +254,6 @@ import { useAccessibility, useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { countRender, countLayout } from '@/lib/perfTrace';
 import { useT } from '@/lib/i18n';
 import { dayOfWeekMon0, todayStr } from '@/lib/date';
-import { useIsPaneBody } from '@/lib/cardPane';
 import { energyDeltaForDay, energyDeltaForWeek, energySplitForDay, energySplitForWeek, energyBudgetBar, MAX_PIPS } from '@/lib/energy';
 import { useEnergyPause } from '@/lib/useEnergyPause';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -279,8 +277,6 @@ const PIP_GAP = 4;
 /** The flash glyph inside a pip — ~60% of the badge, same proportion the 24px pip used. */
 /** v2's bar glyph and its legend key. The bar reads at a glance; the legend is a footnote. */
 const BAR_ICON_SIZE = 17;
-/** The day amount's stepper ceiling — matches EnergyConfigPanel's day stepper. */
-const DAILY_MAX = 30;
 
 /** One-shot ~1.5s glow behind a meter row — see the file header's "Depleted/recovered pulse"
  *  note. Local to this file (not GlowPulse) because it needs a timed fade in→hold→out
@@ -366,8 +362,6 @@ export default function EnergyMeter() {
   // `good` green. See the note above `pips` in `row()`.
   const leftHue = theme.featHome;
   const extraHue = theme.good;
-  // Inside Hjem's ⤢ pane this card is its body and shows EVERY number (EnergyConfigPanel).
-  const inPane = useIsPaneBody('homeEnergy');
   // Captured, not just subscribed: a non-empty `overrides` is the fingerprint of a user who
   // has set a period's capacity at least once, which is half the tutorial gate below.
   const overrides = useEnergyStore((s) => s.overrides);
@@ -826,40 +820,24 @@ export default function EnergyMeter() {
               </Text>
             </PressableScale>
           )}
-          {/* The one control row. Day scope: the amount + "Fast hver dag". Week scope (or a
-              weekly-only setup) keeps the adjust row and its fold, which owns the week number. */}
-          {inPane ? null : showDay && scope === 'day' ? (
-            <View style={styles.dailyRow}>
-              <Text style={[styles.dailyLabel, { color: theme.text }]} numberOfLines={1}>
-                {t.energyMeter.fixedDaily}
-              </Text>
-              <Stepper
-                value={dayBaseCapacity}
-                onChange={onDailyAmount}
-                min={0}
-                max={DAILY_MAX}
-                accessibilityLabel={t.energyMeter.todayCapacity}
-              />
-            </View>
-          ) : (
-            <View style={styles.qaLine}>
-              <QuickAddOptionRow
-                wide
-                showsMore
-                icon="flash-outline"
-                label={t.energyMeter.budgetAdjust}
-                value={t.energyMeter.budgetUnits(weekCapacity)}
-                isSet
-                accent={theme.accent}
-                onPress={() => setConfigOpen((v) => !v)}
-              />
-            </View>
-          )}
-          {inPane ? configPanel : (
-            <Collapsible open={configOpen && !(showDay && scope === 'day')}>
-              {configPanel}
-            </Collapsible>
-          )}
+          {/* The one control row (2026-10-15): a labelled adjust row whose inline fold holds
+              every number — the day's amount, the week's, and "Extra for today". The card has
+              no ⌄ or ⤢ any more ("just a card"), so this fold is the only place they live. */}
+          <View style={styles.qaLine}>
+            <QuickAddOptionRow
+              wide
+              showsMore
+              icon="flash-outline"
+              label={t.energyMeter.budgetAdjust}
+              value={t.energyMeter.budgetUnits(showDay && scope === 'day' ? dayBaseCapacity : weekCapacity)}
+              isSet
+              accent={theme.accent}
+              onPress={() => setConfigOpen((v) => !v)}
+            />
+          </View>
+          <Collapsible open={configOpen}>
+            {configPanel}
+          </Collapsible>
         </Card>
       )}
 
@@ -907,8 +885,6 @@ const styles = StyleSheet.create({
   // shadow; this is only the box it wraps around the rail, the segment, the bar and the row.
   budgetCard: { padding: Spacing.md, gap: Spacing.sm },
   // The V2 card's one control row: label, the day's amount, and "Fast hver dag".
-  dailyRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: MIN_TAP_TARGET },
-  dailyLabel: { flex: 1, minWidth: 0, fontSize: FontSize.sm, fontFamily: Fonts.medium },
   overspendRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, minHeight: MIN_TAP_TARGET },
   overspendRowText: { fontSize: FontSize.sm, fontFamily: Fonts.medium, flexShrink: 1 },
   // The ROW container a `QuickAddOptionRow` assumes it is in — see both call sites' notes. Its

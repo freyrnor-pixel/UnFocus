@@ -2,10 +2,9 @@
  * TimeBoxInput.tsx — auto-advancing HH:MM time entry for the Tasks/Oppgaver screen.
  *
  * Renders an hour box and a minute box separated by a colon over a hidden numeric
- * TextInput. Tapping focuses the input with the hour part highlighted; typing two
- * digits fills the hour and auto-advances the highlight to the minute; two more
- * fill the minute. Emits a clamped `HH:MM` (hour 0–23, minute 0–59) once four
- * digits are entered and again on blur. A `readOnly` variant renders the value as
+ * TextInput. Tapping a box selects it; typing two digits fills the hour and
+ * auto-advances to the minute; two more fill the minute. Emits `HH:MM` (hour 00–23,
+ * minute 00–59) once the minute is complete and again on blur. A `readOnly` variant renders the value as
  * a plain, non-interactive label (used for the collapsed row's start-time display).
  *
  * Connections:
@@ -14,13 +13,21 @@
  *   Data    → none (controlled; value/onChange from props)
  *
  * Edit notes:
- *   - The hidden TextInput carries only the raw digits (no colon), so maxLength=4 caps it.
- *   - onChange fires only with a fully-formed HH:MM (on the 4th digit or on blur) so the
+ *   - The hidden TextInput carries only the active box's typed buffer.
+ *   - onChange fires only with a fully-formed HH:MM (minute complete, or on blur) so the
  *     parent never sees an intermediate partial like "9:" — matches the collapsed-label sync.
  *   - **Keyboard-avoidance (2026-08-01)**: `useKeyboardLift`'s own ref stands in for the
  *     `.focus()` ref this component already needed (a hidden TextInput is a host component,
  *     so no wrapping View is required — see lib/useKeyboardLift.ts's doc) — self-contained,
  *     so TaskCard doesn't need to wire anything for the Start/Finish pair.
+ *   - **Each box is its own target (2026-10-15, maintainer: *"when I have inserted into the hour
+ *     part, and then I try to press the minute part I can't go back to the hour part, and hour
+ *     should only go from 00 to 23"*).** The active box used to be DERIVED from how many digits
+ *     had been typed, so once the hour was full no tap could reach it again. Now a tap on a box
+ *     selects that box and the next digits REPLACE it; backspace on an empty minute steps back
+ *     to the hour. The hour refuses anything past 23 as it is typed (a leading 3–9 means
+ *     03–09 and jumps on), and the minute refuses past 59 the same way — clamping after the
+ *     fact turned a mistyped "27" into a silent "23". Pure rules in `typeDigit` (exported, tested).
  */
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -35,37 +42,54 @@ type Props = {
   placeholder?: string; // shown per-box when empty, e.g. '--'
 };
 
-function digitsOf(value?: string): string {
-  return value ? value.replace(/\D/g, '').slice(0, 4) : '';
+type Field = 'hour' | 'minute';
+
+function partsOf(value?: string): { h: string; m: string } {
+  const match = value ? /^(\d{1,2}):(\d{1,2})$/.exec(value) : null;
+  return match ? { h: match[1].padStart(2, '0'), m: match[2].padStart(2, '0') } : { h: '', m: '' };
 }
 
-/** Clamp raw digits to a valid `HH:MM` (hour ≤ 23, minute ≤ 59). '' → ''. */
-function normalize(digits: string): string {
-  if (!digits) return '';
-  const h = Math.min(23, parseInt(digits.slice(0, 2) || '0', 10) || 0);
-  const m = Math.min(59, parseInt(digits.slice(2, 4) || '0', 10) || 0);
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+/**
+ * One box's typing rule. `buffer` is what has been typed into the box since it was selected
+ * (0–2 digits); returns the new buffer and whether the box is complete. A digit that would make
+ * the box invalid (hour > 23, minute > 59) is refused rather than clamped later, and a leading
+ * digit that can only start one value (hour 3–9, minute 6–9) completes the box at once.
+ */
+export function typeDigit(field: Field, buffer: string, digit: string): { buffer: string; done: boolean } {
+  const max = field === 'hour' ? 23 : 59;
+  const firstMax = field === 'hour' ? 2 : 5;
+  if (buffer.length >= 2) buffer = '';
+  if (buffer.length === 0) {
+    const n = parseInt(digit, 10);
+    if (n > firstMax) return { buffer: `0${digit}`, done: true };
+    return { buffer: digit, done: false };
+  }
+  const next = buffer + digit;
+  if (parseInt(next, 10) > max) return { buffer, done: false };
+  return { buffer: next, done: true };
+}
+
+/** `HH:MM` from the two boxes, or '' while no hour is set. A set hour with no minute is `:00`. */
+export function composeTime(h: string, m: string): string {
+  if (!h) return '';
+  return `${h.padStart(2, '0')}:${(m || '0').padStart(2, '0')}`;
 }
 
 export default function TimeBoxInput({ value, onChange, readOnly, placeholder = '--' }: Props) {
   const theme = useAppTheme();
   const { ref: inputRef, onFocus: liftOnFocus, onBlur: liftOnBlur } = useKeyboardLift<TextInput>();
   const [focused, setFocused] = useState(false);
-  const [digits, setDigits] = useState(() => digitsOf(value));
+  const [active, setActive] = useState<Field>('hour');
+  const [parts, setParts] = useState(() => partsOf(value));
+  // What has been typed into the ACTIVE box since it was selected. Empty means "showing the
+  // stored value, next digit replaces it".
+  const [buffer, setBuffer] = useState('');
 
-  // Keep local digits in sync when the parent value changes and we're not editing.
-  const externalDigits = digitsOf(value);
-  if (!focused && externalDigits !== digits) {
-    setDigits(externalDigits);
+  // Keep local parts in sync when the parent value changes and we're not editing.
+  const external = partsOf(value);
+  if (!focused && (external.h !== parts.h || external.m !== parts.m)) {
+    setParts(external);
   }
-
-  const hourStr = digits.slice(0, 2);
-  const minStr = digits.slice(2, 4);
-  const activeField: 'hour' | 'minute' | null = focused
-    ? digits.length < 2
-      ? 'hour'
-      : 'minute'
-    : null;
 
   if (readOnly) {
     return (
@@ -75,10 +99,46 @@ export default function TimeBoxInput({ value, onChange, readOnly, placeholder = 
     );
   }
 
+  function select(field: Field) {
+    setActive(field);
+    setBuffer('');
+    inputRef.current?.focus();
+  }
+
+  function commit(next: { h: string; m: string }) {
+    setParts(next);
+    if (next.h && next.m.length === 2) onChange(composeTime(next.h, next.m));
+  }
+
   function handleChange(text: string) {
-    const next = text.replace(/\D/g, '').slice(0, 4);
-    setDigits(next);
-    if (next.length === 4) onChange(normalize(next));
+    const typed = text.replace(/\D/g, '');
+    // Deletion: the hidden field only ever holds `buffer`, so a shorter value is a backspace.
+    if (typed.length < buffer.length) {
+      setBuffer(typed);
+      return;
+    }
+    const digit = typed.slice(-1);
+    if (!digit) return;
+    const res = typeDigit(active, buffer, digit);
+    const shown = res.buffer;
+    const next = active === 'hour' ? { ...parts, h: shown } : { ...parts, m: shown };
+    if (res.done) {
+      commit(next);
+      setBuffer('');
+      if (active === 'hour') setActive('minute');
+    } else {
+      setParts(next);
+      setBuffer(shown);
+    }
+  }
+
+  function handleKeyPress(key: string) {
+    // Backspace on an empty minute steps back to the hour — the way back the maintainer
+    // couldn't find.
+    if (key === 'Backspace' && buffer === '' && active === 'minute') {
+      setParts((p) => ({ ...p, m: '' }));
+      setActive('hour');
+    }
   }
 
   function handleFocus() {
@@ -88,40 +148,46 @@ export default function TimeBoxInput({ value, onChange, readOnly, placeholder = 
 
   function handleBlur() {
     setFocused(false);
-    onChange(normalize(digits));
+    setBuffer('');
+    const h = parts.h ? parts.h.padStart(2, '0') : '';
+    const m = parts.m ? parts.m.padStart(2, '0') : '';
+    onChange(composeTime(h, m));
     liftOnBlur();
   }
 
-  const boxColor = (field: 'hour' | 'minute') =>
-    activeField === field ? theme.accent : theme.border;
+  const box = (field: Field, text: string) => {
+    const on = focused && active === field;
+    return (
+      <Pressable
+        onPress={() => select(field)}
+        accessibilityRole="button"
+        style={[styles.box, { borderColor: on ? theme.accent : theme.border, backgroundColor: theme.surface }]}
+      >
+        <Text style={[styles.boxText, { color: text ? theme.text : theme.textMuted }]}>
+          {text || placeholder}
+        </Text>
+      </Pressable>
+    );
+  };
 
   return (
-    <Pressable style={styles.wrap} onPress={() => inputRef.current?.focus()}>
-      <View style={[styles.box, { borderColor: boxColor('hour'), backgroundColor: theme.surface }]}>
-        <Text style={[styles.boxText, { color: hourStr ? theme.text : theme.textMuted }]}>
-          {hourStr || placeholder}
-        </Text>
-      </View>
+    <View style={styles.wrap}>
+      {box('hour', parts.h)}
       <Text style={[styles.colon, { color: theme.textMuted }]}>:</Text>
-      <View
-        style={[styles.box, { borderColor: boxColor('minute'), backgroundColor: theme.surface }]}
-      >
-        <Text style={[styles.boxText, { color: minStr ? theme.text : theme.textMuted }]}>
-          {minStr || placeholder}
-        </Text>
-      </View>
+      {box('minute', parts.m)}
       <TextInput
         ref={inputRef}
         style={styles.hiddenInput}
-        value={digits}
+        value={buffer}
         onChangeText={handleChange}
+        onKeyPress={(e) => handleKeyPress(e.nativeEvent.key)}
         onFocus={handleFocus}
         onBlur={handleBlur}
         keyboardType="number-pad"
-        maxLength={4}
+        maxLength={3}
         caretHidden
       />
-    </Pressable>
+    </View>
   );
 }
 

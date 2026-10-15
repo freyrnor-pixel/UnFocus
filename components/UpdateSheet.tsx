@@ -35,6 +35,7 @@
  *     Keep it in step with components/Stepper.tsx (read its edit note first) and the other
  *     hand-rolled copies in MonthlyTableRow / InlineAddItem / MonthlyResetReviewSheet.
  */
+import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -141,7 +142,7 @@ export default function UpdateSheet({ visible, item, onClose, onSave, onDelete }
               hitSlop={HitSlop.snug}
               scaleTo={0.90}
             >
-              <Text style={[styles.stepText, { color: theme.text }]}>−</Text>
+              <Ionicons name="remove" size={16} color={theme.text} />
             </PressableScale>
             <Text style={[styles.qtyText, { color: theme.text }]}>{targetQty}</Text>
             <PressableScale
@@ -150,7 +151,7 @@ export default function UpdateSheet({ visible, item, onClose, onSave, onDelete }
               hitSlop={HitSlop.snug}
               scaleTo={0.90}
             >
-              <Text style={[styles.stepText, { color: theme.text }]}>+</Text>
+              <Ionicons name="add" size={16} color={theme.text} />
             </PressableScale>
           </View>
 

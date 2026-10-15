@@ -628,7 +628,10 @@ export default function WeekListCard({
                 only once they had rows, so the model was invisible until you'd already used it. */}
             {/* Everyday view (2026-10-12): an empty zone's header is edit-mode only. The three-zone
                 model this header teaches is still visible the moment a zone has a row in it. */}
-            {(editing || totalInList > 0) && (
+            {/* …and only beside ANOTHER zone (2026-10-15, maintainer: *"press add, and then it
+                said In list … doesn't make any sense to me"*). With nothing in the basket yet,
+                "In list (1)" over the only list there is names the obvious. */}
+            {(editing || (totalInList > 0 && totalInCart > 0)) && (
               <View style={[styles.sectionHeaderRow, { backgroundColor: theme.surfaceMuted }, totalInList === 0 && { opacity: CHECKED_OPACITY }]}>
                 <Text style={[styles.sectionLabel, { color: theme.good }]}>{t.toBuySection(totalInList)}</Text>
                 <View style={[styles.sectionRule, { backgroundColor: theme.good }]} />

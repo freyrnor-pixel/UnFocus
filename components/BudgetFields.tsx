@@ -127,19 +127,10 @@ export default function BudgetFields() {
           placeholder="0"
         />
       ))}
-      <NumberField
-        label={t.budget.paydayLabel}
-        stored={monthlyResetDate}
-        parse={parsePayday}
-        onCommit={(n) => {
-          updateSettings({ monthlyResetDate: n });
-          void syncReminders();
-        }}
-        maxLength={2}
-        placeholder="1–31"
-      />
-      {/* Paid once or twice a month (2026-10-12). "Twice" seeds the second payday half a month
-          on, so the choice works the moment it is made; the field below adjusts it. */}
+      {/* Once or twice a month FIRST, then the payday field(s) on one line (2026-10-15,
+          maintainer: *"Once a month? Twice a month, instead of monthly or twice a month, and
+          the first and second payday should be side by side"*). "Twice" seeds the second
+          payday half a month on, so the choice works the moment it is made. */}
       <SegmentedControl<'once' | 'twice'>
         options={[
           { value: 'once', label: t.budget.payOnce },
@@ -150,19 +141,36 @@ export default function BudgetFields() {
           updateSettings({ secondPayday: v === 'twice' ? ((monthlyResetDate + 14) % 31) + 1 : 0 })
         }
       />
-      {twice && (
-        <NumberField
-          label={t.budget.secondPaydayLabel}
-          stored={secondPayday}
-          parse={(raw) => {
-            const n = parsePayday(raw);
-            return n !== null && n !== monthlyResetDate ? n : null;
-          }}
-          onCommit={(n) => updateSettings({ secondPayday: n })}
-          maxLength={2}
-          placeholder="1–31"
-        />
-      )}
+      <View style={styles.paydayRow}>
+        <View style={styles.paydayCell}>
+          <NumberField
+            label={twice ? t.budget.firstPaydayLabel : t.budget.paydayLabel}
+            stored={monthlyResetDate}
+            parse={parsePayday}
+            onCommit={(n) => {
+              updateSettings({ monthlyResetDate: n });
+              void syncReminders();
+            }}
+            maxLength={2}
+            placeholder="1–31"
+          />
+        </View>
+        {twice && (
+          <View style={styles.paydayCell}>
+            <NumberField
+              label={t.budget.secondPaydayLabel}
+              stored={secondPayday}
+              parse={(raw) => {
+                const n = parsePayday(raw);
+                return n !== null && n !== monthlyResetDate ? n : null;
+              }}
+              onCommit={(n) => updateSettings({ secondPayday: n })}
+              maxLength={2}
+              placeholder="1–31"
+            />
+          </View>
+        )}
+      </View>
     </View>
   );
 }
@@ -171,4 +179,6 @@ const baseStyles = StyleSheet.create({
   // `padding: FIELD_GLOW_CLEARANCE` — the room each focused field's glow needs (constants/theme.ts);
   // flush inside the card, the halo audit measured 0px of it on every side.
   fields: { gap: Spacing.sm, padding: FIELD_GLOW_CLEARANCE },
+  paydayRow: { flexDirection: 'row', gap: Spacing.sm },
+  paydayCell: { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0 },
 });

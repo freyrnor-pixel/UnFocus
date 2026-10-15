@@ -185,7 +185,11 @@ function NotesComposer({ accent, onCommit, voice }: {
       // a body, still committed by the same onSubmit.
       panel={
         <QuickAddOptionsPanel>
+          {/* `wide` + multiline (2026-10-15) — maintainer: *"Details is such a small box that it
+              doesn't make any sense to enter anything into it."* A note's body is the part
+              that runs long, so it gets the whole row and grows to a few lines. */}
           <QuickAddOptionRow
+            wide
             icon="document-text-outline"
             label={t.home.extraInfoLabel}
             value={
@@ -201,6 +205,8 @@ function NotesComposer({ accent, onCommit, voice }: {
               <Input
                 ref={extraInfoLift.ref}
                 style={styles.extraInfoInput}
+                multiline
+                textAlignVertical="top"
                 value={extraInfoDraft}
                 onChangeText={setExtraInfoDraft}
                 onFocus={extraInfoLift.onFocus}
@@ -468,7 +474,7 @@ const baseStyles = StyleSheet.create({
   // to components/FormControls.tsx's `Input`. What survives is the one thing that is about this
   // row rather than about fields: it has to take the width the QuickAddOptionRow gives it, with
   // a floor so a one-word label can't squeeze it back to nothing.
-  extraInfoInput: { flex: 1, minWidth: 0 },
+  extraInfoInput: { flex: 1, minWidth: 0, minHeight: 96 },
   doneHeader: {
     flexDirection: 'row',
     alignItems: 'center',

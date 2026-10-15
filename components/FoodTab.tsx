@@ -482,8 +482,8 @@ export default function FoodTab({ onNotify, onAddedToWeek, embedded = false }: P
   const canSaveDish = !!dishName.trim();
 
   return (
-    <View style={styles.root}>
-      {MEAL_ORDER.map(({ value: mealType, icon }) => {
+    <View style={[styles.root, embedded && styles.rootEmbedded]}>
+      {MEAL_ORDER.map(({ value: mealType, icon }, mealIdx) => {
         const color = MEAL_COLORS[mealType][isDark ? 'dark' : 'light'];
         const mealDishes = byMeal.get(mealType) ?? [];
         const sectionOpen = openSections[mealType];
@@ -508,6 +508,9 @@ export default function FoodTab({ onNotify, onAddedToWeek, embedded = false }: P
                   reaches it — the same door Home's preview cards and the Dishes card use. */}
               <CardAccentBadge domain="meal" icon={icon} size={32} accentOverride={color} />
               <Text style={[styles.sectionTitle, { color: theme.text }]}>{t.mealTypes[mealType]}</Text>
+              {/* How many dishes are in it (2026-10-15) — a closed meal said nothing about
+                  whether opening it was worth it. */}
+              <Text style={[styles.sectionCount, { color: theme.textMuted }]}>{mealDishes.length}</Text>
               <AnimatedChevron open={sectionOpen} />
             </PressableScale>
 
@@ -720,7 +723,19 @@ export default function FoodTab({ onNotify, onAddedToWeek, embedded = false }: P
         //   Same shape `SectionCard embedded` takes for the Week card's seven days —
         // `Shell = embedded ? View : Surface` — so nothing new is invented here.
         return embedded ? (
-          <View key={mealType} style={[styles.section, styles.sectionEmbedded]}>
+          // ⚠️ **A hairline between meals, and no gap (2026-10-15)** — maintainer: *"I just don't
+          // like the blankness between the different meal types … there's no division, no
+          // separation between them."* The 2026-08-21 note above let the GAP do the separating;
+          // 16px of nothing under a 48px row read as blank space, not as a boundary. One list,
+          // one rule between rows — the grouped-list shape every settings screen uses.
+          <View
+            key={mealType}
+            style={[
+              styles.section,
+              styles.sectionEmbedded,
+              mealIdx > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border },
+            ]}
+          >
             {sectionInner}
           </View>
         ) : (
@@ -890,6 +905,8 @@ export default function FoodTab({ onNotify, onAddedToWeek, embedded = false }: P
 
 const baseStyles = StyleSheet.create({
   root: { gap: Spacing.md },
+  rootEmbedded: { gap: 0 },
+  sectionCount: { fontSize: FontSize.sm, fontFamily: Fonts.medium, ...TabularNums },
   section: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.sm },
   // Only the edge Surface would have drawn — see the embedded branch at the map site — plus a
   // tighter gutter. Horizontal chrome stacks: on /food a dish name is inset by the screen's
@@ -900,7 +917,7 @@ const baseStyles = StyleSheet.create({
   // site. The tighter gutter stays and is the reason this style still exists: horizontal chrome
   // stacks, and on /food a dish name is inset by the screen's padding + the section's + the dish
   // card's, which measurably chopped names ("Alt-i-ett-form med laks…" → "Alt-i-ett-form …").
-  sectionEmbedded: { paddingHorizontal: Spacing.sm },
+  sectionEmbedded: { paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs, borderRadius: 0 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   // The meal hue's only expression — a round soft plate under the glyph (A.4 rule 1). Sized to
   // match CardAccentBadge's small form so a meal section and a card header read as one family.
