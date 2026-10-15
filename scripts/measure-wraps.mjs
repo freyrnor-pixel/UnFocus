@@ -331,6 +331,15 @@ async function goTab(page, label) {
  * (components/CardCollapseToggle.tsx), so this is a no-op when the card is already open.
  */
 async function openCard(page, title) {
+  // Variant C (2026-10-15): most cards are TABS of one card per screen — select the tab when
+  // there is one. Its accessible name is the title, plus ", <count>" when it has one.
+  const esc = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const tab = page.getByRole('tab', { name: new RegExp(`^${esc}(, \\d+)?$`) }).filter({ visible: true }).first();
+  if (await tab.count()) {
+    await tab.click({ timeout: 10000 });
+    await page.waitForTimeout(500);
+    return true;
+  }
   const toggle = page.getByRole('button', { name: `${title}: ${L.expandList}`, exact: true }).first();
   if (!(await toggle.isVisible().catch(() => false))) return false;
   await toggle.scrollIntoViewIfNeeded({ timeout: 5000 });
@@ -879,11 +888,10 @@ async function main() {
       // the card is unfolded. Without this the whole step timed out and SKIPPED, which is the
       // silent failure mode AGENTS.md warns about: the run still prints totals, and the app's
       // densest form simply stops being measured.
-      const whenever = page.getByRole('button', { name: L.expandWhenever, exact: true }).first();
-      await whenever.scrollIntoViewIfNeeded({ timeout: 5000 });
-      await whenever.click({ timeout: 10000 });
-      await page.waitForTimeout(700);
-      await page.getByRole('button', { name: L.newTask, exact: true }).first().click({ timeout: 10000 });
+      // Variant C (2026-10-15): Whenever is a TAB of To-do's one card — select it (openCard
+      // falls back to the fold chevron, which no longer exists here).
+      await openCard(page, L.expandWhenever.replace(/: .*$/, ''));
+      await page.getByRole('button', { name: L.newTask, exact: true }).filter({ visible: true }).first().click({ timeout: 10000 });
       await page.waitForTimeout(400);
       const field = page.getByPlaceholder(L.newTask).first();
       await field.fill(L.probeTask);
@@ -902,7 +910,7 @@ async function main() {
       // a real mouse wheel) could bring an element on a DIFFERENT pager page into this one's
       // viewport, so the "element is outside of the viewport" retry loop never converged.
       // To-do is mounted LAST among the three tabs, so its own copy is the last match.
-      const probeRow = page.getByText(L.probeTask, { exact: true }).last();
+      const probeRow = page.getByText(L.probeTask, { exact: true }).filter({ visible: true }).last();
       await probeRow.scrollIntoViewIfNeeded({ timeout: 5000 });
       await probeRow.click({ timeout: 10000 });
       await page.waitForTimeout(1000);
