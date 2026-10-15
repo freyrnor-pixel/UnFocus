@@ -154,6 +154,8 @@ const CENTRE_MODAL_SCREENS = [
   'app/inventory-edit.tsx',
   // 2026-09-01 — Goals left the two cards it was folded into; see app/goals-editor.tsx.
   'app/goals-editor.tsx',
+  // 2026-10-15 — the ⋮ page of a screen's tabbed card (components/Card.tsx's `CardTabs`).
+  'app/card-options.tsx',
 ] as const;
 
 describe('content meets the chrome flush — no screen re-adds the blank strip', () => {

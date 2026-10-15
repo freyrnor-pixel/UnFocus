@@ -68,7 +68,7 @@ import StarterCard from '@/components/StarterCard';
 import StarterExampleRow from '@/components/StarterExampleRow';
 import OpenEpisodeCard from '@/components/OpenEpisodeCard';
 import EpisodeCloseSheet from '@/components/EpisodeCloseSheet';
-import Card from '@/components/Card';
+import Card, { CardTabs } from '@/components/Card';
 import type { CardKey } from '@/lib/cardRegistry';
 import { useOrderedCards } from '@/lib/useCardOrder';
 import MedicineCard from '@/components/MedicineCard';
@@ -612,7 +612,9 @@ export default function HealthSurface({ embedded = false, section }: Props) {
         </PressableScale>
       )}
 
-      {order.map((id) => (cardNodes[id] ? <React.Fragment key={id}>{cardNodes[id]}</React.Fragment> : null))}
+      <CardTabs screen="health" disabled={embedded}>
+        {order.map((id) => (cardNodes[id] ? <React.Fragment key={id}>{cardNodes[id]}</React.Fragment> : null))}
+      </CardTabs>
 
       {/* The Health issues sheet was mounted beside this and is DELETED (2026-09-01) — its body
           is the `healthIssues` card's own pane now (components/HealthIssuesEditor.tsx). The

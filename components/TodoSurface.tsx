@@ -81,7 +81,7 @@ import { useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import SharedTasksSection from '@/components/SharedTasksSection';
 import SectionRail from '@/components/SectionRail';
-import Card from '@/components/Card';
+import Card, { CardTabs } from '@/components/Card';
 import SectionCard from '@/components/SectionCard';
 import CalendarGrid from '@/components/CalendarGrid';
 import { triagePatch, triageTargetAt, type TriageTarget, type TriageZone } from '@/lib/todoTriage';
@@ -1794,7 +1794,9 @@ export default function TodoSurface({ section, onDayReset }: Props) {
           settings.cardOrder over that registry order, and the registry's numbering is what
           anyone who never opens the Manage cards sheet still gets. A `section` mount draws
           exactly one of these, so the map is a no-op there rather than a second ordering. */}
-      {cardOrder.map((id) => (cardNodes[id] ? <React.Fragment key={id}>{cardNodes[id]}</React.Fragment> : null))}
+      <CardTabs screen="todo" disabled={!full}>
+        {cardOrder.map((id) => (cardNodes[id] ? <React.Fragment key={id}>{cardNodes[id]}</React.Fragment> : null))}
+      </CardTabs>
 
       {full && featureSharing && <SharedTasksSection sentTasks={sharedOutAll} onToggleDone={handleToggleDone} />}
 

@@ -100,6 +100,7 @@ import PlanTaskCard from '@/components/PlanTaskCard';
 import HomeNotesCard from '@/components/HomeNotesCard';
 import HomeSharedCard from '@/components/HomeSharedCard';
 import ManageCardsSheet from '@/components/ManageCardsSheet';
+import { CardTabs, TAB_EXCLUDE } from '@/components/Card';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import TourTarget from '@/components/TourTarget';
 
@@ -336,7 +337,7 @@ export default function HomeScreen() {
 
   const todayNode = useMemo(
     () => (
-      <TourTarget id="tour.home.today">
+      <>
         <DebugNoteAnchor id="home.plansPreview" label="Home — Plans preview" style={styles.section}>
                 <PlanTaskCard
                   tasks={todayTasks}
@@ -376,7 +377,7 @@ export default function HomeScreen() {
                   // its empty-day ghost add-row, which is suppressed here by `onAddTask`.)
                 />
         </DebugNoteAnchor>
-      </TourTarget>
+      </>
     ),
     [
       todayTasks, tasks, deletedTasks, dayLog, todoSpec, todoState, setTodoState,
@@ -454,7 +455,18 @@ export default function HomeScreen() {
               settings.hiddenCards, both through the one "Manage cards" header control. The
               Retired shelf that used to sit under these is GONE: the sheet lists every card
               present-or-absent, so a shelf would be a second place saying the same thing. */}
-          {cardOrder.map((id) => (cardNodes[id] ? <React.Fragment key={id}>{cardNodes[id]}</React.Fragment> : null))}
+          {/* Variant C (2026-10-15): Energy stays its own card above; I dag and Notater are tabs
+              of ONE card — see components/Card.tsx's `CardTabs`. */}
+          {cardNodes.homeEnergy}
+          {/* The tour's Home stop wraps the tabbed card, not the Today card inside it, which
+              draws nothing while Notes is the active tab. */}
+          <TourTarget id="tour.home.today">
+            <CardTabs screen="home" exclude={TAB_EXCLUDE.home}>
+              {cardOrder.map((id) =>
+                id !== 'homeEnergy' && cardNodes[id] ? <React.Fragment key={id}>{cardNodes[id]}</React.Fragment> : null,
+              )}
+            </CardTabs>
+          </TourTarget>
 
           {/* Gentle points */}
           {completedCount > 0 && (

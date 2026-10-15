@@ -69,7 +69,7 @@ import { personColor } from '@/lib/personColor';
 import NarratorQuote from '@/components/NarratorQuote';
 import StarterCard from '@/components/StarterCard';
 import StarterSuggestionChip from '@/components/StarterSuggestionChip';
-import Card from '@/components/Card';
+import Card, { CardTabs } from '@/components/Card';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import PadRow from '@/components/PadRow';
 import DraftComposer from '@/components/DraftComposer';
@@ -94,7 +94,7 @@ import PressableScale from '@/components/PressableScale';
 import { useT } from '@/lib/i18n';
 import { useDragReorder } from '@/lib/useDragReorder';
 import { usePrefill } from '@/lib/prefill';
-import { todayStr, getWeekDates } from '@/lib/date';
+import { todayStr } from '@/lib/date';
 import { useNowMinutes } from '@/lib/useNowMinutes';
 import { habitOccursOn, habitProgress } from '@/lib/habitRecurrence';
 // TabularNums went with the hand-rolled `habitCount` style — PadRow's `rightValue` already
@@ -128,27 +128,7 @@ function progressColor(ratio: number, _kind: HabitKind, theme: ThemePalette): st
 // used by lib/energy.ts and lib/widgets/sync.ts, so the "is this due" logic exists
 // in exactly one place, including 'weekly-flexible' support).
 
-/**
- * A single day's dot-fill ratio for the Week/Month grids and WeekStrip. For a
- * `weekly-flexible` habit each day is binary (did anything get logged that day?) —
- * dividing by the weekly goal would leave every day's dot barely filled. Fixed-
- * schedule habits keep the existing count/dailyGoal ratio.
- */
-function dotRatio(habit: Habit, count: number): number {
-  if (habit.recurrence === 'weekly-flexible') return count > 0 ? 1 : 0;
-  return habit.dailyGoal > 0 ? Math.min(count / habit.dailyGoal, 1) : 0;
-}
 
-// One initial per weekday, Monday-first. Ambiguous pairs (English T/T and S/S, Norwegian
-// T/T, Icelandic M/M and F/F) are the normal convention in each language — the strip's
-// position carries the day, the letter only confirms it.
-const DAY_ABBR = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-const DAY_ABBR_NO = ['M', 'T', 'O', 'T', 'F', 'L', 'S'];
-const DAY_ABBR_IS = ['M', 'Þ', 'M', 'F', 'F', 'L', 'S'];
-
-// No streaks (2026-07-20) — habits with the optional Energy system enabled show their
-// signed energy value instead (positive restores the day's/week's budget, negative drains
-// it — lib/energy.ts). Habits without energyEnabled show nothing here.
 function EnergyBadge({ value, theme }: { value: number; theme: ThemePalette }) {
   const styles = useScaledStyles(baseStyles);
   const positive = value >= 0;
@@ -157,45 +137,6 @@ function EnergyBadge({ value, theme }: { value: number; theme: ThemePalette }) {
     <View style={[styles.energyPill, { borderColor: color }]}>
       <Ionicons name="flash" size={11} color={color} />
       <Text style={[styles.energyPillText, { color }]}>{positive ? `+${value}` : `${value}`}</Text>
-    </View>
-  );
-}
-
-function WeekStrip({
-  habit, today, kind, lang, theme,
-}: {
-  habit: Habit; today: string; kind: HabitKind; lang: string; theme: ThemePalette;
-}) {
-  const logs = useHabitStore((s) => s.logs);
-  const weekDates = useMemo(() => getWeekDates(today), [today]);
-  const abbr = lang === 'no' ? DAY_ABBR_NO : lang === 'is' ? DAY_ABBR_IS : DAY_ABBR;
-  const styles = useScaledStyles(baseStyles);
-
-  return (
-    <View style={styles.weekStrip}>
-      {weekDates.map((date, i) => {
-        const log = logs.find((l) => l.habitId === habit.id && l.logDate === date);
-        const count = log?.count ?? 0;
-        const ratio = dotRatio(habit, count);
-        const isFuture = date > today;
-        const isRest = !!log?.restDay;
-        // Rest days get a solid textMuted fill — distinct from both "met" and "missed".
-        const color = isFuture ? theme.border : isRest ? theme.textMuted : progressColor(ratio, kind, theme);
-        const filled = !isFuture && (isRest || ratio > 0);
-        const isToday = date === today;
-        return (
-          <View key={date} style={styles.dayCol}>
-            <Text style={[styles.dayAbbr, { color: theme.textMuted }, isToday && { color: theme.accent, fontFamily: Fonts.bold }]}>{abbr[i]}</Text>
-            <View
-              style={[
-                styles.weekDot,
-                { borderColor: color, backgroundColor: filled ? color : 'transparent' },
-                isToday && styles.weekDotToday,
-              ]}
-            />
-          </View>
-        );
-      })}
     </View>
   );
 }
@@ -225,9 +166,19 @@ function HabitCard({
   const isRestToday = log?.restDay ?? false;
   const { count, goal, ratio, isDone } = habitProgress(habit, logs, today);
   const isWeeklyFlexible = habit.recurrence === 'weekly-flexible';
+  // ⚠️ **Today only (Variant C, maintainer 2026-10-15): "nothing should have a streak, only some
+  // kind of signal that shows if the user has done the habit today."** So the row no longer says
+  // anything about the week — no "2 of 3 this week", no week strip of past days. A weekly-
+  // flexible habit is "done today" when today has a log at all; any other habit when today's
+  // count reaches its daily goal. One check says it.
+  const todayCount = log?.count ?? 0;
+  const doneToday = isWeeklyFlexible ? todayCount > 0 : isDone;
+  // One tap answers "did I do it today?" — a −/+ pair only where a day genuinely has a number
+  // (a daily goal above 1, e.g. eight glasses of water).
+  const singleTap = isWeeklyFlexible || goal <= 1;
   // MUST mirror the meta-line JSX gates below exactly (the trap components/TaskCard.tsx
   // documents): if the two drift, a habit with only one meta item silently loses its line.
-  const hasMetaLine = isWeeklyFlexible || habit.energyEnabled;
+  const hasMetaLine = habit.energyEnabled;
 
   // Registration flash (2026-08-06, "so they know it's been registered"): a brief colour
   // change on whichever of −/+ was just tapped, distinct per direction. Momentary only —
@@ -278,7 +229,7 @@ function HabitCard({
   // Decision 043 rule 3 / Decision 014 downstream to-do: progress/done state reads from
   // the 4px accent bar only — the card body stays theme.surface regardless of state
   // (donePill/checkmark already carry the "done" signal).
-  const barColor = isDone ? accent : progressColor(ratio, habit.kind, theme);
+  const barColor = doneToday ? accent : progressColor(isWeeklyFlexible ? 0 : ratio, habit.kind, theme);
 
   /**
    * The "+ one" path, fired by every habit's `+` button (2026-08-06: no more goal-1 check —
@@ -294,7 +245,7 @@ function HabitCard({
 
   return (
       <View style={styles.habitGlowWrap}>
-      <GlowPulse active={isDone} color={accent} mode="static" radius={0} />
+      <GlowPulse active={doneToday} color={accent} mode="static" radius={0} />
       {/* Boxed row (card design reset, 2026-08-05): this used to be a hairline `theme.rule`
           divider between flush rows. It is now its own bordered box in the screen's hue at the
           FIELD rung, matching components/PadSheet.tsx exactly — this screen's rows and the
@@ -348,7 +299,7 @@ function HabitCard({
           // takes it too — Home passes its habit DOMAIN hue there instead, which is the one
           // remaining divergence between the two surfaces and is a colour call, not this one.
           accent={accent}
-          done={isDone}
+          done={doneToday}
           // A.4: done is a STATUS, so it takes the status token as ink; the habit's own glyph
           // is neutral. Mirrors HomeHabitsCard's leading exactly.
           // A habit with no chosen icon used to draw NO leading mark — the neutral default is a
@@ -357,16 +308,11 @@ function HabitCard({
           // 04(a)) that hole is filled with the brand leaf instead: a leaf is not a circle, so
           // it can't be confused with the check the way the ellipse was. components/HabitLeading
           // owns that decision for all four habit row sites — don't re-inline the gate here.
-          leading={isDone
-            ? <Ionicons name="checkmark" size={22} color={theme.good} />
-            : <HabitLeading icon={habit.icon} size={22} color={theme.textMuted} />}
+          // The habit's own glyph only, since 2026-10-15 — the trailing check is now the one
+          // "done today" signal, and a second checkmark on the left said it twice.
+          leading={<HabitLeading icon={habit.icon} size={22} color={doneToday ? theme.good : theme.textMuted} />}
           meta={hasMetaLine ? (
             <>
-              {isWeeklyFlexible && (
-                <Text style={[styles.weeklyProgressText, { color: theme.textMuted }]}>
-                  {t.habits.weeklyProgress(count, goal)}
-                </Text>
-              )}
               {/* "Done today" used to sit here as a filled pill, then (2026-07-30) as a quiet
                   word. It is gone entirely as of 2026-08-01: since the PadRow conversion the
                   row STRIKES THROUGH and fades next to a filled check, so the word was the
@@ -380,11 +326,34 @@ function HabitCard({
           // The ONE right-hand value: today's count against the goal. Always shown now
           // (2026-08-06) — with the check gone, this is the only place a goal-1 habit's
           // progress is visible.
-          rightValue={`${count}/${goal}`}
+          // Today's count against a daily goal above 1 — still TODAY, never a running total.
+          rightValue={singleTap ? undefined : `${todayCount}/${goal}`}
           onPress={() => setExpanded((v) => !v)}
           onAction={() => onEdit(habit.id)}
           actionLabel={t.habits.editButtonLabel}
-          trailing={
+          trailing={singleTap ? (
+            <PressableScale
+              style={[
+                styles.todayCheck,
+                { borderColor: doneToday ? theme.good : theme.border, backgroundColor: doneToday ? theme.good : 'transparent' },
+              ]}
+              onPress={() => {
+                if (doneToday) {
+                  selection();
+                  decrement(habit.id, today);
+                } else {
+                  increment(habit.id, today);
+                }
+              }}
+              hitSlop={HitSlop.base}
+              scaleTo={0.9}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: doneToday }}
+              accessibilityLabel={t.habits.doneTodayToggle(habit.title)}
+            >
+              {doneToday && <Ionicons name="checkmark" size={20} color={contrastOn(theme.good)} />}
+            </PressableScale>
+          ) : (
             <View style={styles.adjRow}>
               <PressableScale
                 style={[
@@ -418,7 +387,7 @@ function HabitCard({
                 <Ionicons name="add" size={18} color={flash === 'plus' ? contrastOn(theme.good) : theme.text} />
               </PressableScale>
             </View>
-          }
+          )}
         />
 
         {/* Clip-revealed, not a bare `{expanded && …}` (2026-08-08). This was the last habit
@@ -429,15 +398,8 @@ function HabitCard({
             folded". Don't swap in a fade; Collapsible's header says why. */}
         <Collapsible open={expanded}>
           <View style={styles.expanded}>
-            <View style={[styles.weekStripWrap, { borderTopColor: theme.border }]}>
-              <WeekStrip
-                habit={habit}
-                today={today}
-                kind={habit.kind}
-                lang={lang}
-                theme={theme}
-              />
-            </View>
+            {/* The week strip that sat here is GONE (2026-10-15): a row of past days is history,
+                and this row answers only "today". The rest-day control stays. */}
             <PressableScale
               style={[
                 styles.restDayBtn,
@@ -774,6 +736,7 @@ export default function HabitsSurface() {
               and drops the duplicate heading; it also stops being a Surface wrapping a
               Surface wrapping every habit card. Debug notes: anchor the whole section,
               not the inner habit cards/add row. */}
+            <CardTabs screen="habits">
             <DebugNoteAnchor id="habits.section" label="Habits">
             {/* No `borderColor` (card design reset, 2026-08-05): this card sits ON the Habits
                 screen, so it inherits that screen's one hue like every other card. It used to
@@ -1030,6 +993,7 @@ export default function HabitsSurface() {
             row, so there is one way in rather than two labels for one editor. */}
             </Card>
             </DebugNoteAnchor>
+            </CardTabs>
 
           {/* Ambient stage tree (2026-08-04, design comparison task 03) — the `full` stage,
               standing on the backdrop at the foot of the column where the content ends. It is
@@ -1222,6 +1186,15 @@ const baseStyles = StyleSheet.create({
 
   // Expanded content
   expanded: { marginTop: Spacing.sm, gap: Spacing.xs },
+  // The one "done today" signal (2026-10-15). 32 visual; `hitSlop` carries it to the target.
+  todayCheck: {
+    width: 32,
+    height: 32,
+    borderRadius: Radius.full,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   weekStripWrap: {
     marginTop: Spacing.sm,
     paddingTop: Spacing.sm,

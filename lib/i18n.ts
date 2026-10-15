@@ -263,6 +263,8 @@ const en = {
     /** Shown instead of a silently-full bar. Never "over budget" — it states, it does not scold. */
     budgetOver: (n: number) => `${n} past today's budget`,
     budgetAdjust: 'Adjust budget',
+    batteryLess: 'Less energy',
+    batteryMore: 'More energy',
     /** The V2 card's one control row: the everyday amount (no per-day switch since 2026-10-11). */
     fixedDaily: 'Every day',
     budgetUnits: (n: number) => `${n} units`,
@@ -602,6 +604,17 @@ const en = {
     done: 'Done editing',
     /** Budget card, everyday view, before a budget exists. */
     budgetUnset: 'No budget yet. Tap Adjust to set one.',
+  },
+  cardTabs: {
+    tablist: 'Lists on this screen',
+    options: (label: string) => `Options for ${label}`,
+    optionsTitle: (label: string) => `${label} · options`,
+    tabsSection: 'Tabs',
+    tabsHint: 'The order here is the order on the card. Switch one off to hide it — nothing is deleted.',
+    thisTab: 'This tab',
+    hideTab: 'Hide this tab',
+    lastTabHint: 'The last visible tab can’t be hidden.',
+    moreSettings: 'All settings',
   },
   manageCards: {
     title: 'Cards on this screen',
@@ -1507,6 +1520,7 @@ const en = {
     restingToday: 'Resting today',
     restDayHint: 'Resting today — its energy just sits still',
     weeklyProgress: (count: number, goal: number) => `${count}/${goal} this week`,
+    doneTodayToggle: (title: string) => `${title}: done today`,
   },
   // Goals — connect tasks & habits to a goal; managed only from the form pickers.
   goals: {
@@ -2577,6 +2591,8 @@ const no: typeof en = {
       `${used} av ${cap} brukt${back > 0 ? ` · +${back} gitt tilbake` : ''}`,
     budgetOver: (n: number) => `${n} over dagens budsjett`,
     budgetAdjust: 'Juster budsjett',
+    batteryLess: 'Mindre energi',
+    batteryMore: 'Mer energi',
     fixedDaily: 'Hver dag',
     budgetUnits: (n: number) => `${n} enheter`,
     editTitle: 'Juster energi',
@@ -2780,6 +2796,17 @@ const no: typeof en = {
     start: 'Rediger',
     done: 'Ferdig med å redigere',
     budgetUnset: 'Ikke noe budsjett ennå. Trykk Juster for å sette et.',
+  },
+  cardTabs: {
+    tablist: 'Lister på denne skjermen',
+    options: (label: string) => `Valg for ${label}`,
+    optionsTitle: (label: string) => `${label} · valg`,
+    tabsSection: 'Faner',
+    tabsHint: 'Rekkefølgen her er rekkefølgen på kortet. Slå av en fane for å skjule den — ingenting slettes.',
+    thisTab: 'Denne fanen',
+    hideTab: 'Skjul fanen',
+    lastTabHint: 'Den siste synlige fanen kan ikke skjules.',
+    moreSettings: 'Alle innstillinger',
   },
   manageCards: {
     title: 'Kort på denne skjermen',
@@ -3179,6 +3206,7 @@ const no: typeof en = {
     restingToday: 'Hviler i dag',
     restDayHint: 'Hviledag — energien for denne vanen står stille',
     weeklyProgress: (count: number, goal: number) => `${count}/${goal} denne uken`,
+    doneTodayToggle: (title: string) => `${title}: gjort i dag`,
   },
   goals: {
     pickerLabel: 'Mål',
@@ -4383,6 +4411,8 @@ const is: typeof en = {
       `${used} af ${cap} notað${back > 0 ? ` · +${back} skilað` : ''}`,
     budgetOver: (n: number) => `${n} yfir fjárhag dagsins`,
     budgetAdjust: 'Stilla fjárhag',
+    batteryLess: 'Minni orka',
+    batteryMore: 'Meiri orka',
     fixedDaily: 'Alla daga',
     budgetUnits: (n: number) => `${n} einingar`,
     editTitle: 'Stilla orku',
@@ -4588,6 +4618,17 @@ const is: typeof en = {
     start: 'Breyta',
     done: 'Búið að breyta',
     budgetUnset: 'Enginn fjárhagur enn. Ýttu á Stilla til að setja hann.',
+  },
+  cardTabs: {
+    tablist: 'Listar á þessum skjá',
+    options: (label: string) => `Valkostir fyrir ${label}`,
+    optionsTitle: (label: string) => `${label} · valkostir`,
+    tabsSection: 'Flipar',
+    tabsHint: 'Röðin hér er röðin á spjaldinu. Slökktu á flipa til að fela hann — engu er eytt.',
+    thisTab: 'Þessi flipi',
+    hideTab: 'Fela flipann',
+    lastTabHint: 'Ekki er hægt að fela síðasta sýnilega flipann.',
+    moreSettings: 'Allar stillingar',
   },
   manageCards: {
     title: 'Spjöld á þessum skjá',
@@ -4982,6 +5023,7 @@ const is: typeof en = {
     restingToday: 'Hvíli í dag',
     restDayHint: 'Hvíldardagur — orkan fyrir þessa venju stendur kyrr',
     weeklyProgress: (count: number, goal: number) => `${count}/${goal} þessa viku`,
+    doneTodayToggle: (title: string) => `${title}: gert í dag`,
   },
   goals: {
     pickerLabel: 'Markmið',

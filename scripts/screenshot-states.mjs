@@ -415,6 +415,16 @@ async function tab(page, name) {
  * languages.
  */
 async function openCard(page, title, expandLabel = 'Expand list') {
+  // Variant C (2026-10-15): most cards are TABS of one card per screen — select the tab when one
+  // is on screen (its name is the title, plus ", <count>"). Falls back to the fold chevron.
+  const esc = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const tabEl = page.getByRole('tab', { name: new RegExp(`^${esc}(, \\d+)?$`) }).filter({ visible: true }).first();
+  if (await tabEl.count()) {
+    await tabEl.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => {});
+    await tabEl.click({ timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(700);
+    return true;
+  }
   const toggle = page.getByRole('button', { name: `${title}: ${expandLabel}`, exact: true }).first();
   if (!(await toggle.isVisible().catch(() => false))) return false;
   await toggle.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => {});
@@ -965,6 +975,9 @@ async function main() {
 
       await excursion(page, 'notes-empty', async () => {
         await tab(page, 'Home');
+        // Notes is a TAB of Home's one card since 2026-10-15; its ⤢ is in that card's footer and
+        // carries the ACTIVE tab's name, so select Notes first or the click lands on nothing.
+        await openCard(page, 'Notes');
         await page.getByRole('button', { name: 'Notes: Expand card', exact: true }).first().click({ timeout: 10000 }).catch(() => {}); // ⤢, not the title — the title folds since 2026-10-11
         await page.waitForTimeout(1000);
         await shot(page, 'notes-empty', {
@@ -986,6 +999,8 @@ async function main() {
         // ⚠️ **Through Hjem's I dag ⤢ since 2026-10-11 (V2 re-order).** I dag left the To-do tab;
         // its full-screen pane is To-do's `todoToday` body, which still carries Earlier days.
         await tab(page, 'Home');
+        // Home's card remembers its last tab (2026-10-15) — select Today so the footer ⤢ is its.
+        await openCard(page, 'Today');
         await page.getByRole('button', { name: 'Today: Expand card', exact: true }).first().click({ timeout: 10000 }).catch(() => {});
         await page.waitForTimeout(1200);
         if (!(await openCard(page, 'Earlier days'))) {
@@ -1479,6 +1494,8 @@ async function main() {
       components: 'PlanTaskCard, HomeNotesCard, HomeShoppingCard, EnergyMeter, ManageCardsSheet',
     });
 
+    // Notes is a TAB of Home's one card since 2026-10-15 — select it so its type line exists.
+    await openCard(page, 'Notes');
     if (await typeInto(page, 'Type note', 'Ask about the bike lock')) {
       const noteCheck = page.getByRole('checkbox', { name: 'Ask about the bike lock', exact: true }).first();
       if (await noteCheck.count()) {

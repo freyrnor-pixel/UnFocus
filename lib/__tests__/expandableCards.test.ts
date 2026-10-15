@@ -195,7 +195,9 @@ describe('the expanded pane does not draw a second card header', () => {
     expect(code).toContain("useIsPaneBody");
     // The claim is single by construction: a card that takes the pane re-provides `null`, so
     // nothing deeper can strip its own header a second time.
-    expect(code).toMatch(/if \(isPaneBody\)/);
+    // `|| inTabs` since 2026-10-15: a tab of the screen's tabbed card is drawn the same body-only
+    // way (components/Card.tsx's `CardTabs`).
+    expect(code).toMatch(/if \(isPaneBody( \|\| inTabs)?\)/);
     expect(code).toMatch(/<PaneCardContext\.Provider value=\{null\}>/);
   });
 

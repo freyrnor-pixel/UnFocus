@@ -96,7 +96,9 @@ read it before claiming a visual change is done.
 - Native-surface change → bump `runtimeVersion`/`version` in the same/a following commit, merge,
   then trigger `eas-build-android.yml` (agent-triggerable, non-interactive, stored token) —
   **bump before triggering** for this path. The debug-gradle build, production AAB, and
-  TestFlight stay maintainer-only (real signing/store credentials).
+  TestFlight stay maintainer-only (real signing/store credentials). The production AAB has its
+  own `workflow_dispatch` since 2026-10-15 (`eas-build-android-production.yml` — builds only,
+  never submits); an agent runs it only when the maintainer asks for a Play build in so many words.
 - Native module versions stay pinned to the current Expo SDK's bundled set (`~X.Y.Z`, not
   `^X.Y.Z`) — upgrade the whole SDK together, not individual native packages.
 - **`npm audit`'s ~29 findings are known, dev-only, and NOT actionable here** (measured

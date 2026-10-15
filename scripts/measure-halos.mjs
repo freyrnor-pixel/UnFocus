@@ -112,7 +112,30 @@ async function openCards(page) {
       }
       return false;
     });
-    if (!found) return opened;
+    if (!found) {
+      // Variant C (2026-10-15): a screen's cards are TABS of one card. With every fold on this
+      // tab open, select ONE not-yet-visited tab and hand back to the caller, so its candidate
+      // scan runs on that tab's body before the next tab replaces it.
+      const tabbed = await page.evaluate(() => {
+        for (const el of document.querySelectorAll('[role="tab"]')) {
+          if (el.getAttribute('data-halo-visited')) continue;
+          const r = el.getBoundingClientRect();
+          if (r.width <= 0 || r.height <= 0) continue;
+          if (r.bottom <= 0 || r.top >= window.innerHeight || r.right <= 0 || r.left >= window.innerWidth) continue;
+          const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+          if (!hit || !(hit === el || el.contains(hit) || hit.contains(el))) continue;
+          el.setAttribute('data-halo-visited', '1');
+          el.setAttribute('data-halo-tab', '1');
+          return true;
+        }
+        return false;
+      });
+      if (!tabbed) return opened;
+      await page.locator('[data-halo-tab="1"]').first().click({ timeout: 5000 }).catch(() => {});
+      await page.evaluate(() => document.querySelector('[data-halo-tab="1"]')?.removeAttribute('data-halo-tab'));
+      await page.waitForTimeout(300);
+      return opened + 1;
+    }
     await page.locator('[data-halo-toggle="1"]').first().click({ timeout: 5000 }).catch(() => {});
     await page.evaluate(() => document.querySelector('[data-halo-toggle="1"]')?.removeAttribute('data-halo-toggle'));
     opened += 1;

@@ -300,6 +300,8 @@ const CENTRE_MODAL_ROUTES = [
   // 2026-09-01 — Goals left the two cards it was folded into and is reached from the goal
   // picker's own "Edit goals" row now. See app/goals-editor.tsx.
   'goals-editor',
+  // 2026-10-15 — the ⋮ page of a screen's tabbed card (components/Card.tsx's `CardTabs`).
+  'card-options',
 ] as const;
 
 const CENTRE_MODAL_OPTIONS = {
