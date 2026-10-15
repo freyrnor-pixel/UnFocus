@@ -31,11 +31,21 @@
  *             lib/cardRegistry, lib/cardPane, lib/useCollapsedCard, lib/useCardExpand,
  *             lib/screenColor, lib/useAppTheme, lib/cardHintContext (tells NarratorQuote a hint
  *             is showing)
+ *             + for `CardTabs`: components/IconButton, components/PressableScale, lib/useCardOrder,
+ *             lib/hiddenCards, lib/haptics, store/useSettingsStore, expo-router (⋮ → /card-options)
  *   Used by → every card on every tab; components/SectionCard.tsx (via `CardShell`, until it
- *             is retired)
+ *             is retired); `CardTabs` by app/(tabs)/index.tsx, app/(tabs)/shopping.tsx,
+ *             components/TodoSurface.tsx, components/HabitsSurface.tsx,
+ *             components/HealthSurface.tsx; `TAB_EXCLUDE` by app/card-options.tsx
  *   Data    → settings.collapsedCards, for cards whose registry entry folds
  *
  * Edit notes:
+ *   - ⚠️ **One tabbed card per screen (Variant C, maintainer 2026-10-15).** Each screen wraps its
+ *     `cardOrder.map(...)` in `CardTabs`; a `Card` that finds `CardTabsContext` naming its id draws
+ *     its BODY only while it is the active tab and nothing otherwise (the pane's body-only shape),
+ *     and reports that it is mounted plus its count so the tab row lists only real cards. Nothing
+ *     folds inside the tabbed card; the header's ⌄/⤢ became the card FOOTER's ⋮ (options page)
+ *     and ⤢. Cards outside it (`TAB_EXCLUDE`, Home's Energy) keep the full header described below.
  *   - ⚠️ **The ⤢ is back in a card header (2026-08-26), reversing 2026-08-22** ("Remove all full
  *     screen buttons, instead user just presses the title") **on the maintainer's explicit
  *     instruction, who has seen and accepted its measured cost**: across five screens × three
@@ -88,16 +98,23 @@
  *     component can be reimplemented on this one with no visual change before it dies. It is not
  *     a public escape hatch: a new surface takes `Card` and an entry in the registry.
  */
-import React from 'react';
-import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ScrollView, StyleProp, StyleSheet, Text, useWindowDimensions, View, ViewStyle } from 'react-native';
+import { useRouter } from 'expo-router';
+import IconButton from '@/components/IconButton';
+import PressableScale from '@/components/PressableScale';
 import Surface from '@/components/Surface';
 import SectionRail from '@/components/SectionRail';
 import Collapsible from '@/components/Collapsible';
 import CardCollapseToggle from '@/components/CardCollapseToggle';
 import CardExpandButton from '@/components/CardExpandButton';
-import { MIN_TAP_TARGET, Radius, Spacing } from '@/constants/theme';
+import { Fonts, MIN_TAP_TARGET, Radius, Spacing, Type } from '@/constants/theme';
 import type { Domain } from '@/lib/domainColor';
-import { CardKey, cardSpec } from '@/lib/cardRegistry';
+import { CardKey, CardScreen, cardSpec } from '@/lib/cardRegistry';
+import { isHidden } from '@/lib/hiddenCards';
+import { useOrderedCards } from '@/lib/useCardOrder';
+import { useSettingsStore } from '@/store/useSettingsStore';
+import { selection } from '@/lib/haptics';
 import type { CardId } from '@/lib/collapsedCards';
 import type { ExpandableCardId } from '@/lib/expandableCards';
 import { getScreenColor } from '@/lib/screenColor';
@@ -144,10 +161,32 @@ type CardProps = {
   children: React.ReactNode;
 };
 
+/**
+ * The screen's tabbed card (Variant C, 2026-10-15) — see `CardTabs` below. A `Card` whose id is
+ * in `ids` draws nothing of its own: the active one draws its BODY into the tab container (the
+ * same body-only shape a full-screen pane gets), the rest draw nothing. Every one of them still
+ * reports that it is mounted, and its count, so the tab row only offers cards that exist.
+ */
+type CardTabsCtx = {
+  ids: readonly CardKey[];
+  active: CardKey | null;
+  report: (id: CardKey, info: { count?: number } | null) => void;
+};
+const CardTabsContext = React.createContext<CardTabsCtx | null>(null);
+
 export default function Card({ id, count, peek, hint, countRef, embedded, contentStyle, children }: CardProps) {
   const t = useT();
   const theme = useAppTheme();
   const spec = cardSpec(id);
+  const tabs = React.useContext(CardTabsContext);
+  const inTabs = !!tabs && tabs.ids.includes(id);
+  const tally = typeof count === 'number' ? count : count?.left;
+  const report = tabs?.report;
+  useEffect(() => {
+    if (!inTabs || !report) return;
+    report(id, { count: tally });
+    return () => report(id, null);
+  }, [inTabs, report, id, tally]);
   // Both hooks run unconditionally, unlike SectionCard's split-by-component dance. That split
   // existed because a per-day section would otherwise subscribe to the settings store; a Card is
   // a singleton by definition (a section drawn one-per-row of user data is not a Card at all),
@@ -177,7 +216,10 @@ export default function Card({ id, count, peek, hint, countRef, embedded, conten
   // a pane has already drawn it. The provider is re-set to `null` so nothing deeper can claim
   // the pane a second time. `hint` survives (it is what the card is FOR, and the pane has no
   // other place to say it); the fold and the ⤢ do not, since neither can act on a pane.
-  if (isPaneBody) {
+  // A tab inside the screen's tabbed card: the active one is its body, the rest are nothing.
+  // Checked AFTER the pane, which is a separate tree and never carries this context anyway.
+  if (inTabs && !isPaneBody && tabs!.active !== id) return null;
+  if (isPaneBody || inTabs) {
     return (
       <PaneCardContext.Provider value={null}>
         <CardHintContext.Provider value={!!hint}>
@@ -232,6 +274,193 @@ export default function Card({ id, count, peek, hint, countRef, embedded, conten
   return (
     <View ref={expand.ref} collapsable={false}>
       {shell}
+    </View>
+  );
+}
+
+/**
+ * Cards on a screen that stay ordinary cards OUTSIDE its tabbed card. Read by the screen that
+ * mounts `CardTabs` and by app/card-options.tsx, so the ⋮ page never lists a non-tab as a tab.
+ */
+export const TAB_EXCLUDE: Partial<Record<CardScreen, readonly CardKey[]>> = { home: ['homeEnergy'] };
+
+/** The tab each screen last showed, for the life of the process — survives a tab-screen remount. */
+const lastTab = new Map<CardScreen, CardKey>();
+/** Height outside a tab's body: tab row + footer + the card's insets + the floating nav. */
+const TAB_CHROME = 260;
+
+/**
+ * One card per screen, with a tab per registry card (Variant C, maintainer 2026-10-15).
+ *
+ * Wraps the screen's existing `cardOrder.map(...)` — nothing inside changes. Each `<Card>` in
+ * there finds this context, reports itself, and draws only its body while it is the active tab.
+ * So the tab list is: the screen's cards in the user's order (settings.cardOrder), minus hidden
+ * ones (settings.hiddenCards), minus `exclude`, minus any that are not mounted right now (a card
+ * gated on a feature flag or on having data simply never reports).
+ *
+ * Nothing folds in here. The footer carries the active tab's name, ⋮ (its own options page,
+ * app/card-options.tsx) and ⤢ when the card has a full-screen pane.
+ *
+ * Connections: reads lib/useCardOrder, lib/hiddenCards, settings.hiddenCards; ⋮ pushes
+ * /card-options; ⤢ is `CardExpandButton` over `useCardExpand(active)`.
+ * Used by: app/(tabs)/index.tsx, app/(tabs)/shopping.tsx, components/TodoSurface.tsx,
+ * components/HabitsSurface.tsx, components/HealthSurface.tsx.
+ */
+export function CardTabs({
+  screen,
+  exclude,
+  disabled,
+  children,
+}: {
+  screen: CardScreen;
+  /** Cards on this screen that stay ordinary cards outside the tabbed one (Home's Energy). */
+  exclude?: readonly CardKey[];
+  /** Render children untouched — for the same surface mounted inside a full-screen pane. */
+  disabled?: boolean;
+  children: React.ReactNode;
+}) {
+  // Inside a full-screen pane the surface is drawing one card's body already — no tabs there.
+  const inPane = React.useContext(PaneCardContext) !== null;
+  if (disabled || inPane) return <>{children}</>;
+  return <CardTabsInner screen={screen} exclude={exclude}>{children}</CardTabsInner>;
+}
+
+function CardTabsInner({
+  screen,
+  exclude,
+  children,
+}: {
+  screen: CardScreen;
+  exclude?: readonly CardKey[];
+  children: React.ReactNode;
+}) {
+  const t = useT();
+  const theme = useAppTheme();
+  const router = useRouter();
+  const { height } = useWindowDimensions();
+  const ordered = useOrderedCards(screen);
+  const hiddenCards = useSettingsStore((s) => s.hiddenCards);
+  const [reports, setReports] = useState<Partial<Record<CardKey, { count?: number }>>>({});
+  const [chosen, setChosen] = useState<CardKey | null>(() => lastTab.get(screen) ?? null);
+  // Where this card starts on screen (Home has the Energy card above it), so the body's minimum
+  // height leaves the footer on screen rather than one card-height below it. 96 ≈ under the header.
+  const [topY, setTopY] = useState(96);
+
+  const report = useCallback((id: CardKey, info: { count?: number } | null) => {
+    setReports((prev) => {
+      const cur = prev[id];
+      if (info === null) {
+        if (!cur) return prev;
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      }
+      if (cur && cur.count === info.count) return prev;
+      return { ...prev, [id]: info };
+    });
+  }, []);
+
+  const ids = useMemo(
+    () => ordered.filter((id) => !exclude?.includes(id) && !isHidden(hiddenCards, id)),
+    [ordered, exclude, hiddenCards],
+  );
+  const present = ids.filter((id) => reports[id]);
+  // Before the first reports land, the first candidate renders so the first frame is not empty.
+  const active: CardKey | null =
+    chosen && present.includes(chosen) ? chosen : present[0] ?? (chosen && ids.includes(chosen) ? chosen : ids[0] ?? null);
+
+  const ctx = useMemo(() => ({ ids, active, report }), [ids, active, report]);
+  const expandable = !!active && cardSpec(active).expand === 'surface';
+  const expand = useCardExpand((active ?? ids[0] ?? 'homeToday') as ExpandableCardId);
+  const hue = active ? getScreenColor(theme, cardSpec(active).hue).base : theme.accent;
+  const activeLabel = active ? cardSpec(active).title(t) : '';
+
+  const pick = (id: CardKey) => {
+    selection();
+    lastTab.set(screen, id);
+    setChosen(id);
+  };
+
+  return (
+    <View
+      ref={expand.ref}
+      collapsable={false}
+      onLayout={() => {
+        // Window position, not `layout.y`: the parent is often a wrapper (a TourTarget) whose
+        // own y is what moves. Measured at mount, when the screen is not scrolled.
+        expand.ref.current?.measureInWindow((_x, y) => {
+          const top = Math.round(y);
+          if (top > 0 && Math.abs(top - topY) > 4) setTopY(top);
+        });
+      }}
+    >
+      <Surface style={styles.tabsCard}>
+        {present.length > 1 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.tabScroll}
+            contentContainerStyle={styles.tabRow}
+            accessibilityRole="tablist"
+            accessibilityLabel={t.cardTabs.tablist}
+          >
+            {present.map((id) => {
+              const on = id === active;
+              const n = reports[id]?.count;
+              const label = cardSpec(id).title(t);
+              return (
+                <PressableScale
+                  key={id}
+                  onPress={() => pick(id)}
+                  scaleTo={0.96}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: on }}
+                  accessibilityLabel={n ? `${label}, ${n}` : label}
+                  style={[
+                    styles.tab,
+                    { borderColor: on ? hue : theme.border, backgroundColor: on ? hue : 'transparent' },
+                  ]}
+                >
+                  <Text style={[styles.tabText, { color: on ? theme.textInverse : theme.text }]} numberOfLines={1}>
+                    {label}
+                  </Text>
+                  {n ? (
+                    <Text style={[styles.tabCount, { color: on ? theme.textInverse : theme.textMuted }]}>{n}</Text>
+                  ) : null}
+                </PressableScale>
+              );
+            })}
+          </ScrollView>
+        )}
+
+        <CardTabsContext.Provider value={ctx}>
+          {/* The body, not the card, takes the minimum height — so the footer sits at the card's
+              foot on a short list instead of straight under the last row. Roughly the window
+              minus header, nav, tab row and footer; a long list simply grows past it. */}
+          <View style={[styles.tabBody, { minHeight: Math.max(200, height - topY - TAB_CHROME) }]}>{children}</View>
+        </CardTabsContext.Provider>
+
+        {active && (
+          <View style={[styles.tabFoot, { borderTopColor: theme.border }]}>
+            <Text style={[styles.tabFootLabel, { color: theme.textMuted }]} numberOfLines={1}>
+              {activeLabel}
+            </Text>
+            <IconButton
+              icon="ellipsis-vertical"
+              label={t.cardTabs.options(activeLabel)}
+              onPress={() => router.push({ pathname: '/card-options', params: { screen, card: active } })}
+            />
+            {expandable && (
+              <CardExpandButton
+                expanded={expand.expanded}
+                onExpand={expand.onExpand}
+                onCollapse={expand.onCollapse}
+                cardLabel={activeLabel}
+              />
+            )}
+          </View>
+        )}
+      </Surface>
     </View>
   );
 }
@@ -448,4 +677,35 @@ const styles = StyleSheet.create({
   // `embedded`: the OUTER card already inset this content from the screen edge, and a second
   // horizontal inset is the "three stacked paddings" shape the wrap audit keeps finding.
   cardEmbedded: { paddingHorizontal: 0 },
+  // ── CardTabs ──
+  tabsCard: {
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.xs,
+    gap: Spacing.sm,
+  },
+  // `flexGrow: 0` — inside the card's column a horizontal ScrollView otherwise takes the spare
+  // height and the pills stretch to fill it.
+  tabScroll: { flexGrow: 0, flexShrink: 0 },
+  tabRow: { gap: Spacing.sm, paddingRight: Spacing.md, alignItems: 'center' },
+  tab: {
+    minHeight: MIN_TAP_TARGET,
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  tabText: { fontFamily: Type.label.fontFamily, fontSize: Type.bodyStrong.size },
+  tabCount: { fontFamily: Fonts.semibold, fontSize: Type.caption.size, fontVariant: ['tabular-nums'] },
+  tabBody: { flex: 1, gap: Spacing.sm },
+  tabFoot: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    minHeight: MIN_TAP_TARGET,
+  },
+  tabFootLabel: { flex: 1, fontFamily: Type.caption.fontFamily, fontSize: Type.label.size },
 });

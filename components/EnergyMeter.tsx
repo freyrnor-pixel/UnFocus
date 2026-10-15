@@ -249,12 +249,13 @@ import { SegmentedControl } from '@/components/FormControls';
 import EnergyConfigPanel from '@/components/EnergyConfigPanel';
 import Collapsible from '@/components/Collapsible';
 import EnergyPauseSheet from '@/components/EnergyPauseSheet';
-import { Fonts, FontSize, MIN_TAP_TARGET, Radius, RowTrailing, Spacing, getGlow, rgba } from '@/constants/theme';
+import { Fonts, FontSize, IconSize, MIN_TAP_TARGET, Radius, RowTrailing, Spacing, getGlow, rgba } from '@/constants/theme';
+import IconButton from '@/components/IconButton';
 import { useAccessibility, useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { countRender, countLayout } from '@/lib/perfTrace';
 import { useT } from '@/lib/i18n';
 import { dayOfWeekMon0, todayStr } from '@/lib/date';
-import { energyDeltaForDay, energyDeltaForWeek, energySplitForDay, energySplitForWeek, energyBudgetBar, MAX_PIPS } from '@/lib/energy';
+import { energyDeltaForDay, energyDeltaForWeek, energySplitForDay, energySplitForWeek, energyBudgetBar } from '@/lib/energy';
 import { useEnergyPause } from '@/lib/useEnergyPause';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useTaskStore } from '@/store/useTaskStore';
@@ -274,9 +275,9 @@ const EDIT_ICON_SIZE = 16;
  *  file header's "Two layouts, and the width math behind them" note before changing either;
  *  ten pips have to share one line with the value and the edit glyph now. */
 const PIP_GAP = 4;
+/** Upper bound the battery's + will take a day's own capacity to (a week's is 7×). */
+const BATTERY_MAX = 30;
 /** The flash glyph inside a pip — ~60% of the badge, same proportion the 24px pip used. */
-/** v2's bar glyph and its legend key. The bar reads at a glance; the legend is a footnote. */
-const BAR_ICON_SIZE = 17;
 
 /** One-shot ~1.5s glow behind a meter row — see the file header's "Depleted/recovered pulse"
  *  note. Local to this file (not GlowPulse) because it needs a timed fade in→hold→out
@@ -646,25 +647,58 @@ export default function EnergyMeter() {
     //   The glow is a `textShadow`, not a shadow view: an Ionicon IS a `Text` glyph, so the halo
     // follows the bolt's own outline rather than a box around it. That is what `drop-shadow`
     // does in the mockup and a `shadowRadius` on a wrapping View would not.
-    const glyph = (name: 'flash' | 'flash-outline', color: string, key: string, lit = false) => (
-      <Ionicons
+    // ── The battery (Variant C, 2026-10-15) ──────────────────────────────────────────────
+    // The bolt row became a battery: one cell per unit of the scaled bar, drained from the right
+    // (filled = left, empty = spent, green = given back), the number left beside it, and −/+ on
+    // either side that change how much energy THIS period has (today's own capacity row, or the
+    // week's). −/+ rather than tapping a cell: two 48px targets are easier to hit than ten thin
+    // cells, and a cell tap would have to guess between capacity and spent.
+    const step = (dir: -1 | 1) => {
+      if (rowKey === 'day') {
+        const next = Math.max(0, Math.min(BATTERY_MAX, dayBaseCapacity + dir));
+        if (next !== dayBaseCapacity) setDayCapacity(today, next);
+      } else {
+        const next = Math.max(0, Math.min(BATTERY_MAX * 7, weekCapacity + dir));
+        if (next !== weekCapacity) setWeekCapacity(today, next);
+      }
+    };
+    const base = rowKey === 'day' ? dayBaseCapacity : weekCapacity;
+    const cell = (color: string | null, key: string) => (
+      <View
         key={key}
-        name={name}
-        size={BAR_ICON_SIZE}
-        color={color}
-        style={lit ? { textShadowColor: rgba(color, 0.55), textShadowRadius: 7, textShadowOffset: { width: 0, height: 0 } } : undefined}
+        style={[styles.batteryCell, { backgroundColor: color ?? emptyGlyph }]}
       />
     );
     const pips = (
-      <View
-        style={styles.pipRow}
-        accessibilityLabel={t.energyMeter.budgetPeek(used, pipCount, gain)}
-      >
-        {/* Blue = still there, empty = spent, green = extra (2026-10-12). Filled run first, so
-            the bar drains from the right like a battery. */}
-        {Array.from({ length: left }).map((_, i) => glyph('flash', leftHue, `l${i}`, true))}
-        {Array.from({ length: used }).map((_, i) => glyph('flash-outline', emptyGlyph, `u${i}`))}
-        {Array.from({ length: gain }).map((_, i) => glyph('flash', extraHue, `g${i}`, true))}
+      <View style={styles.battery}>
+        <IconButton
+          icon="remove"
+          label={t.energyMeter.batteryLess}
+          size={IconSize.action}
+          disabled={base <= 0}
+          onPress={() => step(-1)}
+        />
+        <View
+          style={[styles.batteryBody, { borderColor: rgba(theme.text, 0.28) }]}
+          accessible
+          accessibilityRole="image"
+          accessibilityLabel={t.energyMeter.budgetPeek(used, pipCount, gain)}
+        >
+          {Array.from({ length: left }).map((_, i) => cell(leftHue, `l${i}`))}
+          {Array.from({ length: used }).map((_, i) => cell(null, `u${i}`))}
+          {Array.from({ length: gain }).map((_, i) => cell(extraHue, `g${i}`))}
+          <View style={[styles.batteryNub, { backgroundColor: rgba(theme.text, 0.28) }]} />
+        </View>
+        <Text style={[styles.batteryValue, { color: leftHue }]} accessibilityElementsHidden importantForAccessibility="no">
+          {Math.max(0, current)}
+        </Text>
+        <IconButton
+          icon="add"
+          label={t.energyMeter.batteryMore}
+          size={IconSize.action}
+          disabled={rowKey === 'day' ? base >= BATTERY_MAX : base >= BATTERY_MAX * 7}
+          onPress={() => step(1)}
+        />
       </View>
     );
     // The legend is the only thing that says which way the glyphs read, so all three words stay
@@ -786,19 +820,9 @@ export default function EnergyMeter() {
               style={styles.scopeSegment}
             />
           )}
-          {showTutorial ? (
-            <View
-              style={styles.tutorialPips}
-              accessibilityElementsHidden
-              importantForAccessibility="no-hide-descendants"
-            >
-              {/* Nothing used yet, so every bolt is LEFT — filled blue, the bar's own `left` run
-                  (2026-10-12: blue = filled, empty = used). */}
-              {Array.from({ length: MAX_PIPS }, (_, i) => (
-                <Ionicons key={i} name="flash" size={BAR_ICON_SIZE} color={leftHue} />
-              ))}
-            </View>
-          ) : scope === 'day' ? (
+          {/* The tutorial state draws the same battery, full (2026-10-15) — a fresh install
+              sees the control it will use, and −/+ there is a deliberate first setting. */}
+          {showTutorial || scope === 'day' ? (
             row('day', t.energyMeter.today, dayCurrent, dayCapacity, daySplit, dayPulse, null,
               dayBoost > 0 ? <Badge label={t.energyMeter.boostChip(dayBoost)} /> : null, false)
           ) : (
@@ -935,6 +959,21 @@ const styles = StyleSheet.create({
   // the 2026-07-28 bug this guards against. Folded in unconditionally on 2026-08-03: the pips
   // now share a line with the value in every mode, so there is no longer a variant where they
   // don't need it (this was `pipRowInline`, applied only to the single-meter case).
+  battery: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, flex: 1, minWidth: 0 },
+  batteryBody: {
+    flex: 1,
+    minWidth: 0,
+    height: MIN_TAP_TARGET - Spacing.sm,
+    flexDirection: 'row',
+    gap: 3,
+    padding: 4,
+    borderWidth: 2,
+    borderRadius: Radius.sm,
+    marginRight: Spacing.xs,
+  },
+  batteryCell: { flex: 1, borderRadius: 4 },
+  batteryNub: { position: 'absolute', right: -6, top: 11, width: 4, height: 14, borderTopRightRadius: 3, borderBottomRightRadius: 3 },
+  batteryValue: { fontFamily: Fonts.extrabold, fontSize: FontSize.xxl, minWidth: 34, textAlign: 'center', fontVariant: ['tabular-nums'] },
   pipRow: { flexDirection: 'row', alignItems: 'center', gap: PIP_GAP, flex: 1, minWidth: 0, overflow: 'hidden' },
   // ⚠️ **`pipBadge`, `pipEmpty` and `pipSurplus` are DELETED (2026-09-07), with the
   // `react-native-svg` import that fed them.** They drew the glossy energy TOKEN — a radial

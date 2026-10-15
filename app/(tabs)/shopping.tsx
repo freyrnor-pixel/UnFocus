@@ -561,7 +561,7 @@ import IconButton from '@/components/IconButton';
 import NarratorQuote from '@/components/NarratorQuote';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import TourTarget from '@/components/TourTarget';
-import Card from '@/components/Card';
+import Card, { CardTabs } from '@/components/Card';
 import SectionCard from '@/components/SectionCard';
 import PadRow from '@/components/PadRow';
 import SectionRail from '@/components/SectionRail';
@@ -2307,7 +2307,6 @@ export default function ShoppingScreen() {
     //
     // This is the one Shop card that RESTS OPEN: the "Shopping" in the maintainer's *"All card
     // start in closed state, except 'Today' 'Notes' and 'Shopping'"*.
-    <TourTarget id="tour.shopping.list">
     <Card
       id="shopLists"
       count={nonTemplateLists.length || undefined}
@@ -2723,7 +2722,6 @@ export default function ShoppingScreen() {
       )}
 
     </Card>
-    </TourTarget>
   );
 
   // ⚠️ **ONE card, two tabs, as of 2026-09-07.** `dishesCard` and `catalogueCard` were two
@@ -2932,7 +2930,13 @@ export default function ShoppingScreen() {
                 ⚠️ **The user can still reorder from 2026-09-01** — `useOrderedCards` layers
               settings.cardOrder over the registry's declared order, so this is only the default
               anyone who never opens the Manage cards sheet gets. */}
-          {cardOrder.map((id) => (cardNodes[id] ? <React.Fragment key={id}>{cardNodes[id]}</React.Fragment> : null))}
+          {/* The tour's Shop stop wraps the WHOLE tabbed card (2026-10-15): it wrapped the
+              `shopLists` card, which draws nothing while another tab is active. */}
+          <TourTarget id="tour.shopping.list">
+            <CardTabs screen="shop">
+              {cardOrder.map((id) => (cardNodes[id] ? <React.Fragment key={id}>{cardNodes[id]}</React.Fragment> : null))}
+            </CardTabs>
+          </TourTarget>
 
         </DebugNoteAnchor>
       </EditModeContext.Provider>

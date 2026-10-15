@@ -1,0 +1,94 @@
+name: EAS Build Android (Production AAB)
+
+# The Google Play build: an Android App Bundle on the `production` profile (eas.json), channel
+# `production`. workflow_dispatch only — a store build is a decision, never a side effect of a
+# merge. It BUILDS; it does not submit. Upload the .aab in Play Console (or run
+# `eas submit --platform android --profile production` from a machine holding the Play service
+# account key — `google-play-service-account.json` is deliberately not in this repo).
+#
+# Signing: EAS-managed Android credentials, the same keystore the preview APK builds use. If the
+# project has no keystore on EAS yet, `--non-interactive` fails fast with a credentials error
+# rather than generating one silently; set it up once with `eas credentials` and re-run.
+#
+# versionCode comes from EAS (`appVersionSource: remote` + `autoIncrement` on the profile), so
+# each run gets a fresh one. versionName is app.json's `version`. Bump `version` and
+# `runtimeVersion` together BEFORE running this (lib/__tests__/buildInfo.test.ts pins them equal).
+# After a Play install exists, `promote-production.yml` is how OTA updates reach it.
+
+on:
+  workflow_dispatch:
+    inputs:
+      message:
+        description: Build message
+        required: false
+        type: string
+
+jobs:
+  build:
+    name: EAS Build (production profile, AAB)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate app.json (runtimeVersion / slug guardrail)
+        run: node .github/scripts/check-app-config.js
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Run EAS Build
+        id: eas_build
+        run: |
+          eas build --platform android --profile production --non-interactive --wait --message "${{ inputs.message || 'Production AAB' }}" --json > build-result.json
+          cat build-result.json
+          # Same defensive parsing as eas-build-android.yml: a renamed field costs a missing link,
+          # never a red run for a build that finished. Pass/fail is the build's own `status`.
+          node -e '
+            const b = (require("./build-result.json") || [])[0] || {};
+            const app = b.app || b.project || {};
+            const owner = (app.ownerAccount || {}).name || "";
+            const slug = app.slug || "";
+            const page = owner && slug && b.id
+              ? "https://expo.dev/accounts/" + owner + "/projects/" + slug + "/builds/" + b.id
+              : "";
+            const out = [
+              "build_url=" + page,
+              "aab_url=" + ((b.artifacts || {}).buildUrl || ""),
+              "build_status=" + (b.status || "UNKNOWN"),
+              "version_code=" + (b.appBuildVersion || ""),
+            ].join("\n") + "\n";
+            require("fs").appendFileSync(process.env.GITHUB_OUTPUT, out);
+          ' || echo "build_status=UNPARSEABLE" >> "$GITHUB_OUTPUT"
+
+          STATUS=$(grep '^build_status=' "$GITHUB_OUTPUT" | tail -1 | cut -d= -f2)
+          echo "EAS reported build status: $STATUS"
+          if [ "$STATUS" != "FINISHED" ]; then
+            echo "::error::EAS build did not finish successfully (status: $STATUS)"
+            exit 1
+          fi
+
+      - name: Create build summary
+        if: always()
+        run: |
+          echo "## EAS Android Build (production AAB)" >> $GITHUB_STEP_SUMMARY
+          echo "Build message: ${{ inputs.message || 'Production AAB' }}" >> $GITHUB_STEP_SUMMARY
+          echo "Version: $(node -p "require('./app.json').expo.version") (runtimeVersion: $(node -p "require('./app.json').expo.runtimeVersion"), versionCode: ${{ steps.eas_build.outputs.version_code }})" >> $GITHUB_STEP_SUMMARY
+          echo "EAS build status: ${{ steps.eas_build.outputs.build_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "Build page: ${{ steps.eas_build.outputs.build_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "AAB download: ${{ steps.eas_build.outputs.aab_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "Upload the .aab in Play Console → your app → Testing or Production → Create new release." >> $GITHUB_STEP_SUMMARY

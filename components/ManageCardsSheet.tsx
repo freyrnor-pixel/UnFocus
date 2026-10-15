@@ -40,7 +40,8 @@
  *             lib/haptics, lib/i18n, lib/useAppTheme, lib/useCardOrder, lib/useDragReorder,
  *             lib/useHiddenCard
  *   Used by → app/(tabs)/index.tsx, shopping.tsx, plans.tsx, habits.tsx, health.tsx — all five
- *             screens as of 2026-09-01
+ *             screens as of 2026-09-01; `CardOrderList` also by app/card-options.tsx (the tabbed
+ *             card's ⋮ page, 2026-10-15)
  *   Data    → settings.hiddenCards via lib/useHiddenCard.ts and settings.cardOrder via
  *             lib/useCardOrder.ts. Writes nothing else — neither hiding nor moving a card
  *             changes what the app DOES with its rows: reminders still fire, counts still
@@ -159,19 +160,62 @@ function CardRow({
   );
 }
 
+/**
+ * The reorder + show/hide rows on their own — the sheet below and app/card-options.tsx (the
+ * tabbed card's ⋮ page, 2026-10-15) both draw exactly this, so there is one list, not two.
+ */
+export function CardOrderList({ screen, exclude }: { screen: CardScreen; exclude?: readonly CardKey[] }) {
+  // The same list the screen itself draws — `useOrderedCards` under both, so the sheet cannot
+  // reorder one order while the screen reads another. Hidden cards are IN it and keep their
+  // position, which is what puts a restored card back where it was.
+  const { ids: allIds, setOrder } = useCardOrder(screen);
+  // `exclude` (the tabbed card's ⋮ page): cards that are not tabs (Home's Energy) are left out
+  // of the list AND keep their slot in the stored order — a write puts the shown cards back
+  // into the positions they came from, around the excluded ones.
+  const ids = React.useMemo(() => allIds.filter((id) => !exclude?.includes(id)), [allIds, exclude]);
+  const write = React.useCallback(
+    (next: CardKey[]) => {
+      const queue = [...next];
+      setOrder(allIds.map((id) => (exclude?.includes(id) ? id : queue.shift() ?? id)));
+    },
+    [allIds, exclude, setOrder],
+  );
+  const move = React.useCallback(
+    (id: CardKey, direction: -1 | 1) => {
+      const i = ids.indexOf(id);
+      const j = i + direction;
+      if (i < 0 || j < 0 || j >= ids.length) return;
+      const next = [...ids];
+      [next[i], next[j]] = [next[j], next[i]];
+      write(next);
+    },
+    [ids, write],
+  );
+  // Render in `drag.order`, never in `ids` — that is what moves under the finger. It falls back
+  // to `ids` whenever no drag is running, so the arrows and the drag write the same list.
+  const drag = useDragReorder(ids, (next) => write(next as CardKey[]));
+  return (
+    <>
+      {drag.order.map((id, index) => (
+        <CardRow
+          key={id}
+          id={id as CardKey}
+          rowProps={drag.rowProps(id)}
+          isFirst={index === 0}
+          isLast={index === drag.order.length - 1}
+          onMove={move}
+        />
+      ))}
+    </>
+  );
+}
+
 export default function ManageCardsSheet({ visible, screen, onClose }: Props) {
   const theme = useAppTheme();
   const isDark = useIsDark();
   const styles = useScaledStyles(baseStyles);
   const t = useT();
 
-  // The same list the screen itself draws — `useOrderedCards` under both, so the sheet cannot
-  // reorder one order while the screen reads another. Hidden cards are IN it and keep their
-  // position, which is what puts a restored card back where it was.
-  const { ids, move, setOrder } = useCardOrder(screen);
-  // Render in `drag.order`, never in `ids` — that is what moves under the finger. It falls back
-  // to `ids` whenever no drag is running, so the arrows and the drag write the same list.
-  const drag = useDragReorder(ids, (next) => setOrder(next as CardKey[]));
 
   return (
     <AnimatedBottomSheet visible={visible} onClose={onClose}>
@@ -183,16 +227,7 @@ export default function ManageCardsSheet({ visible, screen, onClose }: Props) {
         <Text style={[styles.hint, { color: theme.textMuted }]}>{t.manageCards.hint}</Text>
         <Text style={[styles.hint, { color: theme.textMuted }]}>{t.manageCards.reorderHint}</Text>
 
-        {drag.order.map((id, index) => (
-          <CardRow
-            key={id}
-            id={id as CardKey}
-            rowProps={drag.rowProps(id)}
-            isFirst={index === 0}
-            isLast={index === drag.order.length - 1}
-            onMove={move}
-          />
-        ))}
+        <CardOrderList screen={screen} />
 
         <PressableScale
           style={[styles.doneBtn, glassKey(theme.accent, isDark)]}

@@ -308,61 +308,24 @@ describe('EnergyMeter — the strip names itself, and is set from a pop-up', () 
     // ⚠️ **One registry card since 2026-10-11 (V2)** — `<Card id="homeEnergy">` — so the empty
     // state is a different PEEK and an all-empty bar inside the same card, not a branch of its
     // own. The rule is unchanged: before anything can spend energy, the bar is outlines only.
-    const emptyBranch = src.slice(src.indexOf('{showTutorial ? ('), src.indexOf(") : scope === 'day' ? ("));
+    // ⚠️ **The battery (Variant C, 2026-10-15).** The tutorial state no longer has a placeholder
+    // row of its own: it draws the SAME battery as the live day (`row('day', …)`), and with
+    // nothing spent yet that battery is every cell in the `left` run — full, no used cell. One
+    // shape for both states means there is no second recipe to drift, which is what every
+    // earlier version of this assertion was chasing.
     expect(src).toMatch(/<Card\s+id="homeEnergy"/);
-    expect(emptyBranch.length).toBeGreaterThan(0);
-    // The BAR in this state is outline glyphs only. A filled pip here would be energy spent
-    // with nothing able to spend it — the exact thing this test has always been about. Scoped to
-    // the pip row on purpose: the LEGEND beneath it draws a filled bolt as its `brukt` swatch
-    // and a green one for `gitt tilbake`, which is a key to the bar, not a reading of it.
-    // `tutorialPips` since 2026-09-08 — see the note where the card renders it: `pipRow` is a
-    // flex child of the bar's LINE and collapses to nothing as a column child.
-    // ⚠️ **Inverted 2026-10-12** (maintainer: *"Blå betyr fylt, grønn betyr ekstra, tomt betyr
-    // brukt"*). An OUTLINE bolt now means USED, so the rule in the new reading is: no outline in
-    // this state — nothing can have used a bolt yet. Every bolt is the bar's filled `left` run.
-    const pipRow = emptyBranch.slice(emptyBranch.indexOf('styles.tutorialPips'));
-    expect(pipRow).toMatch(/name="flash"/);
-    expect(pipRow).not.toMatch(/name="flash-outline"/);
+    expect(src).toMatch(/\{showTutorial \|\| scope === 'day' \? \(/);
+    expect(src).not.toMatch(/styles\.tutorialPips/);
+    // Filled = left, empty = used, green = given back — the 2026-10-12 reading, now as cells.
+    expect(src).toMatch(/length: left \}\)\.map\(\(_, i\) => cell\(leftHue,/);
+    expect(src).toMatch(/length: used \}\)\.map\(\(_, i\) => cell\(null,/);
+    expect(src).toMatch(/length: gain \}\)\.map\(\(_, i\) => cell\(extraHue,/);
     // The way in is the card's one control row (the day's amount + "Fast hver dag"), the same
     // row the live card draws — not a second control shape for the empty state.
     expect(src).not.toMatch(/<StarterCard/);
     // Scoped to the JSX rather than the whole file: the source's own comment explains where the
     // prop went, and a bare word-match would forbid saying so.
     expect(src).not.toMatch(/<StarterCard[^>]*noTree/);
-    // ⚠️ **The EMPTY row (2026-09-01)** — maintainer: *"insert empty energy bubbles in the empty
-    // state energy card so it's not so empty."* Its whole justification is that this state is the
-    // SHAPE of the thing it is inviting you to fill in. It does NOT reopen the rule above — an
-    // EMPTY row is the opposite of the full ten-pip bar that reads as a score, and nothing here
-    // is bound to `current / capacity`.
-    //   ⚠️ **This used to assert `styles.pipEmpty` by NAME, and that is precisely how the state
-    // drifted (2026-09-07).** On 2026-09-06 the meter's bar was rebuilt out of flat
-    // `flash-outline` glyphs at `BAR_ICON_SIZE`; `pipEmpty` — a bordered `surfaceInset` circle —
-    // became a recipe nothing else in the file drew, and this assertion happily went on pinning
-    // it. So the empty state, which is the ONLY Energy a user sees before setting a capacity,
-    // kept drawing ten grey rings that matched nothing. Reported as *"still not visually
-    // upgraded (just look at the Energy icons)"*.
-    //   So assert the PROPERTY instead of the style name: the empty run must use the same glyph
-    // and the same size as the bar's own unspent run in `row()`. A name can go stale silently; a
-    // mismatch between these two cannot.
-    expect(src).toMatch(/length: MAX_PIPS/);
-    // Since 2026-10-12 the tutorial row matches the bar's `left` run (filled, nothing used).
-    const barLeftRun = src.match(/Array\.from\(\{ length: left \}\)\.map\(\(_, i\) => glyph\('([\w-]+)', ([\w.]+),/);
-    expect(barLeftRun).toBeTruthy();
-    const [, barGlyph, barColor] = barLeftRun!;
-    expect(barGlyph).toBe('flash');
-    // The tutorial row draws that same glyph, at the bar's icon size, in the bar's own colour.
-    // ⚠️ It is `styles.pipRow` since 2026-09-08, not `styles.tutorialPips`: the empty state is
-    // the same v2 card as the live one now, so it uses the bar's own row style rather than a
-    // parallel one. That is the same drift this assertion exists to catch, closed one level
-    // further up — there is no second style to go stale, and `emptyGlyph` is one const read by
-    // both runs, so the colour cannot diverge either.
-    const tutorialRow = src.match(
-      /length: MAX_PIPS[\s\S]*?<Ionicons key=\{i\} name="([\w-]+)" size=\{(\w+)\} color=\{([\w.]+)\}/,
-    );
-    expect(tutorialRow).toBeTruthy();
-    expect(tutorialRow![1]).toBe(barGlyph);
-    expect(tutorialRow![2]).toBe('BAR_ICON_SIZE');
-    expect(tutorialRow![3]).toBe(barColor);
     // …and the retired token recipe is gone rather than merely unused. Scoped to CODE, not
     // prose — the file's styles block explains at length why these were deleted, and a bare
     // word-match would forbid saying so (same discipline as the StarterCard checks above).
@@ -385,9 +348,9 @@ describe('EnergyMeter — the strip names itself, and is set from a pop-up', () 
     // "explainer taller than the thing it explains" complaint all over again. (The permanent
     // hint that used to be the third member of this set was deleted with the bulb tier on
     // 2026-08-17; see lib/__tests__/exampleRows.test.ts section 4.)
-    // One card since 2026-10-11 (V2): the bar is EITHER the empty tutorial row OR the live
-    // reading, chosen by one ternary — never both.
-    expect(src).toMatch(/\{showTutorial \? \(/);
+    // One card since 2026-10-11 (V2), one battery since 2026-10-15: the tutorial and the live
+    // day share one branch of one ternary — so the strip can never draw two bars.
+    expect(src).toMatch(/\{showTutorial \|\| scope === 'day' \? \(/);
   });
 
   it('names the meter in both languages', () => {

@@ -90,6 +90,13 @@ async function anyVisibleText(page, text) {
  * `<card title>: <action>`, and the action half is localised.
  */
 async function openCardByTitle(page, title) {
+  // Variant C (2026-10-15): most cards are TABS of one card per screen now, so "open" first means
+  // "select its tab" when one is on screen. The tab's name is its title, plus ", <count>".
+  const tab = page.getByRole('tab', { name: new RegExp(`^${title}(, \\d+)?$`) }).filter({ visible: true }).first();
+  if (await tab.count()) {
+    await tab.click({ timeout: 10000 });
+    await page.waitForTimeout(400);
+  }
   // The FOLD chevron only ("<title>: Expand list" / "Collapse list"). Since V2 (2026-10-11) the ⤢
   // is named "<title>: Expand card" too, and clicking it opens a full-screen pane instead.
   const toggle = page.getByRole('button', { name: new RegExp(`^${title}: (Expand|Collapse) list$`) }).first();
@@ -245,7 +252,14 @@ async function main() {
         await clickText(page, 'Start using the app');
         break;
       }
-      const more = await page.getByText('Got it', { exact: true }).first().isVisible().catch(() => false);
+      // Waits (not an instant isVisible) — a step that changes tab slides the pager first, and
+      // an instant check taken mid-slide ended the loop one step in, leaving the scrim up.
+      const more = await page
+        .getByText('Got it', { exact: true })
+        .first()
+        .waitFor({ state: 'visible', timeout: 4000 })
+        .then(() => true)
+        .catch(() => false);
       if (!more) break;
       await shot(page, `tour-${i}`);
       await clickText(page, 'Got it');
@@ -255,6 +269,19 @@ async function main() {
 
     console.log('> Home');
     await shot(page, 'home');
+
+    // Variant C (2026-10-15): the tabbed card's ⋮ opens its own options page (app/card-options.tsx).
+    // A real route reached from a footer control — proven by opening it, reading its title, and
+    // closing it again, which a source scan cannot do.
+    console.log('> Home -> tabbed card ⋮ options page');
+    await page.getByRole('button', { name: 'Options for Today', exact: true }).first().click({ timeout: 10000 });
+    await page.waitForTimeout(900);
+    const optionsShown = await anyVisibleText(page, 'Today · options');
+    console.log(`  options page opened: ${optionsShown}`);
+    if (!optionsShown) pageErrors.push('Tabbed card: the ⋮ options page did not open');
+    await shot(page, 'card-options');
+    await page.goBack().catch(() => {});
+    await page.waitForTimeout(900);
 
     // Navigate via the in-app BottomNav (client-side route change), NOT page.goto() —
     // the DB is in-memory (sql.js fallback, see lib/sqlite.web.ts); a full page
@@ -391,7 +418,8 @@ async function main() {
     // line is an always-open input — target it by accessible name.
     console.log('> Home pad cards (type line, tick-in-place)');
     const noteTitle = `Preview note ${Date.now()}`;
-    const noteInput = page.getByLabel('Type note', { exact: true }).first();
+    await openCardByTitle(page, 'Notes');
+    const noteInput = page.getByLabel('Type note', { exact: true }).filter({ visible: true }).first();
     await noteInput.scrollIntoViewIfNeeded();
     await noteInput.focus();
     await noteInput.fill(noteTitle);
@@ -504,10 +532,20 @@ async function main() {
     await page.getByRole('button', { name: 'To-do', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(800);
     await dismissModalIfPresent(page);
-    await openCardByTitle(page, 'Today');
+    // Today lives on Home only (V2), and every pager tab is mounted at once — so open To-do's
+    // Whenever tab and take the VISIBLE type line, not the first one in the DOM.
+    await openCardByTitle(page, 'Whenever');
     const taskTitle = `Preview check ${Date.now()}`;
-    const taskInput = page.getByLabel('Type task', { exact: true }).first();
+    // Whenever's composer is "New task"; Home's Today line is "Type task".
+    let taskInput = page.getByLabel(/^(Type task|New task)$/).filter({ visible: true }).first();
     await taskInput.scrollIntoViewIfNeeded();
+    // "New task" is a press-to-open row rather than a text field: press it, then type into
+    // whatever field it focused.
+    if (!/^(INPUT|TEXTAREA)$/.test(await taskInput.evaluate((el) => el.tagName))) {
+      await taskInput.click({ timeout: 10000 });
+      await page.waitForTimeout(500);
+      taskInput = page.locator('input:focus, textarea:focus').first();
+    }
     await taskInput.focus();
     await taskInput.fill(taskTitle);
     await taskInput.press('Enter');

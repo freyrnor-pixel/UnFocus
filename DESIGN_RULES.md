@@ -520,6 +520,11 @@ design, not the rule.
     content on the backdrop, where an edge was the only thing separating one from the next.
 
 31. **Every card folds, on ONE axis, and closed is a bare header.**
+    ⚠️ **Inside a screen's tabbed card nothing folds (Variant C, maintainer 2026-10-15).** Each
+    screen is ONE card with a tab per registry card (`CardTabs` in `components/Card.tsx`); a tab
+    is drawn body-only, so its fold state is simply not read. The rule below still binds every
+    card OUTSIDE a tabbed card (`TAB_EXCLUDE` — Home's Energy) and the registry's `fold` data
+    is unchanged, so turning the tabs off again needs no migration.
     ⚠️ **The "a card with a pad state uses the pad state" split is GONE (2026-08-21).** It was
     the second mechanism owning open vs closed, with its own column and its own answer to what
     the word means — a "closed" pad card drew its header, an empty rule, a Suggestions block and
