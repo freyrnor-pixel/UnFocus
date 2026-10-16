@@ -12,7 +12,7 @@ import * as IntentLauncher from 'expo-intent-launcher';
 import { exactAlarmHintApplies, openExactAlarmSettings } from '@/lib/exactAlarmSettings';
 
 jest.mock('expo-intent-launcher', () => ({ startActivityAsync: jest.fn() }));
-jest.mock('expo-constants', () => ({ expoConfig: { android: { package: 'com.freyrnorpixel.unfocus' } } }));
+jest.mock('expo-constants', () => ({ expoConfig: { android: { package: 'com.unfocus.freyr' } } }));
 
 describe('exactAlarmHintApplies — the truth table', () => {
   test.each([
@@ -37,7 +37,7 @@ describe('openExactAlarmSettings', () => {
     start.mockResolvedValue({});
     await openExactAlarmSettings();
     expect(start).toHaveBeenCalledWith('android.settings.REQUEST_SCHEDULE_EXACT_ALARM', {
-      data: 'package:com.freyrnorpixel.unfocus',
+      data: 'package:com.unfocus.freyr',
     });
   });
 
