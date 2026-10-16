@@ -18,6 +18,11 @@ read it before claiming a visual change is done.
 
 - `slug` in `app.json` must stay `unfocus` — EAS project ID `9c7c7e82-8c6e-4be7-aae1-e588b4ebc495`
   is registered under this slug.
+- `android.package` is `com.unfocus.freyr` since 2026-10-16 — the package the Google Play listing
+  was created with (Play rejects any other, and a listing's package can never change). It was
+  `com.freyrnorpixel.unfocus` before; an install of that is a DIFFERENT app to Android, so
+  moving between them is a backup export → import (Settings → More), not an update. Never
+  change it again. `ios.bundleIdentifier` is untouched (Android-only).
 - Migrations in `lib/db.ts`'s `migrations` array are **append-only**. `PRAGMA user_version`
   indexes into the array — never edit, reorder, or remove an already-merged line. A correction is
   a new appended `UPDATE`.

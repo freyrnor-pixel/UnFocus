@@ -193,7 +193,7 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "package": "com.freyrnorpixel.unfocus",
+      "package": "com.unfocus.freyr",
       "permissions": [
         "RECORD_AUDIO",
         "INTERNET",
