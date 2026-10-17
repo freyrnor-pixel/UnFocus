@@ -1,0 +1,52 @@
+name: AAB signing certificate (fingerprints + PEM)
+
+# Answers "which key signed this .aab?" without a keystore or an Expo login: the signer's
+# certificate is inside every bundle (META-INF/*.RSA). Prints SHA1/SHA256 for each URL and uploads
+# the certificate as `upload_certificate.pem` — the exact file Play Console's "Request upload key
+# reset" asks for (Test and release → App integrity → App signing).
+#
+# Added 2026-10-16 after Play rejected the com.unfocus.freyr AAB: the listing already had an
+# upload key registered (SHA1 89:1E:BE:…) and EAS generated a new one for the new package.
+
+on:
+  workflow_dispatch:
+    inputs:
+      urls:
+        description: Space-separated .aab URLs (expo.dev/artifacts/…). The FIRST one's cert becomes upload_certificate.pem.
+        required: true
+        type: string
+
+jobs:
+  cert:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Read signing certificates
+        env:
+          URLS: ${{ inputs.urls }}
+        run: |
+          set -euo pipefail
+          i=0
+          for url in $URLS; do
+            i=$((i+1))
+            mkdir -p "b$i"
+            curl -sfL -o "b$i/app.aab" "$url"
+            unzip -o -q "b$i/app.aab" 'META-INF/*' -d "b$i"
+            sig=$(ls "b$i"/META-INF/*.RSA "b$i"/META-INF/*.EC "b$i"/META-INF/*.DSA 2>/dev/null | head -1)
+            openssl pkcs7 -inform DER -in "$sig" -print_certs | sed -n '/BEGIN CERT/,/END CERT/p' > "b$i/cert.pem"
+            {
+              echo "### $url"
+              echo '```'
+              openssl x509 -in "b$i/cert.pem" -noout -fingerprint -sha1
+              openssl x509 -in "b$i/cert.pem" -noout -fingerprint -sha256
+              openssl x509 -in "b$i/cert.pem" -noout -subject
+              echo '```'
+            } | tee -a "$GITHUB_STEP_SUMMARY"
+          done
+          cp b1/cert.pem upload_certificate.pem
+
+      - name: Upload upload_certificate.pem
+        uses: actions/upload-artifact@v4
+        with:
+          name: upload_certificate
+          path: upload_certificate.pem
