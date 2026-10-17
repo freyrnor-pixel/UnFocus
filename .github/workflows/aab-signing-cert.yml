@@ -31,19 +31,19 @@ jobs:
             i=$((i+1))
             mkdir -p "b$i"
             curl -sfL -o "b$i/app.aab" "$url"
-            unzip -o -q "b$i/app.aab" 'META-INF/*' -d "b$i"
-            sig=$(ls "b$i"/META-INF/*.RSA "b$i"/META-INF/*.EC "b$i"/META-INF/*.DSA 2>/dev/null | head -1)
-            openssl pkcs7 -inform DER -in "$sig" -print_certs | sed -n '/BEGIN CERT/,/END CERT/p' > "b$i/cert.pem"
+            echo "downloaded: $(stat -c %s "b$i/app.aab") bytes, $(file -b "b$i/app.aab")"
+            unzip -l "b$i/app.aab" | grep -i 'META-INF' || true
+            # keytool reads the jar signature wherever it lives — no guessing the .RSA name.
             {
               echo "### $url"
               echo '```'
-              openssl x509 -in "b$i/cert.pem" -noout -fingerprint -sha1
-              openssl x509 -in "b$i/cert.pem" -noout -fingerprint -sha256
-              openssl x509 -in "b$i/cert.pem" -noout -subject
+              keytool -printcert -jarfile "b$i/app.aab" | grep -E 'Owner|SHA1|SHA256' || echo "no signature found"
               echo '```'
             } | tee -a "$GITHUB_STEP_SUMMARY"
+            keytool -printcert -rfc -jarfile "b$i/app.aab" | sed -n '/BEGIN CERT/,/END CERT/p' > "b$i/cert.pem"
           done
           cp b1/cert.pem upload_certificate.pem
+          test -s upload_certificate.pem
 
       - name: Upload upload_certificate.pem
         uses: actions/upload-artifact@v4
