@@ -89,6 +89,8 @@ function makeMedicine(over: Partial<Medicine> = {}): Medicine {
     active: true,
     sortOrder: 0,
     createdAt: '2026-08-12T09:00:00.000Z',
+    stockCount: null,
+    stockPerDose: 1,
     ...over,
   };
 }

@@ -38,7 +38,7 @@
  *             components/FormControls (Input), components/QuickAddOptionsPanel,
  *             components/QuickAddOptionRow (the quick-add's Dose/Trays cells, phase 7 of
  *             DESIGN_COMPARISON/19-IMPLEMENTATION.md), constants/theme, lib/date (todayStr), lib/haptics, lib/i18n,
- *             lib/screenColor, lib/medicineSchedule (all tray/dose math), lib/useAppTheme,
+ *             lib/screenColor, lib/medicineSchedule (all tray/dose math + the pill-count refill line), lib/useAppTheme,
  *             lib/commitOnce (the composer's tier-3 More hand-off — one create per press),
  *             lib/useNowMinutes (60s tick, shared with components/PlanTaskCard.tsx),
  *             lib/useKeyboardLift (per tray-time field), store/useMedicineStore,
@@ -124,10 +124,12 @@ import {
   currentTray,
   formatMinutes,
   isDoseTaken,
+  isLowStock,
   medicinesForTray,
   nextTray,
   pendingTrays,
   sortedTrays,
+  stockDaysLeft,
   TRAY_IDS,
   TrayId,
   trayMinutes,
@@ -226,6 +228,18 @@ export default function MedicineSurface() {
   const addMedicine = useMedicineStore((s) => s.add);
   const commitOnce = useCommitOnce();
   const syncReminders = useMedicineStore((s) => s.syncTrayReminders);
+
+  /** The refill line (pill count, 2026-10-26) — only when a counted medicine is low, so a
+   *  medicine with plenty left, or one nobody counts, adds nothing to the card. */
+  const lowStockText = (med: Medicine) => {
+    const days = stockDaysLeft(med, doses, today);
+    if (!isLowStock(days)) return null;
+    return (
+      <Text style={[styles.medMeta, { color: theme.accent }]} numberOfLines={1}>
+        {t.medicine.stockLow(days ?? 0)}
+      </Text>
+    );
+  };
 
   const trayTimes = useSettingsStore((s) => s.medicineTrayTimes);
   const remindersEnabled = useSettingsStore((s) => s.medicineRemindersEnabled);
@@ -503,6 +517,7 @@ export default function MedicineSurface() {
                         {med.childName}
                       </Text>
                     ) : null}
+                    {lowStockText(med)}
                   </PressableScale>
                   {isTaken && dose?.takenAt ? (
                     <Text style={[styles.medMeta, { color: theme.good }]}>
@@ -604,6 +619,7 @@ export default function MedicineSurface() {
                     ) : null}
                   </Text>
                   <Text style={[styles.medMeta, { color: theme.textMuted }]}>{stateText}</Text>
+                  {lowStockText(med)}
                 </PressableScale>
                 {state.takenToday > 0 && (
                   <PressableScale

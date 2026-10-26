@@ -18,8 +18,8 @@
  * notification coordinator. Same contract as lib/energy.ts / lib/habitRecurrence.ts.
  *
  * Connections:
- *   Imports → lib/date (parseTimeToMinutes)
- *   Used by → store/useMedicineStore.ts, lib/medicineNotifications.ts,
+ *   Imports → lib/date (parseTimeToMinutes, dateStr)
+ *   Used by → store/useMedicineStore.ts (incl. the pill-count helpers), lib/medicineNotifications.ts,
  *             components/MedicineSurface.tsx, app/medicine-form.tsx,
  *             lib/__tests__/medicineSchedule.test.ts
  *   Data    → none (pure functions)
@@ -40,7 +40,7 @@
  *     appending. As-needed doses carry `tray: ''` and are intentionally repeatable, so
  *     they're counted, never de-duplicated.
  */
-import { formatMinutesAsTime, parseTimeToMinutes } from '@/lib/date';
+import { dateStr, formatMinutesAsTime, parseTimeToMinutes } from '@/lib/date';
 
 export const TRAY_IDS = ['morning', 'midday', 'evening', 'night'] as const;
 export type TrayId = (typeof TRAY_IDS)[number];
@@ -252,3 +252,53 @@ export function asNeededState(
  * in lib/dayLog.ts and inline in lib/date.ts itself until 2026-08-12).
  */
 export const formatMinutes = formatMinutesAsTime;
+
+// ── Pill count (2026-10-26) ─────────────────────────────────────────────────────────────
+// Borrowed from MedTimer (Medicine.amount + outOfStockReminderThreshold +
+// EstimateStockRunOutDate.kt), simplified: no simulation, just "pills left ÷ pills a day".
+// Tracking is OFF while `stockCount` is null, so nothing changes for a medicine nobody counts.
+
+/** At or under this many days left, the card shows the refill line and one heads-up is sent. */
+export const LOW_STOCK_DAYS = 7;
+
+/** How far back an as-needed medicine's actual use is averaged. */
+export const AS_NEEDED_RATE_DAYS = 14;
+
+export type StockedMedicine = SchedulableMedicine & {
+  /** Pills (or units) left; null = not counting. */
+  stockCount: number | null;
+  /** Units one dose uses (default 1). */
+  stockPerDose: number;
+};
+
+/**
+ * Units used per day: tray count × per-dose for a scheduled medicine; for an as-needed one, the
+ * average over the last AS_NEEDED_RATE_DAYS of logged doses (today included). 0 = no use known.
+ */
+export function unitsPerDay(med: StockedMedicine, doses: LoggedDose[], today: string): number {
+  const perDose = med.stockPerDose > 0 ? med.stockPerDose : 1;
+  if (!med.asNeeded) return med.trays.length * perDose;
+  const start = new Date(today + 'T12:00:00');
+  start.setDate(start.getDate() - (AS_NEEDED_RATE_DAYS - 1));
+  const from = dateStr(start);
+  const count = doses.filter((d) => d.medicineId === med.id && d.date >= from && d.date <= today).length;
+  return (count * perDose) / AS_NEEDED_RATE_DAYS;
+}
+
+/** Whole days the current count lasts, or null when not counting / no use to divide by. */
+export function stockDaysLeft(med: StockedMedicine, doses: LoggedDose[], today: string): number | null {
+  if (med.stockCount === null || !med.active) return null;
+  const rate = unitsPerDay(med, doses, today);
+  if (rate <= 0) return null;
+  return Math.floor(Math.max(0, med.stockCount) / rate);
+}
+
+/** Should a count of `daysLeft` show the gentle refill line? */
+export function isLowStock(daysLeft: number | null): boolean {
+  return daysLeft !== null && daysLeft <= LOW_STOCK_DAYS;
+}
+
+/** True only on the dose that takes a medicine from above the line to at/under it. */
+export function crossedLowStock(before: number | null, after: number | null): boolean {
+  return !isLowStock(before) && isLowStock(after);
+}

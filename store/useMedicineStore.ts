@@ -14,8 +14,8 @@
  *             the last of these lived here privately until 2026-08-02 and was promoted
  *             to lib/date when the day log needed a second caller; this header always
  *             claimed the import, so it is now simply true),
- *             lib/medicineSchedule (TrayId/tray helpers), lib/medicineNotifications
- *             (syncTrayReminders), store/useSettingsStore (reminder + People-mode settings),
+ *             lib/medicineSchedule (TrayId/tray helpers + stockDaysLeft/crossedLowStock),
+ *             lib/medicineNotifications (syncTrayReminders, notifyLowStock), store/useSettingsStore (reminder + People-mode settings),
  *             lib/widgets/sync (scheduleWidgetSync — same debounced refresh every other
  *             mutating store calls)
  *   Used by → app/_layout.tsx (boot load + reminder re-arm + notification "Taken" action),
@@ -41,6 +41,11 @@
  *     settings via getState() at call time (never a captured value) so a tray-time change
  *     made in Settings takes effect on the next mutation without a reload.
  *   - New columns go through the migrations array in lib/db.ts; never recreate tables.
+ *   - **Pill count (2026-10-26)** — `stockCount` (null = not counted) and `stockPerDose`.
+ *     takeDose subtracts one dose, untakeDose adds it back (adjustStock), clamped at 0. The
+ *     dose that crosses LOW_STOCK_DAYS (lib/medicineSchedule.ts) sends ONE heads-up
+ *     notification; the card's refill line is the standing signal. Borrowed from MedTimer's
+ *     Medicine.amount/outOfStockReminderThreshold, minus its scheduling simulation.
  *   - **Deliberately NOT exposed to the AI setup guide** (lib/aiSetupGuide.ts): medicine
  *     names and doses are the most sensitive rows in the database, and the guide already
  *     refuses health-log data. Don't add a medicine domain to it.
@@ -55,14 +60,15 @@ import {
   rowValues,
   readStr,
   readInt,
+  readReal,
   readBool,
   readJson,
 } from '@/lib/dataAccess';
 import { replaceById, updateById } from '@/lib/storeCrud';
 import { generateId } from '@/lib/id';
 import { dateStr, nowHHMM, todayStr } from '@/lib/date';
-import { TrayId, toTrayIds, isDoseTaken, medicinesForTray } from '@/lib/medicineSchedule';
-import { syncTrayReminders } from '@/lib/medicineNotifications';
+import { TrayId, toTrayIds, isDoseTaken, medicinesForTray, stockDaysLeft, crossedLowStock } from '@/lib/medicineSchedule';
+import { notifyLowStock, syncTrayReminders } from '@/lib/medicineNotifications';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { scheduleWidgetSync } from '@/lib/widgets/sync';
 
@@ -88,6 +94,11 @@ export type Medicine = {
   active: boolean;
   sortOrder: number;
   createdAt: string;
+  /** Pill count (2026-10-26): units left, or null when this medicine isn't counted. Each
+   *  logged dose subtracts `stockPerDose`; un-logging adds it back. */
+  stockCount: number | null;
+  /** Units one dose uses (default 1). */
+  stockPerDose: number;
 };
 
 export type MedicineDose = {
@@ -132,6 +143,8 @@ function rowToMedicine(row: Row): Medicine {
     active: row.active == null ? true : readBool(row, 'active'),
     sortOrder: readInt(row, 'sort_order'),
     createdAt: readStr(row, 'created_at'),
+    stockCount: row.stock_count == null ? null : readReal(row, 'stock_count'),
+    stockPerDose: row.stock_per_dose == null ? 1 : readReal(row, 'stock_per_dose'),
   };
 }
 
@@ -157,7 +170,14 @@ const MEDICINE_FIELDS: FieldMap<Medicine> = {
   notes: { col: 'notes' },
   active: { col: 'active', to: (v) => (v ? 1 : 0) },
   sortOrder: { col: 'sort_order', to: (v) => v ?? 0 },
+  stockCount: { col: 'stock_count', to: (v) => (v == null ? null : v) },
+  stockPerDose: { col: 'stock_per_dose', to: (v) => (v && v > 0 ? v : 1) },
 };
+
+/** Days of supply for one medicine right now, read through the pure helper. */
+function daysLeftOf(med: Medicine, doses: MedicineDose[]): number | null {
+  return stockDaysLeft(med, doses, todayStr());
+}
 
 /** The settings slice the tray reminders need, read fresh at call time. */
 function reminderSettings() {
@@ -171,6 +191,26 @@ function reminderSettings() {
     quietHoursStart: s.quietHoursStart,
     quietHoursEnd: s.quietHoursEnd,
   };
+}
+
+/**
+ * Move a counted medicine's stock by one dose (direction -1 = taken, +1 = undone). A medicine
+ * that isn't counted (stockCount null) is untouched. `notify` sends the one low-stock heads-up
+ * when this dose crosses LOW_STOCK_DAYS — never on an undo.
+ */
+function adjustStock(medicineId: string, direction: -1 | 1, notify: boolean): void {
+  const store = useMedicineStore.getState();
+  const med = store.medicines.find((m) => m.id === medicineId);
+  if (!med || med.stockCount === null) return;
+  // Both readings use the same dose log, so only the count differs between them — an
+  // as-needed medicine's rate (which counts logged doses) can't fake a crossing.
+  const before = daysLeftOf(med, store.doses);
+  const stockCount = Math.max(0, med.stockCount + direction * med.stockPerDose);
+  store.update(medicineId, { stockCount });
+  const after = daysLeftOf({ ...med, stockCount }, store.doses);
+  if (notify && after !== null && crossedLowStock(before, after)) {
+    notifyLowStock(medicineId, med.name, after, useSettingsStore.getState().language);
+  }
 }
 
 export const useMedicineStore = create<MedicineStore>((set, get) => ({
@@ -209,6 +249,8 @@ export const useMedicineStore = create<MedicineStore>((set, get) => ({
       active: entry.active ?? true,
       sortOrder: entry.sortOrder ?? get().medicines.length,
       createdAt: new Date().toISOString(),
+      stockCount: entry.stockCount ?? null,
+      stockPerDose: entry.stockPerDose ?? 1,
     };
     insertRow('medicines', {
       id,
@@ -264,6 +306,7 @@ export const useMedicineStore = create<MedicineStore>((set, get) => ({
       note,
     });
     set((s) => ({ doses: [dose, ...s.doses] }));
+    adjustStock(medicineId, -1, true);
     scheduleWidgetSync();
   },
 
@@ -276,6 +319,7 @@ export const useMedicineStore = create<MedicineStore>((set, get) => ({
     if (!match) return;
     db.runSync('DELETE FROM medicine_doses WHERE id = ?', [match.id]);
     set((s) => ({ doses: s.doses.filter((d) => d.id !== match.id) }));
+    adjustStock(medicineId, +1, false);
     scheduleWidgetSync();
   },
 

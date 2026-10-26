@@ -1466,6 +1466,11 @@ export function initDb() {
     // 0 = paid once a month (every existing install). Device-local like monthly_reset_date —
     // the settings row is not in lib/liveSync.ts's TABLE_COLUMNS.
     'ALTER TABLE settings ADD COLUMN second_payday INTEGER DEFAULT 0',
+    // ── 2026-10-26: medicine pill count (store/useMedicineStore.ts) ───────────────────────
+    // NULL = not counted (every existing medicine), so nothing changes until a count is typed.
+    // Device-local like the rest of the medicines table (not in lib/liveSync.ts).
+    'ALTER TABLE medicines ADD COLUMN stock_count REAL DEFAULT NULL',
+    'ALTER TABLE medicines ADD COLUMN stock_per_dose REAL DEFAULT 1',
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an
