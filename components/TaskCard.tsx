@@ -83,7 +83,8 @@
  * with a domain color.
  *
  * Connections:
- *   Imports → components/NewSinceGlow ("your last view was hiding this" marker),
+ *   Imports → expo-router (useRouter — the "Start timer" push to app/timer.tsx),
+ *             components/NewSinceGlow ("your last view was hiding this" marker),
  *             lib/cardLayout (LayoutSpec — gates the COLLAPSED row's cues only, never the editor),
  *             lib/cardType (the four per-ITEM card types — see the block below),
  *             react-native-reanimated (FadeIn/FadeOut/LinearTransition — the stepped card's
@@ -229,6 +230,7 @@
  *     PadFooterToggle.tsx for the third.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'expo-router';
 import { Linking, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
@@ -471,6 +473,9 @@ function TaskCard({
   // the surface's layout allows. The two only ever subtract — neither can add a cue back.
   const cardType = task.cardType;
   const completable = isCompletable(cardType);
+  const router = useRouter();
+  // The countdown (app/timer.tsx) is for something still to do — not a note, not a done task.
+  const canTime = completable && !task.done;
   // 'simple' is title + tick, deliberately nothing else even when the fields hold values
   // (the values stay stored and their reminders still fire — this is presentation, the
   // same rule lib/cardLayout.ts follows). 'note' has no metadata to show either.
@@ -1201,15 +1206,17 @@ function TaskCard({
             header note above). Available on every completable-or-not card type, including
             'note': a note carries the same date/hasStartDate fields as any other task and can
             sit in either section — only completion state is what `isCompletable` gates. */}
-        {stepsOnly && !isRecurring && (
+        {stepsOnly && (!isRecurring || canTime) && (
           <Collapsible open={expanded}>
             <View style={styles.moveWrap}>
-              <Button
-                label={task.hasStartDate ? t.taskMoveToWhenever : t.taskMoveToToday}
-                variant="secondary"
-                size="sm"
-                onPress={handleMoveSection}
-              />
+              {!isRecurring && (
+                <Button
+                  label={task.hasStartDate ? t.taskMoveToWhenever : t.taskMoveToToday}
+                  variant="secondary"
+                  size="sm"
+                  onPress={handleMoveSection}
+                />
+              )}
               {/* "Not today" (2026-08-17) sits beside the move shortcut because it is the same
                   kind of thing: one tap, one field, no editor. It is a WORDED button for the
                   same reason everything else in this block is — the 2026-08-04 report that a
@@ -1218,6 +1225,15 @@ function TaskCard({
                   the button and the action cannot disagree about when this is legal. */}
               {canPostpone(task) && (
                 <Button label={t.taskNotToday} variant="secondary" size="sm" onPress={handleNotToday} />
+              )}
+              {/* Countdown (2026-10-26, app/timer.tsx) — same one-tap worded kind of action. */}
+              {canTime && (
+                <Button
+                  label={t.taskStartTimer}
+                  variant="secondary"
+                  size="sm"
+                  onPress={() => router.push({ pathname: '/timer', params: { taskId: task.id } })}
+                />
               )}
             </View>
           </Collapsible>

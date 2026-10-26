@@ -27,7 +27,11 @@ describe('TaskCard — steps-variant move shortcut', () => {
   });
 
   it('the move control is gated on stepsOnly && !isRecurring — never shown for a recurring task', () => {
-    expect(src).toMatch(/\{stepsOnly && !isRecurring && \(/);
+    // Since 2026-10-26 the row also carries "Start timer", which a recurring task may show, so
+    // the row opens on `(!isRecurring || canTime)` and the MOVE button keeps its own gate.
+    expect(src).toMatch(/\{stepsOnly && \(!isRecurring \|\| canTime\) && \(/);
+    const row = src.slice(src.indexOf('stepsOnly && (!isRecurring || canTime) && ('));
+    expect(row).toMatch(/\{!isRecurring && \(\s*<Button\s+label=\{task\.hasStartDate \? t\.taskMoveToWhenever/);
   });
 
   it('the button label switches on task.hasStartDate, worded both directions', () => {
@@ -53,7 +57,7 @@ describe('TaskCard — steps-variant move shortcut', () => {
   });
 
   it('the move control sits inside the expanded body (a Collapsible keyed to `expanded`), not the collapsed row', () => {
-    const idx = src.indexOf('stepsOnly && !isRecurring && (');
+    const idx = src.indexOf('stepsOnly && (!isRecurring || canTime) && (');
     const nearby = src.slice(idx, idx + 200);
     expect(nearby).toMatch(/<Collapsible open=\{expanded\}>/);
   });
