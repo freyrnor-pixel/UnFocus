@@ -26,6 +26,8 @@
  * Edit notes:
  *   - Per-habit daily reminders are scheduled here via syncHabitReminder() (ids `habit-<id>-<i>`, one per time in notificationTimes); call syncAllHabitReminders() after a language change since strings are baked in.
  *   - load() only fetches active habits (`deleted_at IS NULL`) and the last 35 days of logs — not full history.
+ *     `loadHabitHistory(id)` (exported, not an action) reads one habit's full log for
+ *     lib/habitStrength.ts — used by app/habit-form.tsx.
  *   - **Undoable delete (2026-08-01, user report: "no way to recover a deleted habit").**
  *     `remove()` is a device-local soft-delete (tombstone) rather than a hard DELETE — habits
  *     aren't a SyncTable, so this is a plain column update, not lib/liveSync's touchRow/
@@ -283,6 +285,15 @@ function rowToLog(row: Row): HabitLog {
     restDay: readBool(row, 'rest_day'),
     firstAt: readStr(row, 'first_at'),
   };
+}
+
+/**
+ * Every stored log row for ONE habit (2026-10-26) — for lib/habitStrength.ts, whose average
+ * needs more history than load()'s 35-day window. A plain read, not store state: the form
+ * that shows strength calls it, nothing caches it. pruneOldData() bounds it at 365 days.
+ */
+export function loadHabitHistory(habitId: string): HabitLog[] {
+  return loadAll('habit_logs', rowToLog, { where: 'habit_id = ?', params: [habitId], orderBy: 'log_date' });
 }
 
 /** Field → column mapping for habits (serialisers preserve the old INSERT/UPDATE defaults). */
