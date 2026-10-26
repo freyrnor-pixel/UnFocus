@@ -155,6 +155,9 @@ const en = {
   taskRecurDay: 'Day',
   taskRecurWeek: 'Week',
   taskRecurMonth: 'Month',
+  taskRecurAfter: 'After done',
+  taskRepeatAfterStepper: 'Days after done',
+  taskRepeatAfterHint: (n: number) => `Comes back ${n} ${n === 1 ? 'day' : 'days'} after you've done it — a late one moves the next along.`,
   // The quick-add's Repeat row said `t.off` ("off"/"av") for no recurrence — the app's
   // generic toggle word, which named neither this control nor this choice. It reads as one
   // of four options in the picker now, so it needs a word of its own (2026-08-05).
@@ -2543,6 +2546,9 @@ const no: typeof en = {
   taskRecurDay: 'Dag',
   taskRecurWeek: 'Uke',
   taskRecurMonth: 'Måned',
+  taskRecurAfter: 'Etter fullført',
+  taskRepeatAfterStepper: 'Dager etter fullført',
+  taskRepeatAfterHint: (n: number) => `Kommer tilbake ${n} ${n === 1 ? 'dag' : 'dager'} etter at du har gjort den — gjør du den sent, flytter neste seg med.`,
   taskRecurNever: 'Aldri',
   taskWeekInterval1: 'Hver uke',
   taskWeekInterval2: 'Hver 2. uke',
@@ -4365,6 +4371,9 @@ const is: typeof en = {
   taskRecurDay: 'Dagur',
   taskRecurWeek: 'Vika',
   taskRecurMonth: 'Mánuður',
+  taskRecurAfter: 'Eftir að lokið',
+  taskRepeatAfterStepper: 'Dagar eftir að lokið',
+  taskRepeatAfterHint: (n: number) => `Kemur aftur ${n} ${isCount(n, 'degi', 'dögum')} eftir að þú gerðir það — ef þú gerir það seint færist næsta með.`,
   taskRecurNever: 'Aldrei',
   taskWeekInterval1: 'Vikulega',
   taskWeekInterval2: 'Aðra hverja viku',

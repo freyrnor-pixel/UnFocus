@@ -153,7 +153,8 @@
  *   - **The state-based reset (2026-08-17, lib/taskReset.ts)** — three actions, one rule
  *     each, and the rules themselves are pure functions in that file, not here:
  *       1. `normalizeRecurringTasks(today)` rolls a recurring daily/weekly task's row
- *          forward and clears a completion that belonged to an earlier day. It is the one
+ *          forward and clears a completion that belonged to an earlier day. It also brings
+ *          back a done repeat-after-done task (`repeatAfterDays`, 2026-10-26) on done_on + N. It is the one
  *          write path that deliberately does NOT stamp `lastActedAt` — the app tidying up
  *          on its own is not the user touching the task — which is why it writes raw
  *          instead of through `update()`. It DOES stamp `updated_at` and broadcast, because
@@ -253,6 +254,10 @@ export type Task = {
   monthDay: number; // 1–31 (monthlyMode 'day')
   monthOrdinal: MonthOrdinal; // (monthlyMode 'ordinal')
   monthWeekday: number; // 0=Mon … 6=Sun (monthlyMode 'ordinal')
+  /** "Repeat N days after it's done" (2026-10-26) — only on a NON-recurring task; 0 = off.
+   *  Completing it keeps it done until done_on + N, when lib/taskReset.ts brings it back dated
+   *  that day. Borrowed from Tasks.org's / Super Productivity's repeat-from-completion. */
+  repeatAfterDays: number;
   /** Energy system (2026-07-20) — when energyEnabled, completing this task applies a
    *  SIGNED energyValue to the day/week budget (positive restores, negative drains;
    *  lib/energy.ts). Both persist regardless of the master toggle; they only affect
@@ -350,6 +355,7 @@ export type TaskInput = {
   monthDay?: number;
   monthOrdinal?: MonthOrdinal;
   monthWeekday?: number;
+  repeatAfterDays?: number;
   energyEnabled?: boolean;
   energyValue?: number;
   sortOrder: number;
@@ -547,6 +553,7 @@ function rowToTask(row: Row): Task {
     monthDay: readInt(row, 'recurring_month_day', 1) || 1,
     monthOrdinal: readStr(row, 'recurring_month_ordinal', 'first') as MonthOrdinal,
     monthWeekday: readInt(row, 'recurring_month_weekday', 0),
+    repeatAfterDays: readInt(row, 'repeat_after_days', 0),
     energyEnabled: readBool(row, 'energy_enabled'),
     energyValue: readInt(row, 'energy_value', 1),
     sortOrder: readInt(row, 'sort_order'),
@@ -596,6 +603,7 @@ const TASK_COLUMNS: FieldMap<Task> = {
   monthDay: { col: 'recurring_month_day', to: (v) => v ?? 1 },
   monthOrdinal: { col: 'recurring_month_ordinal', to: (v) => v ?? 'first' },
   monthWeekday: { col: 'recurring_month_weekday', to: (v) => v ?? 0 },
+  repeatAfterDays: { col: 'repeat_after_days', to: (v) => (v && v > 0 ? Math.round(v) : 0) },
   energyEnabled: { col: 'energy_enabled', to: (v) => (v ? 1 : 0) },
   energyValue: { col: 'energy_value', to: (v) => v ?? 1 },
   sortOrder: { col: 'sort_order', to: (v) => v ?? 0 },
@@ -734,6 +742,7 @@ export const useTaskStore = create<TaskStore>((set, get) => {
       monthDay: t.monthDay ?? 1,
       monthOrdinal: t.monthOrdinal ?? 'first',
       monthWeekday: t.monthWeekday ?? 0,
+      repeatAfterDays: t.repeatAfterDays ?? 0,
       energyEnabled: t.energyEnabled ?? false,
       energyValue: t.energyValue ?? 1,
       hasStartDate: t.hasStartDate ?? false,

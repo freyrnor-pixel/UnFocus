@@ -549,7 +549,11 @@ function TaskCard({
   const canExpand = stepsOnly ? (hasSteps && !stepped) || !isRecurring : true;
 
   const editing = !stepsOnly && expanded;
-  const modeValue = recurring === 'daily' ? 'daily' : recurring === 'monthly' ? 'monthly' : 'weekly';
+  // "After done" (2026-10-26) is not a `recurring` value — it is a non-recurring task with
+  // `repeatAfterDays` set (lib/taskReset.ts), so every isRecurring branch below stays as is.
+  const repeatAfter = !isRecurring && (draft.repeatAfterDays ?? 0) > 0;
+  const repeatOn = isRecurring || repeatAfter;
+  const modeValue = repeatAfter ? 'after' : recurring === 'daily' ? 'daily' : recurring === 'monthly' ? 'monthly' : 'weekly';
   const canSave = draft.title.trim().length > 0;
   // `energyValue` defaults to 1 in the store while `energyEnabled` defaults to false, so the
   // raw value is meaningless until the flag is on. The single-stepper UI has to show 0 for a
@@ -689,6 +693,7 @@ function TaskCard({
       monthDay: draft.monthDay,
       monthOrdinal: draft.monthOrdinal,
       monthWeekday: draft.monthWeekday,
+      repeatAfterDays: draft.recurring === 'none' ? draft.repeatAfterDays : 0,
       assignee: draft.assignee,
       energyEnabled: energy.energyEnabled,
       energyValue: energy.energyValue,
@@ -836,16 +841,21 @@ function TaskCard({
   }
 
   function toggleRepeat(on: boolean) {
-    if (on) patch({ recurring: 'weekly', recurringDays: draft.recurringDays.length ? draft.recurringDays : [dayOfWeekMon0(new Date())] });
-    else patch({ recurring: 'none' });
+    if (on) patch({ recurring: 'weekly', recurringDays: draft.recurringDays.length ? draft.recurringDays : [dayOfWeekMon0(new Date())], repeatAfterDays: 0 });
+    else patch({ recurring: 'none', repeatAfterDays: 0 });
   }
 
   function setMode(mode: string) {
-    if (mode === 'daily') patch({ recurring: 'daily' });
+    if (mode === 'after') {
+      // A dated one-off that re-dates itself once done; dated so it has a first day.
+      patch({ recurring: 'none', repeatAfterDays: draft.repeatAfterDays || 7, hasStartDate: true });
+      return;
+    }
+    if (mode === 'daily') patch({ recurring: 'daily', repeatAfterDays: 0 });
     else if (mode === 'weekly') {
       const days = draft.recurringDays.length ? draft.recurringDays : [dayOfWeekMon0(new Date())];
-      patch({ recurring: 'weekly', recurringDays: days });
-    } else patch({ recurring: 'monthly' });
+      patch({ recurring: 'weekly', recurringDays: days, repeatAfterDays: 0 });
+    } else patch({ recurring: 'monthly', repeatAfterDays: 0 });
   }
 
   function toggleWeekday(i: number) {
@@ -1426,11 +1436,11 @@ function TaskCard({
             {/* Repeat */}
             <View style={styles.toggleRow}>
               <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>{t.taskRecurringToggle}</Text>
-              <Switch checked={isRecurring} onChange={toggleRepeat} />
+              <Switch checked={repeatOn} onChange={toggleRepeat} />
             </View>
 
             {/* Recurrence options */}
-            {isRecurring && (
+            {repeatOn && (
               <View style={styles.recurWrap}>
                 <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{t.taskHowOftenLabel}</Text>
                 <SegmentedControl
@@ -1438,10 +1448,27 @@ function TaskCard({
                     { value: 'daily', label: t.taskRecurDay },
                     { value: 'weekly', label: t.taskRecurWeek },
                     { value: 'monthly', label: t.taskRecurMonth },
+                    { value: 'after', label: t.taskRecurAfter },
                   ]}
                   value={modeValue}
                   onChange={setMode}
                 />
+
+                {repeatAfter && (
+                  <>
+                    <View style={styles.toggleRow}>
+                      <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>{t.taskRepeatAfterStepper}</Text>
+                      <Stepper
+                        value={draft.repeatAfterDays}
+                        onChange={(v) => patch({ repeatAfterDays: v })}
+                        min={1}
+                        max={90}
+                        accessibilityLabel={t.taskRepeatAfterStepper}
+                      />
+                    </View>
+                    <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{t.taskRepeatAfterHint(draft.repeatAfterDays)}</Text>
+                  </>
+                )}
 
                 {(recurring === 'daily' || recurring === 'weekly') && (
                   <View style={styles.weekdayRow}>

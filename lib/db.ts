@@ -1471,6 +1471,9 @@ export function initDb() {
     // Device-local like the rest of the medicines table (not in lib/liveSync.ts).
     'ALTER TABLE medicines ADD COLUMN stock_count REAL DEFAULT NULL',
     'ALTER TABLE medicines ADD COLUMN stock_per_dose REAL DEFAULT 1',
+    // ── 2026-10-26: repeat N days after a task is done (lib/taskReset.ts) ─────────────────
+    // 0 = off (every existing task). SYNCED — lib/liveSync.ts's task whitelist carries it.
+    'ALTER TABLE tasks ADD COLUMN repeat_after_days INTEGER DEFAULT 0',
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

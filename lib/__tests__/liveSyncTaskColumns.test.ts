@@ -25,6 +25,7 @@ const SHAPE_COLUMNS = {
   recurring_month_day: 17,
   recurring_month_ordinal: 'last',
   recurring_month_weekday: 4,
+  repeat_after_days: 7,
 };
 
 test('buildDelta carries the schedule-shape columns of a task', () => {
