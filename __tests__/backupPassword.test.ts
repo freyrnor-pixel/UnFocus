@@ -11,7 +11,7 @@ import { buildBackup, restoreBackup, serializeBackup, unlockBackup, BackupFile }
 import { isEncryptedBackup } from '@/lib/backupCrypto';
 import { useSettingsStore } from '@/store/useSettingsStore';
 
-jest.mock('expo-crypto', () => ({ getRandomBytes: (n: number) => new Uint8Array(require('node:crypto').randomBytes(n)) }));
+jest.mock('expo-crypto', () => ({ getRandomBytes: (n: number) => new Uint8Array(jest.requireActual<typeof import('node:crypto')>('node:crypto').randomBytes(n)) }));
 
 const mockRunSync = jest.fn();
 jest.mock('@/lib/db', () => ({

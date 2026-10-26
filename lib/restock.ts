@@ -29,6 +29,6 @@ export function missingCount(item: Stocked): number {
 }
 
 /** The ids "Make week list from here" ticks for you: everything under its target. */
-export function restockIds(items: Array<Stocked & { id: string }>): Set<string> {
+export function restockIds(items: (Stocked & { id: string })[]): Set<string> {
   return new Set(items.filter(isUnderTarget).map((i) => i.id));
 }

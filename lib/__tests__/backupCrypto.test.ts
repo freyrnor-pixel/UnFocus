@@ -9,7 +9,7 @@
 import { randomBytes } from 'node:crypto';
 import { decryptBackup, encryptBackup, isEncryptedBackup, WrongBackupPassword, DEFAULT_KDF } from '@/lib/backupCrypto';
 
-jest.mock('expo-crypto', () => ({ getRandomBytes: (n: number) => new Uint8Array(require('node:crypto').randomBytes(n)) }));
+jest.mock('expo-crypto', () => ({ getRandomBytes: (n: number) => new Uint8Array(jest.requireActual<typeof import('node:crypto')>('node:crypto').randomBytes(n)) }));
 
 const rand = (n: number) => new Uint8Array(randomBytes(n));
 const FAST = { N: 2 ** 10, r: 8, p: 1 };
