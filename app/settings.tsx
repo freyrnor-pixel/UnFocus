@@ -560,6 +560,7 @@ export default function SettingsScreen() {
       autoBackupUri: s.autoBackupUri,
       autoBackupLabel: s.autoBackupLabel,
       autoBackupLastAt: s.autoBackupLastAt,
+      backupPassword: s.backupPassword,
     }))
   );
   const featureDayLog = settings.featureDayLog;
@@ -645,6 +646,7 @@ export default function SettingsScreen() {
 
   const [name, setName] = useState(settings.userName);
   const [monthlyDateInput, setMonthlyDateInput] = useState(String(settings.monthlyResetDate));
+  const [backupPasswordDraft, setBackupPasswordDraft] = useState(settings.backupPassword);
   // Send Feedback (2026-07-13) — free-text composer, mailed via mailto:.
   const [newChildName, setNewChildName] = useState('');
   // In-flight tag renames, keyed by tag id. Only holds a tag while its field is focused —
@@ -956,6 +958,12 @@ export default function SettingsScreen() {
       showAppModal(t.backup.title, t.backup.tooNew);
       return;
     }
+    // Encrypted and this phone's password (if any) didn't open it: the password field sits in
+    // this same card, so point there rather than opening a second prompt.
+    if (parsed.status === 'encrypted' || parsed.status === 'wrongPassword') {
+      showAppModal(t.backup.title, settings.backupPassword ? t.backup.wrongPassword : t.backup.encryptedNeedsPassword);
+      return;
+    }
     // Destructive because a restore REPLACES what's on the device, not because it deletes a
     // row — hence the same red-button confirm a delete gets.
     confirmDestructive({
@@ -964,7 +972,7 @@ export default function SettingsScreen() {
       confirmLabel: t.backup.importConfirmBtn,
       onConfirm: () => {
         try {
-          restoreBackup(parsed.data);
+          restoreBackup(parsed.data, { password: parsed.password });
         } catch {
           showAppModal(t.backup.title, t.backup.restoreError);
           return;
@@ -1856,6 +1864,23 @@ export default function SettingsScreen() {
                       </PressableScale>
                     </>
                   )}
+                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                  {/* Backup password (2026-10-26, lib/backupCrypto.ts). Committed on blur, not per
+                      keystroke: a half-typed password must never seal an auto-backup. */}
+                  <Input
+                    label={t.backup.passwordLabel}
+                    optional
+                    value={backupPasswordDraft}
+                    onChangeText={setBackupPasswordDraft}
+                    onEndEditing={() => applyAndSync({ backupPassword: backupPasswordDraft })}
+                    placeholder={t.backup.passwordPlaceholder}
+                    secureTextEntry
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                  <Text style={[styles.descText, { color: theme.textMuted, marginTop: Spacing.xs, marginBottom: 0 }]}>
+                    {t.backup.passwordHint}
+                  </Text>
                   <View style={[styles.divider, { backgroundColor: theme.border }]} />
                   <PressableScale style={styles.dangerBtn} onPress={handleSaveToDevice} scaleTo={0.97}>
                     <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.backup.saveToDevice}</Text>

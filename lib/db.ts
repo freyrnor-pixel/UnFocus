@@ -1474,6 +1474,10 @@ export function initDb() {
     // ── 2026-10-26: repeat N days after a task is done (lib/taskReset.ts) ─────────────────
     // 0 = off (every existing task). SYNCED — lib/liveSync.ts's task whitelist carries it.
     'ALTER TABLE tasks ADD COLUMN repeat_after_days INTEGER DEFAULT 0',
+    // ── 2026-10-26: optional backup password (lib/backupCrypto.ts) ───────────────────────
+    // '' = plain backups (every existing install). Device-local; lib/backup.ts strips it from
+    // every backup it writes, so the password never travels inside the file it protects.
+    "ALTER TABLE settings ADD COLUMN backup_password TEXT DEFAULT ''",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

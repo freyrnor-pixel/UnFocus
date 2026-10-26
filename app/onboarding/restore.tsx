@@ -19,7 +19,8 @@
  * Connections:
  *   Imports → @/lib/i18n, @/constants/theme, @/lib/useAppTheme, @/components/Button,
  *             @/components/AppModal (showAppModal), @/lib/backup
- *             (pickAndParseBackup/restoreBackup/reloadApp), @/lib/haptics, @expo/vector-icons
+ *             (pickAndParseBackup/restoreBackup/reloadApp/unlockBackup — an encrypted backup asks
+ *             for its password inline), components/FormControls (Input), @/lib/haptics, @expo/vector-icons
  *   Used by → Expo Router route "/onboarding/restore" (pushed from onboarding/privacy.tsx's
  *             "Restoring from a backup?" link)
  *   Data    → via lib/backup: restore DELETEs+re-INSERTs every table in unfocus.db
@@ -45,7 +46,8 @@ import { FontSize, Fonts, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import Button from '@/components/Button';
 import { confirmDestructive, showAppModal } from '@/components/AppModal';
-import { pickAndParseBackup, restoreBackup, reloadApp } from '@/lib/backup';
+import { pickAndParseBackup, restoreBackup, reloadApp, unlockBackup, type ParsedBackup } from '@/lib/backup';
+import { Input } from '@/components/FormControls';
 
 export default function RestoreScreen() {
   const router = useRouter();
@@ -53,39 +55,63 @@ export default function RestoreScreen() {
   const t = useT();
   const styles = useScaledStyles(baseStyles);
   const [busy, setBusy] = useState(false);
+  // An encrypted backup (lib/backupCrypto.ts) waiting for its password — a fresh install has
+  // no password of its own to try, so this screen asks inline.
+  const [lockedRaw, setLockedRaw] = useState<string | null>(null);
+  const [password, setPassword] = useState('');
+  const [wrong, setWrong] = useState(false);
+
+  function handleParsed(parsed: ParsedBackup) {
+    if (parsed.status === 'canceled') return;
+    if (parsed.status === 'invalid') {
+      showAppModal(t.backup.title, t.backup.invalidFile);
+      return;
+    }
+    if (parsed.status === 'tooNew') {
+      showAppModal(t.backup.title, t.backup.tooNew);
+      return;
+    }
+    if (parsed.status === 'encrypted' || parsed.status === 'wrongPassword') {
+      setLockedRaw(parsed.raw);
+      setWrong(parsed.status === 'wrongPassword');
+      return;
+    }
+    setLockedRaw(null);
+    // Destructive because a restore REPLACES what's on the device — see app/settings.tsx's
+    // copy of this flow, which it shares its copy strings with.
+    confirmDestructive({
+      title: t.backup.importConfirmTitle,
+      message: t.backup.importConfirmBody(parsed.rowCount),
+      confirmLabel: t.backup.importConfirmBtn,
+      onConfirm: () => {
+        try {
+          restoreBackup(parsed.data, { password: parsed.password });
+        } catch {
+          showAppModal(t.backup.title, t.backup.restoreError);
+          return;
+        }
+        showAppModal(t.backup.title, t.backup.restoreDone, [
+          { text: t.ok, onPress: () => { void reloadApp(); } },
+        ]);
+      },
+    });
+  }
 
   async function handleRestore() {
     if (busy) return;
     setBusy(true);
     try {
-      const parsed = await pickAndParseBackup();
-      if (parsed.status === 'canceled') return;
-      if (parsed.status === 'invalid') {
-        showAppModal(t.backup.title, t.backup.invalidFile);
-        return;
-      }
-      if (parsed.status === 'tooNew') {
-        showAppModal(t.backup.title, t.backup.tooNew);
-        return;
-      }
-      // Destructive because a restore REPLACES what's on the device — see app/settings.tsx's
-      // copy of this flow, which it shares its copy strings with.
-      confirmDestructive({
-        title: t.backup.importConfirmTitle,
-        message: t.backup.importConfirmBody(parsed.rowCount),
-        confirmLabel: t.backup.importConfirmBtn,
-        onConfirm: () => {
-          try {
-            restoreBackup(parsed.data);
-          } catch {
-            showAppModal(t.backup.title, t.backup.restoreError);
-            return;
-          }
-          showAppModal(t.backup.title, t.backup.restoreDone, [
-            { text: t.ok, onPress: () => { void reloadApp(); } },
-          ]);
-        },
-      });
+      handleParsed(await pickAndParseBackup());
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleUnlock() {
+    if (busy || !lockedRaw || !password) return;
+    setBusy(true);
+    try {
+      handleParsed(await unlockBackup(lockedRaw, password));
     } finally {
       setBusy(false);
     }
@@ -109,13 +135,30 @@ export default function RestoreScreen() {
           <Text style={[styles.bodyText, { color: theme.text }]}>{t.onboarding.restore.body}</Text>
         </View>
 
-        <Button
-          label={t.onboarding.restore.restoreCta}
-          onPress={handleRestore}
-          variant="primary"
-          size="md"
-          disabled={busy}
-        />
+        {lockedRaw ? (
+          <>
+            <Input
+              label={t.backup.unlockLabel}
+              value={password}
+              onChangeText={(v) => { setPassword(v); setWrong(false); }}
+              secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="done"
+              onSubmitEditing={handleUnlock}
+            />
+            {wrong ? <Text style={[styles.bodyText, { color: theme.bad }]}>{t.backup.wrongPassword}</Text> : null}
+            <Button label={t.backup.unlockBtn} onPress={handleUnlock} variant="primary" size="md" disabled={busy || !password} />
+          </>
+        ) : (
+          <Button
+            label={t.onboarding.restore.restoreCta}
+            onPress={handleRestore}
+            variant="primary"
+            size="md"
+            disabled={busy}
+          />
+        )}
         {/* Back to privacy, which is where this screen is now reached FROM (2026-08-03) —
             `back()`, not a push, or declining a restore would stack a second copy of the
             privacy screen on top of the one the user came from. */}
