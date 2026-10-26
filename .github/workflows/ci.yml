@@ -78,7 +78,11 @@ jobs:
   # ---------------------------------------------------------------------------
   visual:
     name: Visual, geometry & layout audits
-    runs-on: ubuntu-latest
+    # Pinned, not ubuntu-latest (2026-10-26): `latest` moved to 26.04, which Playwright 1.56 —
+    # pinned on purpose so CI renders with the chromium-1194 the baselines were blessed on (see
+    # scripts/chromium-path.mjs) — refuses to install a browser on. Every audit then failed to
+    # launch. Move this only together with a Playwright bump AND a full re-bless.
+    runs-on: ubuntu-24.04
     # This job builds a web bundle and drives Chromium through four audits in both themes, so it
     # is minutes rather than seconds: measured 15-17 minutes across every run on 2026-09-06.
     # 35 is roughly double the observed worst case — high enough that a slow runner is not a
