@@ -164,7 +164,7 @@ import {
 } from '@/lib/dataAccess';
 import { replaceById, updateById } from '@/lib/storeCrud';
 import { generateId } from '@/lib/id';
-import { mergeAmounts, normalizeUnit, unitsCompatible } from '@/lib/quantity';
+import { mergeAmounts, normalizeUnit, parseAmount, unitsCompatible } from '@/lib/quantity';
 import { softDelete } from '@/lib/liveSync';
 import { broadcastRow } from '@/lib/syncService';
 import { syncRow, syncRows } from '@/lib/syncRow';
@@ -734,7 +734,9 @@ export const useShoppingStore = create<ShoppingStore>((set, get) => ({
     );
     if (existingWeekly) {
       get().update(existingWeekly.id, {
-        amount: String((parseInt(existingWeekly.amount, 10) || 1) + qty),
+        amount:
+          mergeAmounts(existingWeekly, { amount: String(qty), unit: item.unit })?.amount ??
+          String((parseAmount(existingWeekly.amount) ?? 1) + qty),
       });
       get().markRecentlyAdded(existingWeekly.id);
       return;

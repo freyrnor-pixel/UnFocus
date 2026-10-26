@@ -1387,6 +1387,7 @@ const en = {
     budget: 'Budget',
   },
   inStockLabel: 'In stock',
+  inStockOfTarget: (have: number, want: number) => `Have ${have}/${want}`,
   // Shopping item detail sheet (components/ShoppingItemSheet.tsx). Quantity moved out of the
   // row and into here (row rule, 2026-07-28): a row shows a quantity, a sheet edits one.
   shoppingItemSheet: {
@@ -3749,6 +3750,7 @@ const no: typeof en = {
     budget: 'Budsjett',
   },
   inStockLabel: 'På lager',
+  inStockOfTarget: (have: number, want: number) => `Har ${have}/${want}`,
   shoppingItemSheet: {
     quantity: 'Hvor mange',
     quantityPlaceholder: '2, eller «en bunt»',
@@ -5582,6 +5584,7 @@ const is: typeof en = {
     budget: 'Fjárhagur',
   },
   inStockLabel: 'Til á lager',
+  inStockOfTarget: (have: number, want: number) => `Á ${have}/${want}`,
   shoppingItemSheet: {
     quantity: 'Hversu mikið',
     quantityPlaceholder: 't.d. 2, eða „eitt búnt“',
