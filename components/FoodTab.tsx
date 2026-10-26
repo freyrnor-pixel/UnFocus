@@ -25,7 +25,7 @@
  *             components/Collapsible + components/AnimatedChevron (meal-section collapse),
  *             store/useMealStore (Dish/MealType/Difficulty/dishTotalPrice + CRUD incl.
  *             duplicateDish), store/useCatalogStore (suggest, StoreItem),
- *             store/useShoppingStore (add + UNALLOCATED_LIST_ID), store/useMonthlyListStore
+ *             store/useShoppingStore (add + UNALLOCATED_LIST_ID), lib/dishToList (dishToShoppingInputs), store/useMonthlyListStore
  *             (lists + `monthlyListLabel` for the add-to-list picker), @expo/vector-icons
  *   Used by → app/food.tsx (its own button-launched sub-screen as of 2026-07-23, UX audit
  *             F1 — was app/(tabs)/shopping.tsx's in-place "Food" tab before that),
@@ -110,6 +110,7 @@ import { Input, SegmentedControl } from '@/components/FormControls';
 import { useMealStore, MealType, Difficulty, Dish, Ingredient, dishTotalPrice } from '@/store/useMealStore';
 import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
 import { useShoppingStore, UNALLOCATED_LIST_ID } from '@/store/useShoppingStore';
+import { dishToShoppingInputs } from '@/lib/dishToList';
 import { useMonthlyListStore, monthlyListLabel } from '@/store/useMonthlyListStore';
 import { showAppModal } from '@/components/AppModal';
 import { BORDER_WIDTH, computeBorderTone, contrastOn, Fonts, FontSize, glassKey, HitSlop, MIN_TAP_TARGET, OpticalCenter, Radius, Spacing, TabularNums, Type } from '@/constants/theme';
@@ -411,21 +412,9 @@ export default function FoodTab({ onNotify, onAddedToWeek, embedded = false }: P
       setPopupDish(null);
       return;
     }
-    const addedIds: string[] = [];
-    for (const ing of dish.ingredients) {
-      addedIds.push(shoppingAdd({
-        name: ing.name,
-        amount: ing.amount || '1',
-        unit: ing.unit,
-        listType: 'weekly',
-        store: '',
-        price: ing.priceNok,
-        inventoryQty: 0,
-        status: 'inWeeklyList',
-        listId: UNALLOCATED_LIST_ID,
-        dishName: dish.name,
-      }));
-    }
+    const addedIds = dishToShoppingInputs(dish, { mode: 'weekly', listId: UNALLOCATED_LIST_ID }).map((input) =>
+      shoppingAdd(input),
+    );
     success();
     setPopupDish(null);
     onNotify(t.dishAddedToWeek(dish.name));
@@ -437,21 +426,7 @@ export default function FoodTab({ onNotify, onAddedToWeek, embedded = false }: P
   // single-list case (no extra tap); with 2+ lists, asks which one via the same lightweight
   // showAppModal chooser app/(tabs)/shopping.tsx's handleAllocate uses for weekly lists.
   function pushDishToMonthlyList(dish: Dish, monthlyListId: string) {
-    for (const ing of dish.ingredients) {
-      shoppingAdd({
-        name: ing.name,
-        amount: '1',
-        unit: ing.unit,
-        listType: 'monthly',
-        store: '',
-        price: ing.priceNok,
-        inventoryQty: 0,
-        status: 'catalog',
-        targetQuantity: parseInt(ing.amount, 10) || 1,
-        dishName: dish.name,
-        monthlyListId,
-      });
-    }
+    for (const input of dishToShoppingInputs(dish, { mode: 'monthly', listId: monthlyListId })) shoppingAdd(input);
     success();
     setPopupDish(null);
     onNotify(t.dishAddedToMonthly(dish.name));

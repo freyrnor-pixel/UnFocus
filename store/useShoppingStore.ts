@@ -37,6 +37,7 @@
  * Connections:
  *   Imports → lib/db, lib/dataAccess, lib/storeCrud (the guarded by-id update),
  *             lib/id, lib/liveSync, lib/syncService,
+ *             lib/quantity (unit-aware dedupe in add() + mergeDuplicateItems()),
  *             lib/syncRow (syncRow/syncRows — the shared stamp+broadcast pair),
  *             store/useSettingsStore,
  *             lib/widgets/sync (scheduleWidgetSync — debounced widget/notification refresh on
@@ -105,7 +106,10 @@
  *     Pinned by __tests__/shoppingStoreMode.test.ts.
  *   - add() consolidates duplicates: same status+listId+name+dishName bumps the
  *     existing row's targetQuantity (catalog) or amount (weekly) instead of
- *     inserting — never assume add() creates a fresh row.
+ *     inserting — never assume add() creates a fresh row. Since 2026-10-26 the units must
+ *     add up too (lib/quantity.ts): a weekly "1 l" + "5 dl" becomes "1,5 l" in the existing
+ *     row's unit, "2 stk" + "500 g" stays two rows, and a catalog row needs the same unit.
+ *     Amounts parse decimals ("0,5", "½") instead of parseInt.
  *   - collected = "checked off while in the cart" (distinct from checked = "moved
  *     to cart"). fromCatalog = row originated from the standing Katalog; it drives
  *     buildMonthlyResetSummary()'s inventory-vs-ad-hoc split — call it BEFORE
@@ -160,6 +164,7 @@ import {
 } from '@/lib/dataAccess';
 import { replaceById, updateById } from '@/lib/storeCrud';
 import { generateId } from '@/lib/id';
+import { mergeAmounts, normalizeUnit, unitsCompatible } from '@/lib/quantity';
 import { softDelete } from '@/lib/liveSync';
 import { broadcastRow } from '@/lib/syncService';
 import { syncRow, syncRows } from '@/lib/syncRow';
@@ -378,7 +383,7 @@ const ITEM_COLUMNS: FieldMap<ShoppingItem> = {
 };
 
 /**
- * One-time self-healing pass: merges rows that share status+name+dishName (the
+ * One-time self-healing pass: merges rows that share status+name+dishName+unit (the
  * same key add()'s dedup safeguard checks) into a single row, summing amount
  * (weekly/cart/purchased rows) or targetQuantity (catalog rows) and deleting the
  * extras. Needed because that safeguard only stops *new* duplicates — rows
@@ -389,7 +394,7 @@ function mergeDuplicateItems(items: ShoppingItem[]): ShoppingItem[] {
   for (const item of items) {
     // Catalog rows are additionally keyed by monthlyListId — see add()'s matching dedupe
     // guard above; two Monthly lists with the same item name must never merge together.
-    const key = `${item.status}|${item.name.trim().toLowerCase()}|${item.dishName ?? ''}|${item.status === 'catalog' ? item.monthlyListId ?? '' : ''}`;
+    const key = `${item.status}|${item.name.trim().toLowerCase()}|${item.dishName ?? ''}|${item.status === 'catalog' ? item.monthlyListId ?? '' : ''}|${normalizeUnit(item.unit)}`;
     const group = groups.get(key);
     if (group) group.push(item);
     else groups.set(key, [item]);
@@ -403,19 +408,20 @@ function mergeDuplicateItems(items: ShoppingItem[]): ShoppingItem[] {
     }
     try {
       const [keep, ...dupes] = [...group].sort((a, b) => a.id.localeCompare(b.id));
-      let amount = parseInt(keep.amount, 10) || 1;
+      let amount = keep.amount;
       let targetQuantity = keep.targetQuantity;
       let price = keep.price;
       for (const dupe of dupes) {
         if (keep.status === 'catalog') {
           targetQuantity += dupe.targetQuantity;
         } else {
-          amount += parseInt(dupe.amount, 10) || 1;
+          // Same normalised unit (it is in the key), so mergeAmounts never returns null here.
+          amount = mergeAmounts({ amount, unit: keep.unit }, dupe)?.amount ?? amount;
         }
         if (dupe.price > 0) price = dupe.price;
         db.runSync('DELETE FROM shopping_items WHERE id = ?', [dupe.id]);
       }
-      const merged: ShoppingItem = { ...keep, amount: String(amount), targetQuantity, price };
+      const merged: ShoppingItem = { ...keep, amount, targetQuantity, price };
       updateRow('shopping_items', rowValues(merged, ITEM_COLUMNS), 'id = ?', [keep.id]);
       result.push(merged);
     } catch {
@@ -503,6 +509,9 @@ export const useShoppingStore = create<ShoppingStore>((set, get) => ({
         i.listId === item.listId &&
         i.name.trim().toLowerCase() === trimmedName.toLowerCase() &&
         (i.dishName ?? undefined) === (item.dishName ?? undefined) &&
+        // Units must add up (lib/quantity.ts): "1 l" + "5 dl" merges, "2 stk" + "500 g" stays two
+        // rows. A catalog row's targetQuantity is a whole count, so it needs the same unit.
+        (status === 'catalog' ? normalizeUnit(i.unit) === normalizeUnit(item.unit) : unitsCompatible(i.unit, item.unit)) &&
         // Only catalog rows are scoped by monthlyListId — two Monthly lists with the same
         // item name must stay separate rows; a weekly/purchased row's origin list doesn't
         // affect its own dedupe (matches fromCatalog's existing list-agnostic behavior there).
@@ -512,7 +521,7 @@ export const useShoppingStore = create<ShoppingStore>((set, get) => ({
       const patch: Partial<Omit<ShoppingItem, 'id'>> =
         status === 'catalog'
           ? { targetQuantity: existing.targetQuantity + targetQuantity }
-          : { amount: String((parseInt(existing.amount, 10) || 1) + (parseInt(item.amount, 10) || 1)) };
+          : (mergeAmounts(existing, { amount: item.amount, unit: item.unit }) ?? { amount: existing.amount });
       if (item.price > 0) patch.price = item.price;
       get().update(existing.id, patch);
       get().markRecentlyAdded(existing.id);
