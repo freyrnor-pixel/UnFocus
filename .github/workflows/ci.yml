@@ -184,6 +184,17 @@ jobs:
         if: always()
         run: npm run halos -- --theme=dark
 
+      # TEMPORARY (PR #763): print each changed screen's CI-rendered PNG as one base64 line, so a
+      # session that cannot reach the artifact store can bless with CI's own rasteriser. Removed
+      # in the commit that lands those baselines.
+      - name: Dump actual PNGs (temporary)
+        if: failure()
+        run: |
+          for f in visual-diff-out/*/*.actual.png; do
+            [ -f "$f" ] || continue
+            echo "PNGB64 $f $(base64 -w0 "$f")"
+          done
+
       # The diffs are the whole point of a red visual run — without them the failure says a
       # number and nothing else.
       - name: Upload visual diffs
