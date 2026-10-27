@@ -23,6 +23,7 @@
  *
  * Connections:
  *   Imports → lib/db (the shared handle + table set), lib/date (todayStr),
+ *             lib/backupCrypto (the optional password envelope — serializeBackup/unlockBackup),
  *             lib/fileExport (shareTextFile / saveTextToDevice / safDirectoryLabel — the
  *             two export flows and the SAF label live there now, shared with the AI setup
  *             guide and the design lab; SaveToDeviceResult is re-exported from here so
@@ -78,6 +79,7 @@ import {
 } from 'expo-file-system/legacy';
 import type { SQLiteBindValue } from 'expo-sqlite';
 import db from '@/lib/db';
+import { decryptBackup, encryptBackup, isEncryptedBackup, WrongBackupPassword } from '@/lib/backupCrypto';
 import { todayStr } from '@/lib/date';
 import {
   safDirectoryLabel,
@@ -142,8 +144,10 @@ export function buildBackup(opts: { redactName?: boolean } = {}): BackupFile {
   for (const table of listTables()) {
     if (DEVICE_LOCAL_TABLES.has(table)) continue;
     let rows = db.getAllSync<Row>(`SELECT * FROM "${table}"`);
-    if (opts.redactName && table === 'settings') {
-      rows = rows.map((r) => ({ ...r, user_name: '' }));
+    if (table === 'settings') {
+      // The backup password never travels inside the file it protects (or any other).
+      rows = rows.map((r) => ({ ...r, backup_password: '' }));
+      if (opts.redactName) rows = rows.map((r) => ({ ...r, user_name: '' }));
     }
     tables[table] = rows;
   }
@@ -214,7 +218,7 @@ export async function chooseAutoBackupLocation(): Promise<AutoBackupLocation | n
 export async function saveAutoBackup(): Promise<void> {
   const { autoBackupUri } = useSettingsStore.getState();
   try {
-    const json = JSON.stringify(buildBackup());
+    const json = await serializeBackup(buildBackup());
     if (autoBackupUri) {
       // Android SAF file the user picked — overwrite in place.
       await StorageAccessFramework.writeAsStringAsync(autoBackupUri, json, { encoding: EncodingType.UTF8 });
@@ -235,6 +239,17 @@ export async function saveAutoBackup(): Promise<void> {
  */
 export type { SaveToDeviceResult };
 
+/**
+ * The text actually written to a file: plain JSON, or — when Settings has a backup password
+ * (2026-10-26) — that JSON sealed in lib/backupCrypto.ts's envelope. Every export path goes
+ * through here, so none of them can forget the password.
+ */
+export async function serializeBackup(backup: BackupFile): Promise<string> {
+  const json = JSON.stringify(backup);
+  const password = useSettingsStore.getState().backupPassword;
+  return password ? encryptBackup(json, password) : json;
+}
+
 /** The one description of "a backup file", shared by both export flows below. */
 function backupFileSpec(): TextFileSpec {
   return {
@@ -253,7 +268,7 @@ function backupFileSpec(): TextFileSpec {
  * exportBackupToDevice.
  */
 export async function exportBackup(): Promise<'shared' | 'unavailable'> {
-  return shareTextFile(JSON.stringify(buildBackup({ redactName: true })), backupFileSpec());
+  return shareTextFile(await serializeBackup(buildBackup({ redactName: true })), backupFileSpec());
 }
 
 /**
@@ -267,14 +282,49 @@ export async function exportBackup(): Promise<'shared' | 'unavailable'> {
 export async function exportBackupToDevice(): Promise<SaveToDeviceResult> {
   // NOT redacted, unlike exportBackup above: a file the user is deliberately filing away
   // on their own device is their own data, where a shared one may not stay theirs.
-  return saveTextToDevice(JSON.stringify(buildBackup()), backupFileSpec());
+  return saveTextToDevice(await serializeBackup(buildBackup()), backupFileSpec());
 }
 
 export type ParsedBackup =
   | { status: 'canceled' }
   | { status: 'invalid' }
   | { status: 'tooNew' }
-  | { status: 'ok'; data: BackupFile; rowCount: number };
+  /** An encrypted file this phone's own password (if any) didn't open — ask for one and
+   *  call unlockBackup(raw, password). */
+  | { status: 'encrypted'; raw: string }
+  | { status: 'wrongPassword'; raw: string }
+  /** `password` is set when the file was encrypted — restoreBackup keeps it as this phone's. */
+  | { status: 'ok'; data: BackupFile; rowCount: number; password?: string };
+
+/** Validate an already-decrypted backup's text. */
+function parseBackupText(raw: string, password?: string): ParsedBackup {
+  let data: BackupFile;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    return { status: 'invalid' };
+  }
+  if (!data || data.magic !== BACKUP_MAGIC || typeof data.tables !== 'object' || data.tables === null) {
+    return { status: 'invalid' };
+  }
+  if (typeof data.schemaVersion === 'number' && data.schemaVersion > currentSchemaVersion()) {
+    return { status: 'tooNew' };
+  }
+  let rowCount = 0;
+  for (const rows of Object.values(data.tables)) {
+    if (Array.isArray(rows)) rowCount += rows.length;
+  }
+  return password ? { status: 'ok', data, rowCount, password } : { status: 'ok', data, rowCount };
+}
+
+/** Open an encrypted backup's text with `password`. Never throws. */
+export async function unlockBackup(raw: string, password: string): Promise<ParsedBackup> {
+  try {
+    return parseBackupText(await decryptBackup(raw, password), password);
+  } catch (e) {
+    return e instanceof WrongBackupPassword ? { status: 'wrongPassword', raw } : { status: 'invalid' };
+  }
+}
 
 /**
  * Let the user pick a backup file, then read + validate it WITHOUT touching the
@@ -298,26 +348,22 @@ export async function pickAndParseBackup(): Promise<ParsedBackup> {
   }
   if (!uri) return { status: 'canceled' };
 
-  let data: BackupFile;
+  let raw: string;
   try {
-    const raw = await readAsStringAsync(uri, { encoding: EncodingType.UTF8 });
-    data = JSON.parse(raw);
+    raw = await readAsStringAsync(uri, { encoding: EncodingType.UTF8 });
   } catch {
     return { status: 'invalid' };
   }
-
-  if (!data || data.magic !== BACKUP_MAGIC || typeof data.tables !== 'object' || data.tables === null) {
-    return { status: 'invalid' };
+  if (isEncryptedBackup(raw)) {
+    // Try this phone's own password first — restoring your own backup shouldn't ask.
+    const own = useSettingsStore.getState().backupPassword;
+    if (own) {
+      const opened = await unlockBackup(raw, own);
+      if (opened.status !== 'wrongPassword') return opened;
+    }
+    return { status: 'encrypted', raw };
   }
-  if (typeof data.schemaVersion === 'number' && data.schemaVersion > currentSchemaVersion()) {
-    return { status: 'tooNew' };
-  }
-
-  let rowCount = 0;
-  for (const rows of Object.values(data.tables)) {
-    if (Array.isArray(rows)) rowCount += rows.length;
-  }
-  return { status: 'ok', data, rowCount };
+  return parseBackupText(raw);
 }
 
 /**
@@ -328,13 +374,18 @@ export async function pickAndParseBackup(): Promise<ParsedBackup> {
  * delete/insert ordering across related tables doesn't matter. Throws on failure
  * — the transaction rolls back, leaving current data intact.
  */
-export function restoreBackup(data: BackupFile): void {
+export function restoreBackup(data: BackupFile, opts: { password?: string } = {}): void {
   const liveTables = new Set(listTables().filter((t) => !DEVICE_LOCAL_TABLES.has(t)));
   // This install's sync identity survives the restore. A backup made on another phone
   // carries THAT phone's device_id; taking it would give two paired phones the same id,
   // which breaks the LWW tiebreak and makes each read the other's edits as its own.
   const liveDeviceId =
     (db.getFirstSync('SELECT device_id AS d FROM settings WHERE id = 1') as { d?: string } | null)?.d ?? '';
+  // The backup password is this phone's too (backups never carry it): keep the current one,
+  // or adopt the one that just opened an encrypted file, so the next auto-backup stays sealed.
+  const livePassword =
+    (db.getFirstSync('SELECT backup_password AS p FROM settings WHERE id = 1') as { p?: string } | null)?.p ?? '';
+  const keepPassword = opts.password ?? livePassword;
 
   // PRAGMA foreign_keys can't change inside a transaction, so toggle it around.
   db.execSync('PRAGMA foreign_keys = OFF');
@@ -368,6 +419,7 @@ export function restoreBackup(data: BackupFile): void {
       // it — initDb() also re-creates it on the reload that follows a restore.
       db.execSync('INSERT OR IGNORE INTO settings (id) VALUES (1)');
       if (liveDeviceId) db.runSync('UPDATE settings SET device_id = ? WHERE id = 1', [liveDeviceId]);
+      if (keepPassword) db.runSync('UPDATE settings SET backup_password = ? WHERE id = 1', [keepPassword]);
       // An OLDER backup's rows are pre-migration data: the columns exist (they took their
       // DEFAULTs on insert, exactly as an ALTER would have given them), but every data
       // migration since — back-fills, the default Monthly list built from settings, and so

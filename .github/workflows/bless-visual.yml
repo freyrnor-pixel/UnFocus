@@ -1,0 +1,89 @@
+# Re-bless named visual baselines with CI's own rasteriser (2026-10-26).
+#
+# Why this exists: `npm run visual` compares against PNGs blessed on chromium-1194 (Playwright
+# 1.56, see scripts/chromium-path.mjs), with a 24-pixel budget. An agent container ships a
+# different Chromium and cannot download 1194, so a local `--update` writes pixels that differ
+# from CI's by 45–200 px on EVERY screen — blessing there would turn the whole gate red. This
+# job renders on the same image CI does and commits only the screens you name.
+#
+# Trigger: push a commit to a non-main branch whose message contains
+#   [bless-visual: medicine-form, health-form]
+# It runs `--update` for both themes, keeps ONLY those screens' PNGs, and pushes one commit back
+# to the branch. That push is made with GITHUB_TOKEN, so it does not start CI by itself — the
+# next real push to the PR does.
+#
+# ⚠️ Blessing is the whole risk (HARNESS.md). Name a screen only after looking at its diff, and
+# look at the committed PNGs before merging.
+name: Bless visual baselines
+
+on:
+  push:
+    branches-ignore: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  bless:
+    if: contains(github.event.head_commit.message, '[bless-visual:')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Install Chromium
+        run: |
+          for i in 1 2 3; do
+            npx playwright install --with-deps chromium && exit 0
+            echo "playwright install failed (attempt $i/3), retrying in 10s…"
+            sleep 10
+          done
+          exit 1
+
+      - name: Build web preview
+        run: npm run preview:build
+
+      - name: Re-bless both themes
+        run: |
+          npm run visual -- --update
+          npm run visual -- --theme=dark --update
+
+      - name: Keep only the named screens, commit, push
+        env:
+          MSG: ${{ github.event.head_commit.message }}
+        run: |
+          names=$(printf '%s' "$MSG" | sed -n 's/.*\[bless-visual:\([^]]*\)\].*/\1/p' | tr ',' ' ')
+          echo "screens: $names"
+          [ -n "$names" ] || { echo "no screen names given"; exit 1; }
+          keep=()
+          tmp=$(mktemp -d)
+          for n in $names; do
+            for t in light dark; do
+              f="visual-baselines/$t/$n.png"
+              [ -f "$f" ] || { echo "no baseline $f"; exit 1; }
+              mkdir -p "$tmp/$t" && cp "$f" "$tmp/$t/"
+              keep+=("$f")
+            done
+          done
+          # Discard every other rewritten baseline — only the named screens change.
+          git checkout -- visual-baselines
+          git clean -fdq visual-baselines
+          for f in "${keep[@]}"; do cp "$tmp/${f#visual-baselines/}" "$f"; done
+          if git diff --quiet -- "${keep[@]}"; then echo "nothing changed"; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- "${keep[@]}"
+          git commit -m "Re-bless visual baselines on CI's rasteriser: $names"
+          git push origin "HEAD:${GITHUB_REF_NAME}"

@@ -2,7 +2,8 @@
  * taskReset.ts — the state-based reset: pure rules that keep a to-do list from
  * accumulating a past (2026-08-17).
  *
- * Three rules, one file, no stored counters anywhere in any of them:
+ * Three rules (plus the repeat-after-done reset, 2026-10-26 — see afterDoneResetPatch), one
+ * file, no stored counters anywhere in any of them:
  *
  *   1. **Recurring normalization (state over count).** A recurring daily/weekly task whose
  *      row still carries an earlier day is rolled forward to today, and a completion that
@@ -76,16 +77,19 @@ import type { Task } from '@/store/useTaskStore';
 export const WASH_AWAY_HOURS = 72;
 
 /** The fields the recurring reset reads. A full `Task` satisfies it. */
-export type ResettableTask = Pick<Task, 'done' | 'doneAt' | 'doneOn'> & OccurrenceFields;
+export type ResettableTask = Pick<Task, 'done' | 'doneAt' | 'doneOn'> & OccurrenceFields &
+  Partial<Pick<Task, 'repeatAfterDays'>>;
 
 /** The fields the wash-away filter reads. A full `Task` satisfies it. */
 export type DecayableTask = Pick<
   Task,
   'date' | 'done' | 'recurring' | 'hasStartDate' | 'cardType' | 'lastActedAt'
->;
+> &
+  Partial<Pick<Task, 'repeatAfterDays'>>;
 
-/** The patch `recurringResetPatch` hands back — never anything but these four fields. */
-export type RecurringResetPatch = { date?: string; done?: false; doneAt?: ''; doneOn?: '' };
+/** The patch `recurringResetPatch` hands back — never anything but these fields
+ *  (`hasStartDate` only ever comes from the repeat-after-done rule, which re-dates a task). */
+export type RecurringResetPatch = { date?: string; done?: false; doneAt?: ''; doneOn?: ''; hasStartDate?: true };
 
 /** Whole weeks between the Mondays of two dates (b − a). Mirrors lib/taskRecurrence.ts. */
 function weeksBetweenMondays(a: string, b: string): number {
@@ -124,6 +128,7 @@ function rolledForwardDate(task: ResettableTask, today: string): string | null {
  * every boot and every foreground, and only writes the rows that come back non-null.
  */
 export function recurringResetPatch(task: ResettableTask, today: string): RecurringResetPatch | null {
+  if (task.recurring === 'none') return afterDoneResetPatch(task, today);
   if (task.recurring === 'monthly') return monthlyResetPatch(task, today);
   const date = rolledForwardDate(task, today);
   if (!date) return null;
@@ -145,6 +150,30 @@ function monthlyResetPatch(task: ResettableTask, today: string): RecurringResetP
   if (!latest) return null;
   if (task.doneOn && task.doneOn >= latest) return null;
   return { done: false, doneAt: '', doneOn: '' };
+}
+
+/**
+ * "Repeat N days after it's done" (2026-10-26) — a NON-recurring task with `repeatAfterDays`
+ * stays done until `doneOn + N`, then comes back to do again, dated that day. Same shape as the
+ * monthly rule above: the tick is a fact (`doneOn`), the reset is derived from it on every
+ * boot/foreground, and nothing is counted. A done row with no `doneOn` (ticked before the
+ * column existed) has nothing to count from, so it stays done rather than guessing.
+ * The point (from Tasks.org's repeatFrom = COMPLETION_DATE): a late "water the plants" moves
+ * the next one along, instead of a fixed calendar day piling up behind it.
+ */
+function afterDoneResetPatch(task: ResettableTask, today: string): RecurringResetPatch | null {
+  const n = task.repeatAfterDays ?? 0;
+  if (n <= 0 || !task.done || !task.doneOn) return null;
+  const due = addDays(task.doneOn, n);
+  if (today < due) return null;
+  return { date: due, hasStartDate: true, done: false, doneAt: '', doneOn: '' };
+}
+
+/** When a done repeat-after-done task comes back, or null when it isn't one / isn't done. */
+export function nextAfterDoneDate(task: Pick<Task, 'recurring' | 'done' | 'doneOn'> & Partial<Pick<Task, 'repeatAfterDays'>>): string | null {
+  const n = task.repeatAfterDays ?? 0;
+  if (task.recurring !== 'none' || n <= 0 || !task.done || !task.doneOn) return null;
+  return addDays(task.doneOn, n);
 }
 
 /** Where "Not today" puts a task: tomorrow. That is the entire rule. */
@@ -197,6 +226,8 @@ export function hoursSinceStamp(stamp: string, nowMs: number): number | null {
  */
 export function isWashedAway(task: DecayableTask, today: string, nowMs: number): boolean {
   if (task.recurring !== 'none' || task.done) return false;
+  // A repeat-after-done task is a standing chore, not a one-off that went stale.
+  if ((task.repeatAfterDays ?? 0) > 0) return false;
   if (!isCompletable(task.cardType)) return false;
   if (task.hasStartDate && task.date >= today) return false;
   const hours = hoursSinceStamp(task.lastActedAt, nowMs);

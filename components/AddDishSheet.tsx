@@ -22,7 +22,7 @@
  *   Imports → components/Surface, components/PressableScale, constants/theme,
  *             constants/motion (Spring), lib/i18n, lib/money (formatKr), lib/haptics (success),
  *             lib/useAppTheme, store/useMealStore (dishes + dishTotalPrice),
- *             store/useShoppingStore (add), @expo/vector-icons, react-native-reanimated
+ *             store/useShoppingStore (add), lib/dishToList (dishToShoppingInputs), @expo/vector-icons, react-native-reanimated
  *   Used by → app/(tabs)/shopping.tsx (Monthly tab "Add dish" trigger, mounts one shared
  *             instance whose `target` switches based on which tab/list opened it),
  *             components/WeekListCard.tsx (indirectly, via the "From a dish" add-chooser
@@ -60,6 +60,7 @@ import { success } from '@/lib/haptics';
 import { Spring, Duration, Ease } from '@/constants/motion';
 import { useMealStore, MealType, Dish, dishTotalPrice } from '@/store/useMealStore';
 import { useShoppingStore } from '@/store/useShoppingStore';
+import { dishToShoppingInputs } from '@/lib/dishToList';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 
@@ -148,36 +149,7 @@ export default function AddDishSheet({ visible, onClose, onAdded, target }: Prop
   // container either way. Monthly branch mirrors FoodTab.handleAddToMonthly.
   function handleAddDish(dish: Dish) {
     if (dish.ingredients.length === 0) return; // no ingredients to add — nothing to plan
-    for (const ing of dish.ingredients) {
-      if (target.mode === 'weekly') {
-        shoppingAdd({
-          name: ing.name,
-          amount: ing.amount || '1',
-          unit: ing.unit,
-          listType: 'weekly',
-          store: '',
-          price: ing.priceNok,
-          inventoryQty: 0,
-          status: 'inWeeklyList',
-          listId: target.listId,
-          dishName: dish.name,
-        });
-      } else {
-        shoppingAdd({
-          name: ing.name,
-          amount: '1',
-          unit: ing.unit,
-          listType: 'monthly',
-          store: '',
-          price: ing.priceNok,
-          inventoryQty: 0,
-          status: 'catalog',
-          targetQuantity: parseInt(ing.amount, 10) || 1,
-          dishName: dish.name,
-          monthlyListId: target.listId,
-        });
-      }
-    }
+    for (const input of dishToShoppingInputs(dish, target)) shoppingAdd(input);
     success();
     setAddedIds((prev) => new Set(prev).add(dish.id));
     onAdded(dish.name);

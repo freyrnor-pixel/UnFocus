@@ -18,7 +18,8 @@
  *             syncMedicineCategories/scheduleTrayReNudge), lib/i18n (getTranslations),
  *             lib/medicineSchedule (TRAY_IDS/TrayTimes + tray membership helpers),
  *             store/useSettingsStore (Language type only)
- *   Used by → store/useMedicineStore.ts (syncTrayReminders on every medicine/settings change),
+ *   Used by → store/useMedicineStore.ts (syncTrayReminders on every medicine/settings change;
+ *             notifyLowStock when a dose takes a counted medicine under LOW_STOCK_DAYS),
  *             app/_layout.tsx (registerMedicineCategory at boot + language change),
  *             __tests__/medicineNotifications.test.ts
  *   Data    → schedules OS notifications (no SQLite/store access)
@@ -46,6 +47,7 @@ import {
   shouldSkipForQuietHours,
   type QuietHoursSettings,
   scheduleDailyReminder,
+  scheduleMedicineStockNotice,
   scheduleTrayReNudge,
   syncMedicineCategories,
 } from '@/lib/notifications';
@@ -140,5 +142,14 @@ export function snoozeTrayReminder(tray: TrayId, language?: Language): void {
   void scheduleTrayReNudge(tray, TRAY_SNOOZE_MS, {
     title: t.notif.medicineTrayTitle(t.medicine.trays[tray]),
     body: t.notif.medicineSnoozeBody,
+  });
+}
+
+/** The one "running low" heads-up for a counted medicine (see LOW_STOCK_DAYS). */
+export function notifyLowStock(medicineId: string, name: string, daysLeft: number, language?: Language): void {
+  const t = getTranslations(language);
+  void scheduleMedicineStockNotice(medicineId, {
+    title: t.notif.medicineLowStockTitle(name),
+    body: t.notif.medicineLowStockBody(daysLeft),
   });
 }

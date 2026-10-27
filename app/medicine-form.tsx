@@ -18,7 +18,7 @@
  *             components/OptionalTag,
  *             components/AppModal (delete confirm), constants/theme,
  *             lib/date (todayStr/getWeekDates), lib/haptics, lib/i18n, lib/severity
- *             (side-effect severity dots), lib/useAppTheme, lib/medicineSchedule (TRAY_IDS),
+ *             (side-effect severity dots), lib/useAppTheme, lib/medicineSchedule (TRAY_IDS, stockDaysLeft — the pill-count preview),
  *             store/useMedicineStore, store/useHealthStore (attributed symptom entries),
  *             store/useSettingsStore (People-mode profiles)
  *   Used by → Expo Router route "/medicine-form"; pushed from components/MedicineSurface.tsx
@@ -65,11 +65,17 @@ import { getWeekDates, todayStr } from '@/lib/date';
 import { tap, warning } from '@/lib/haptics';
 import { SEVERITY_COLORS } from '@/lib/severity';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
-import { TRAY_IDS, TrayId } from '@/lib/medicineSchedule';
+import { TRAY_IDS, TrayId, stockDaysLeft } from '@/lib/medicineSchedule';
 import { AspectRatio, FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 
 /** Common as-needed gaps, in minutes. 0 = no guard at all. */
 const GAP_OPTIONS = [0, 240, 360, 480, 720];
+
+/** The pill-count field's text → stockCount: empty/unreadable = not counted (null). */
+function parseStock(text: string): number | null {
+  const n = Number(text.trim().replace(',', '.'));
+  return text.trim() === '' || !Number.isFinite(n) || n < 0 ? null : n;
+}
 
 export default function MedicineFormScreen() {
   const router = useRouter();
@@ -104,6 +110,9 @@ export default function MedicineFormScreen() {
   const [childName, setChildName] = useState(existing?.childName ?? '');
   const [notes, setNotes] = useState(existing?.notes ?? '');
   const [active, setActive] = useState(existing?.active ?? true);
+  // Pill count: empty text = not counted (stockCount null). Kept as text so "" and "0" differ.
+  const [stockText, setStockText] = useState(existing?.stockCount == null ? '' : String(existing.stockCount));
+  const [stockPerDose, setStockPerDose] = useState(existing?.stockPerDose ?? 1);
   const [error, setError] = useState<string | null>(null);
 
   /** Days in the last 7 with at least one dose — the "is this actually happening?" number. */
@@ -145,6 +154,8 @@ export default function MedicineFormScreen() {
       childName,
       notes: notes.trim(),
       active,
+      stockCount: parseStock(stockText),
+      stockPerDose,
     };
     if (isEdit && id) updateMedicine(id, payload);
     else addMedicine(payload);
@@ -163,6 +174,17 @@ export default function MedicineFormScreen() {
   }
 
   const canSave = name.trim().length > 0;
+
+  // Live preview of what the card will say, from the form's own (unsaved) values.
+  const stockPreview = useMemo(() => {
+    const stockCount = parseStock(stockText);
+    if (stockCount === null) return null;
+    return stockDaysLeft(
+      { id: existing?.id ?? '', trays: asNeeded ? [] : trays, asNeeded, minIntervalMin, maxPerDay, childName, active: true, stockCount, stockPerDose },
+      doses,
+      todayStr(),
+    );
+  }, [stockText, stockPerDose, trays, asNeeded, minIntervalMin, maxPerDay, childName, doses, existing]);
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
@@ -269,6 +291,30 @@ export default function MedicineFormScreen() {
               <Text style={[styles.hint, { color: theme.textMuted }]}>{t.medicine.traysHint}</Text>
               {error ? <Text style={[styles.error, { color: theme.bad }]}>{error}</Text> : null}
             </View>
+          )}
+
+          {/* Pill count (2026-10-26, borrowed from MedTimer). Optional: an empty field means the
+              medicine isn't counted and nothing below it changes. */}
+          <View style={styles.field}>
+            <Input
+              label={t.medicine.stockLabel}
+              optional
+              value={stockText}
+              onChangeText={setStockText}
+              placeholder={t.medicine.stockPlaceholder}
+              keyboardType="decimal-pad"
+            />
+          </View>
+          {stockText.trim() !== '' && (
+            <>
+              <View style={[styles.field, styles.stepperRow]}>
+                <Text style={[styles.label, { color: theme.textMuted }]}>{t.medicine.stockPerDoseLabel}</Text>
+                <Stepper value={stockPerDose} onChange={setStockPerDose} min={1} max={10} accessibilityLabel={t.medicine.stockPerDoseLabel} />
+              </View>
+              <Text style={[styles.hint, { color: theme.textMuted }]}>
+                {stockPreview !== null ? `${t.medicine.stockDaysLeft(stockPreview)} · ${t.medicine.stockHint}` : t.medicine.stockHint}
+              </Text>
+            </>
           )}
 
           {/* For — person assignment (People/family mode), same chips as app/habit-form.tsx.

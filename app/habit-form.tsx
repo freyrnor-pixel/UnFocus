@@ -64,7 +64,8 @@
  *             components/HabitIcon,
  *             components/PressableScale, components/Stepper, components/GoalPicker (gated on
  *             settings.featureGoals), components/OptionalTag,
- *             lib/haptics, lib/i18n, lib/useAppTheme, store/useHabitStore, store/useSettingsStore
+ *             lib/haptics, lib/i18n, lib/useAppTheme, store/useHabitStore (+ loadHabitHistory),
+ *             lib/habitStrength (the strength row), store/useSettingsStore
  *   Used by → Expo Router route "/habit-form"; reached from app/(tabs)/habits.tsx (its own
  *             bottom-nav tab as of 2026-07-23 — was embedded in health.tsx before that;
  *             each habit card's settings-gear IconButton, 2026-07-21 — replaced the old
@@ -136,7 +137,7 @@
  *     from "Resets"/"Nullstilles" to "Interval"/"Intervall" — "Resets" read as a settings
  *     action, not a description of the Daily/Weekly/Monthly cadence picker below it.
  */
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -145,7 +146,9 @@ import {
   HabitCategory,
   HabitRecurrence,
   HabitReminderMode,
+  loadHabitHistory,
 } from '@/store/useHabitStore';
+import { habitStrength, strengthLevel } from '@/lib/habitStrength';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { SHARING_VISIBLE } from '@/lib/sharingVisibility';
 import { usePeopleStore } from '@/store/usePeopleStore';
@@ -153,7 +156,7 @@ import PersonChip from '@/components/PersonChip';
 import { personColor } from '@/lib/personColor';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
-import { dayOfWeekMon0 } from '@/lib/date';
+import { dayOfWeekMon0, todayStr } from '@/lib/date';
 import { energyStepperValue, energyFieldsFromStepper } from '@/lib/energy';
 import { tap, heavy } from '@/lib/haptics';
 import CenterModalScreen from '@/components/CenterModalScreen';
@@ -262,6 +265,9 @@ export default function HabitForm() {
   const addHabit = useHabitStore((s) => s.add);
   const updateHabit = useHabitStore((s) => s.update);
   const removeHabit = useHabitStore((s) => s.remove);
+  // Re-read the habit's history when today's taps change (the store's 35-day window is fresh;
+  // the full history comes from loadHabitHistory, lib/habitStrength.ts needs both).
+  const recentLogs = useHabitStore((s) => s.logs);
   const people = usePeopleStore((s) => s.people);
   // People/family is part of the sharing surface that's hidden while the single-user basics
   // are reworked (2026-08-05) — see lib/sharingVisibility.ts. The setting keeps its stored
@@ -278,6 +284,12 @@ export default function HabitForm() {
   const styles = useScaledStyles(baseStyles);
 
   const existing = isEdit ? habits.find((h) => h.id === params.id) : undefined;
+  const strength = useMemo(
+    () => (existing ? habitStrength(existing, loadHabitHistory(existing.id), todayStr()) : null),
+    // recentLogs: a tap elsewhere while this is open re-reads the history.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [existing, recentLogs],
+  );
 
   const [title, setTitle] = useState(existing?.title ?? params.title ?? '');
   const [icon, setIcon] = useState(existing?.icon ?? 'ellipse-outline');
@@ -462,6 +474,21 @@ export default function HabitForm() {
       }
     >
       <View style={styles.content}>
+
+        {/* Strength (2026-10-26, lib/habitStrength.ts) — an existing habit only. A word and a
+            bar, never the number: it is a level that grows and settles slowly, not a score. */}
+        {strength !== null && (
+          <Surface style={styles.strengthRow}>
+            <View style={styles.strengthHead}>
+              <Text style={[styles.label, { color: theme.textMuted }]}>{t.habitStrengthLabel}</Text>
+              <Text style={[styles.strengthWord, { color: theme.text }]}>{t.habitStrengthLevels[strengthLevel(strength)]}</Text>
+            </View>
+            <View style={[styles.strengthTrack, { backgroundColor: theme.surfaceMuted }]}>
+              <View style={[styles.strengthFill, { width: `${Math.max(4, Math.round(strength * 100))}%`, backgroundColor: theme.accent }]} />
+            </View>
+            <Text style={[styles.strengthHint, { color: theme.textMuted }]}>{t.habitStrengthHint}</Text>
+          </Surface>
+        )}
 
         {/* Title */}
         <View style={styles.field}>
@@ -871,6 +898,12 @@ const baseStyles = StyleSheet.create({
   dayChip: { flex: 1, aspectRatio: AspectRatio.square, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5 },
   dayText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
   label: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  strengthRow: { padding: Spacing.md, borderRadius: Radius.md, gap: Spacing.sm },
+  strengthHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  strengthWord: { fontSize: FontSize.md, fontFamily: Fonts.bold },
+  strengthTrack: { height: 6, borderRadius: Radius.sm, overflow: 'hidden' },
+  strengthFill: { height: '100%' },
+  strengthHint: { fontSize: FontSize.xs, fontFamily: Fonts.regular },
   labelRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
   chip: { paddingHorizontal: Spacing.sm, paddingVertical: 6, borderRadius: Radius.full, borderWidth: 1.5 },

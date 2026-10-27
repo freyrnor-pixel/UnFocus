@@ -29,7 +29,8 @@
  *   Imports → —
  *   Used by → lib/habitNotifications.ts (store/useHabitStore.ts);
  *             lib/medicineNotifications.ts (store/useMedicineStore.ts — per-tray daily
- *             reminders + the 'medicine-reminder' category);
+ *             reminders + the 'medicine-reminder' category + the one-shot low-stock notice);
+ *             app/timer.tsx (scheduleTimerEnd / cancelTimerEnd — the countdown's end);
  *             lib/widgets/sync.ts (refreshPersistentNotification / cancelPersistentNotification —
  *             the persistent "today's overview" notification, gated on the persistentNotifEnabled
  *             setting); the remaining task/weekly/monthly/re-nudge helpers are unconsumed until
@@ -624,6 +625,40 @@ export async function scheduleTrayReNudge(tray: string, delayMs: number, content
       seconds: Math.max(1, Math.round(delayMs / 1000)),
     },
   }).catch(ignore);
+}
+
+/**
+ * One heads-up that a counted medicine is running low (2026-10-26, lib/medicineSchedule.ts's
+ * LOW_STOCK_DAYS). Fired once, on the dose that crosses the line — not a repeating reminder.
+ * Identifier `medstock-<id>`, so a second crossing replaces rather than stacks.
+ */
+export async function scheduleMedicineStockNotice(medicineId: string, content: Content) {
+  await Notifications.scheduleNotificationAsync({
+    identifier: `medstock-${medicineId}`,
+    content: { ...content, data: { medicineStock: medicineId } },
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 1 },
+  }).catch(ignore);
+}
+
+/**
+ * The countdown's end (app/timer.tsx, 2026-10-26). Scheduled at start/resume so it still
+ * arrives with the app in the background; cancelled on pause/stop. One fixed identifier —
+ * there is only ever one countdown.
+ */
+export async function scheduleTimerEnd(delayMs: number, content: Content) {
+  await cancelTimerEnd();
+  await Notifications.scheduleNotificationAsync({
+    identifier: 'focus-timer-end',
+    content: { ...content, data: { focusTimer: true } },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      seconds: Math.max(1, Math.round(delayMs / 1000)),
+    },
+  }).catch(ignore);
+}
+
+export async function cancelTimerEnd() {
+  await Notifications.cancelScheduledNotificationAsync('focus-timer-end').catch(ignore);
 }
 
 export async function cancelTrayReNudge(tray: string) {

@@ -83,7 +83,8 @@
  * with a domain color.
  *
  * Connections:
- *   Imports → components/NewSinceGlow ("your last view was hiding this" marker),
+ *   Imports → expo-router (useRouter — the "Start timer" push to app/timer.tsx),
+ *             components/NewSinceGlow ("your last view was hiding this" marker),
  *             lib/cardLayout (LayoutSpec — gates the COLLAPSED row's cues only, never the editor),
  *             lib/cardType (the four per-ITEM card types — see the block below),
  *             react-native-reanimated (FadeIn/FadeOut/LinearTransition — the stepped card's
@@ -229,6 +230,7 @@
  *     PadFooterToggle.tsx for the third.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'expo-router';
 import { Linking, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
@@ -471,6 +473,9 @@ function TaskCard({
   // the surface's layout allows. The two only ever subtract — neither can add a cue back.
   const cardType = task.cardType;
   const completable = isCompletable(cardType);
+  const router = useRouter();
+  // The countdown (app/timer.tsx) is for something still to do — not a note, not a done task.
+  const canTime = completable && !task.done;
   // 'simple' is title + tick, deliberately nothing else even when the fields hold values
   // (the values stay stored and their reminders still fire — this is presentation, the
   // same rule lib/cardLayout.ts follows). 'note' has no metadata to show either.
@@ -549,7 +554,11 @@ function TaskCard({
   const canExpand = stepsOnly ? (hasSteps && !stepped) || !isRecurring : true;
 
   const editing = !stepsOnly && expanded;
-  const modeValue = recurring === 'daily' ? 'daily' : recurring === 'monthly' ? 'monthly' : 'weekly';
+  // "After done" (2026-10-26) is not a `recurring` value — it is a non-recurring task with
+  // `repeatAfterDays` set (lib/taskReset.ts), so every isRecurring branch below stays as is.
+  const repeatAfter = !isRecurring && (draft.repeatAfterDays ?? 0) > 0;
+  const repeatOn = isRecurring || repeatAfter;
+  const modeValue = repeatAfter ? 'after' : recurring === 'daily' ? 'daily' : recurring === 'monthly' ? 'monthly' : 'weekly';
   const canSave = draft.title.trim().length > 0;
   // `energyValue` defaults to 1 in the store while `energyEnabled` defaults to false, so the
   // raw value is meaningless until the flag is on. The single-stepper UI has to show 0 for a
@@ -689,6 +698,7 @@ function TaskCard({
       monthDay: draft.monthDay,
       monthOrdinal: draft.monthOrdinal,
       monthWeekday: draft.monthWeekday,
+      repeatAfterDays: draft.recurring === 'none' ? draft.repeatAfterDays : 0,
       assignee: draft.assignee,
       energyEnabled: energy.energyEnabled,
       energyValue: energy.energyValue,
@@ -836,16 +846,21 @@ function TaskCard({
   }
 
   function toggleRepeat(on: boolean) {
-    if (on) patch({ recurring: 'weekly', recurringDays: draft.recurringDays.length ? draft.recurringDays : [dayOfWeekMon0(new Date())] });
-    else patch({ recurring: 'none' });
+    if (on) patch({ recurring: 'weekly', recurringDays: draft.recurringDays.length ? draft.recurringDays : [dayOfWeekMon0(new Date())], repeatAfterDays: 0 });
+    else patch({ recurring: 'none', repeatAfterDays: 0 });
   }
 
   function setMode(mode: string) {
-    if (mode === 'daily') patch({ recurring: 'daily' });
+    if (mode === 'after') {
+      // A dated one-off that re-dates itself once done; dated so it has a first day.
+      patch({ recurring: 'none', repeatAfterDays: draft.repeatAfterDays || 7, hasStartDate: true });
+      return;
+    }
+    if (mode === 'daily') patch({ recurring: 'daily', repeatAfterDays: 0 });
     else if (mode === 'weekly') {
       const days = draft.recurringDays.length ? draft.recurringDays : [dayOfWeekMon0(new Date())];
-      patch({ recurring: 'weekly', recurringDays: days });
-    } else patch({ recurring: 'monthly' });
+      patch({ recurring: 'weekly', recurringDays: days, repeatAfterDays: 0 });
+    } else patch({ recurring: 'monthly', repeatAfterDays: 0 });
   }
 
   function toggleWeekday(i: number) {
@@ -1191,15 +1206,17 @@ function TaskCard({
             header note above). Available on every completable-or-not card type, including
             'note': a note carries the same date/hasStartDate fields as any other task and can
             sit in either section — only completion state is what `isCompletable` gates. */}
-        {stepsOnly && !isRecurring && (
+        {stepsOnly && (!isRecurring || canTime) && (
           <Collapsible open={expanded}>
             <View style={styles.moveWrap}>
-              <Button
-                label={task.hasStartDate ? t.taskMoveToWhenever : t.taskMoveToToday}
-                variant="secondary"
-                size="sm"
-                onPress={handleMoveSection}
-              />
+              {!isRecurring && (
+                <Button
+                  label={task.hasStartDate ? t.taskMoveToWhenever : t.taskMoveToToday}
+                  variant="secondary"
+                  size="sm"
+                  onPress={handleMoveSection}
+                />
+              )}
               {/* "Not today" (2026-08-17) sits beside the move shortcut because it is the same
                   kind of thing: one tap, one field, no editor. It is a WORDED button for the
                   same reason everything else in this block is — the 2026-08-04 report that a
@@ -1208,6 +1225,15 @@ function TaskCard({
                   the button and the action cannot disagree about when this is legal. */}
               {canPostpone(task) && (
                 <Button label={t.taskNotToday} variant="secondary" size="sm" onPress={handleNotToday} />
+              )}
+              {/* Countdown (2026-10-26, app/timer.tsx) — same one-tap worded kind of action. */}
+              {canTime && (
+                <Button
+                  label={t.taskStartTimer}
+                  variant="secondary"
+                  size="sm"
+                  onPress={() => router.push({ pathname: '/timer', params: { taskId: task.id } })}
+                />
               )}
             </View>
           </Collapsible>
@@ -1426,11 +1452,11 @@ function TaskCard({
             {/* Repeat */}
             <View style={styles.toggleRow}>
               <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>{t.taskRecurringToggle}</Text>
-              <Switch checked={isRecurring} onChange={toggleRepeat} />
+              <Switch checked={repeatOn} onChange={toggleRepeat} />
             </View>
 
             {/* Recurrence options */}
-            {isRecurring && (
+            {repeatOn && (
               <View style={styles.recurWrap}>
                 <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{t.taskHowOftenLabel}</Text>
                 <SegmentedControl
@@ -1438,10 +1464,27 @@ function TaskCard({
                     { value: 'daily', label: t.taskRecurDay },
                     { value: 'weekly', label: t.taskRecurWeek },
                     { value: 'monthly', label: t.taskRecurMonth },
+                    { value: 'after', label: t.taskRecurAfter },
                   ]}
                   value={modeValue}
                   onChange={setMode}
                 />
+
+                {repeatAfter && (
+                  <>
+                    <View style={styles.toggleRow}>
+                      <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>{t.taskRepeatAfterStepper}</Text>
+                      <Stepper
+                        value={draft.repeatAfterDays}
+                        onChange={(v) => patch({ repeatAfterDays: v })}
+                        min={1}
+                        max={90}
+                        accessibilityLabel={t.taskRepeatAfterStepper}
+                      />
+                    </View>
+                    <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{t.taskRepeatAfterHint(draft.repeatAfterDays)}</Text>
+                  </>
+                )}
 
                 {(recurring === 'daily' || recurring === 'weekly') && (
                   <View style={styles.weekdayRow}>

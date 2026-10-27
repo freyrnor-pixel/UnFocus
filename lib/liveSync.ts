@@ -66,6 +66,8 @@ const TABLE_COLUMNS: Record<SyncTable, string[]> = {
     'has_start_date', 'finish_time',
     'recurring_week_interval', 'recurring_monthly_mode', 'recurring_month_day',
     'recurring_month_ordinal', 'recurring_month_weekday',
+    // "Repeat N days after done" (2026-10-26) — a fact about the item, like the shape above.
+    'repeat_after_days',
     // The DAY it was ticked (2026-09-29) — what lets a monthly task come back next month
     // (lib/taskReset.ts). Unlike `done_at` below this is a fact about the item, not a line in
     // your day, and a peer needs it to reset the same row the same way.

@@ -15,7 +15,7 @@
  * Connections:
  *   Imports → components/PressableScale, components/ShoppingFilterBar, components/Surface,
  *             components/FormControls (Checkbox), constants/theme, lib/i18n, lib/money (formatKr),
- *             lib/useAppTheme, react-native-reanimated, store/useShoppingStore (ShoppingItem type),
+ *             lib/restock (restockIds — preselect what's under target), lib/useAppTheme, react-native-reanimated, store/useShoppingStore (ShoppingItem type),
  *             store/useMonthlyListStore (MonthlyList type)
  *   Used by → components/WeekListCard.tsx (rendered once per card, replacing the inline panel),
  *             app/(tabs)/shopping.tsx (the Monthly card's "Make week list from here", preselectAll)
@@ -46,6 +46,7 @@ import { Fonts, FontSize, Radius, Spacing, TabularNums, MIN_TAP_TARGET } from '@
 import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { formatKr } from '@/lib/money';
+import { restockIds } from '@/lib/restock';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import ShoppingFilterBar from '@/components/ShoppingFilterBar';
@@ -61,10 +62,11 @@ type Props = {
   lists: MonthlyList[];
   onAdd: (items: ShoppingItem[]) => void;
   onClose: () => void;
-  /** Open with every item already ticked (2026-09-26) — the Monthly card's "Make week list
-   *  from here" opens it this way, so the default is "take the whole base" and the user
-   *  only unticks what this week doesn't need. The week card's "From monthly" keeps the
-   *  empty start. */
+  /** Open with the base already ticked (2026-09-26) — the Monthly card's "Make week list
+   *  from here" opens it this way, so the user only unticks what this week doesn't need.
+   *  Since 2026-10-26 "the base" is every item UNDER its target (lib/restock.ts) — an item
+   *  the payday review counted as already stocked starts unticked. The week card's "From
+   *  monthly" keeps the empty start. */
   preselectAll?: boolean;
 };
 
@@ -75,7 +77,9 @@ export default function AddFromMonthlyModal({ visible, items, lists, onAdd, onCl
 
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<string | null>(null);
-  const allIds = () => new Set(preselectAll ? items.map((i) => i.id) : []);
+  // "Preselect" now means what's missing (lib/restock.ts): an item already at its target is
+  // left unticked. Nothing counted reads as missing, so an un-reviewed base still ticks all.
+  const allIds = () => (preselectAll ? restockIds(items) : new Set<string>());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => (visible ? allIds() : new Set()));
   const wasVisible = useRef(visible);
   if (visible && !wasVisible.current) {
@@ -173,6 +177,11 @@ export default function AddFromMonthlyModal({ visible, items, lists, onAdd, onCl
                               onChange={() => toggleSelected(item.id)}
                               label={item.name}
                             />
+                            {item.inventoryQty > 0 && (
+                              <Text style={[styles.rowPrice, TabularNums, { color: theme.textMuted }]}>
+                                {t.inStockOfTarget(item.inventoryQty, item.targetQuantity)}
+                              </Text>
+                            )}
                             {lineTotal !== null && (
                               <Text style={[styles.rowPrice, TabularNums, { color: theme.textMuted }]}>{formatKr(lineTotal, 0)}</Text>
                             )}
