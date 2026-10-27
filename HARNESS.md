@@ -118,6 +118,12 @@ in `visual-baselines/<theme>/`. **21 screens per theme, light AND dark** (~3.9 M
 all 54, because these are PNGs in git history forever.
 
 - `npm run visual`, `npm run visual -- --theme=dark`, `FORCE_BUILD=1` to rebuild first.
+- **From an agent container, bless on CI instead (2026-10-26).** The container's Chromium is not
+  1194 and cannot download it, so a local `--update` moves every screen 45–200 px past the
+  24 px budget. Push a commit whose message contains `[bless-visual: name1, name2]`:
+  `.github/workflows/bless-visual.yml` re-renders on CI's image and commits back ONLY those
+  screens' PNGs (both themes). Its push does not start CI — the next real push does. Then read
+  the committed PNGs, as below, before merging.
 - `npm run visual -- --update` re-blesses. ⚠️ **Blessing is the whole risk** — it is both how an
   intentional redesign lands and how a real regression gets laundered in. Diffs plus `expected`
   and `actual` are written for every finding; re-bless deliberately, in its own commit, having
